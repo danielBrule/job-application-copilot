@@ -75,9 +75,45 @@ Invalid Windows filename characters are sanitised. A numeric suffix prevents acc
 - [Architecture](docs/architecture.md)
 - [OpenAI pipeline](docs/openai-pipeline.md)
 - [Codex workflow](docs/codex-workflow.md)
-- [Implementation backlog](docs/backlog.md)
+- [Roadmap and issue workflow](docs/backlog.md)
 - [Architecture decisions](docs/decisions/)
 
 ## Status
 
 Specification and implementation backlog complete. Application implementation has not started.
+
+## Importing the backlog into GitHub Issues
+
+The backlog CSV can be imported into GitHub Issues with GitHub CLI. GitHub Issues is the
+operational source of truth; the tracked CSV provides a compact overall view and import source.
+
+Prerequisites:
+
+1. Install [GitHub CLI](https://cli.github.com/).
+2. Authenticate with `gh auth login`.
+3. Run commands from a checkout whose Git remote points to the target repository, or pass
+   `-Repository OWNER/REPO` explicitly.
+
+Preview the import without contacting or changing GitHub:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\import-backlog.ps1 -DryRun
+```
+
+Import all tickets except those whose CSV status is `DONE`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\import-backlog.ps1 -Repository OWNER/REPO
+```
+
+Add `-IncludeCompleted` to include `DONE` tickets. The importer creates missing milestones
+and labels and skips tickets whose ticket ID already appears in an existing issue title.
+It can therefore be rerun safely after a partial failure.
+
+To preview or import one ticket, add `-TicketId T1.1`.
+
+Run the offline importer checks with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-import-backlog.ps1
+```

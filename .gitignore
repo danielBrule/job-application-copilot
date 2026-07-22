@@ -37,5 +37,6 @@ ENV/
 # Data and documents
 *.csv
 *.xlsx
+!implementation-backlog.csv
 *.docx
 *.pdf
