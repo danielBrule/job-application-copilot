@@ -37,6 +37,7 @@ class AppSettings(BaseSettings):
         default_factory=lambda data: data["data_dir"] / "database" / "job_application_copilot.db"
     )
     cv_folder: Path = Field(default_factory=lambda data: data["data_dir"] / "cvs")
+    logs_folder: Path = Field(default_factory=lambda data: data["data_dir"] / "logs")
     reference_folder: Path = Field(default_factory=lambda data: data["data_dir"] / "reference")
     openai_api_key: SecretStr | None = Field(
         default=None,
@@ -47,6 +48,48 @@ class AppSettings(BaseSettings):
     default_source: str = "LinkedIn"
     default_location: Location = Location.UK
     default_language: Language = Language.EN
+
+    @property
+    def document_a_folder(self) -> Path:
+        """Directory containing private Document A versions."""
+
+        return self.reference_folder / "document_a"
+
+    @property
+    def document_b_folder(self) -> Path:
+        """Directory containing private Document B versions."""
+
+        return self.reference_folder / "document_b"
+
+    @property
+    def templates_folder(self) -> Path:
+        """Directory containing private CV templates."""
+
+        return self.reference_folder / "templates"
+
+    @property
+    def french_examples_folder(self) -> Path:
+        """Directory containing private French CV style examples."""
+
+        return self.reference_folder / "examples"
+
+    @property
+    def assessment_prompts_folder(self) -> Path:
+        """Directory containing private assessment prompt versions."""
+
+        return self.reference_folder / "prompts" / "assessment"
+
+    @property
+    def english_generation_prompts_folder(self) -> Path:
+        """Directory containing private English generation prompt versions."""
+
+        return self.reference_folder / "prompts" / "generation" / "english"
+
+    @property
+    def french_generation_prompts_folder(self) -> Path:
+        """Directory containing private French generation prompt versions."""
+
+        return self.reference_folder / "prompts" / "generation" / "french"
 
 
 def load_settings() -> AppSettings:

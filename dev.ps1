@@ -18,6 +18,7 @@ Job Application Copilot developer commands
 Usage:
   .\dev.ps1 env        Create or update .venv with Poetry
   . .\dev.ps1 activate Activate .venv in the current PowerShell session
+  .\dev.ps1 directories Create and validate private local directories
   .\dev.ps1 test       Run the Pytest suite
   .\dev.ps1 lint       Run Ruff lint and formatting checks
   .\dev.ps1 ui         Start the Streamlit application
@@ -103,6 +104,14 @@ function Invoke-Tests {
     Invoke-ProjectTool -Executable $python -Arguments @("-m", "pytest")
 }
 
+function Initialize-Directories {
+    $python = Resolve-VenvTool -Name "python.exe"
+    Invoke-ProjectTool -Executable $python -Arguments @(
+        "-m",
+        "job_application_copilot.services.local_directories"
+    )
+}
+
 function Invoke-Lint {
     $ruff = Resolve-VenvTool -Name "ruff.exe"
     Invoke-ProjectTool -Executable $ruff -Arguments @("check", ".")
@@ -121,6 +130,9 @@ switch ($Target.ToLowerInvariant()) {
     }
     "activate" {
         Enable-Environment
+    }
+    "directories" {
+        Initialize-Directories
     }
     "test" {
         Invoke-Tests

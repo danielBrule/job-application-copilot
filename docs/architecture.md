@@ -109,12 +109,13 @@ Recommended private structure:
 data/
 ├── database/
 ├── reference/
-├── generated_cvs/
-├── uploaded_cvs/
+├── cvs/
 └── logs/
 ```
 
-All generated CVs share one folder and naming convention.
+Generated and uploaded CVs share one folder. All generated CVs use one naming convention.
+Versioned prompts are private local assets stored below `data/reference/prompts`, separated
+into assessment, English-generation and French-generation directories.
 
 ## 9. Security and privacy
 

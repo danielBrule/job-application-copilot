@@ -190,8 +190,8 @@ Locally extracted for deterministic routing:
 ## Application settings
 
 - database path
-- generated-CV folder
-- uploaded-CV folder
+- shared CV folder for generated and uploaded CVs
+- logs folder
 - assessment worker count, default 1
 - CV worker count, default 1
 - default source, LinkedIn

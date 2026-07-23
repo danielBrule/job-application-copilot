@@ -228,8 +228,7 @@ The two French prompts are shown after the four English prompts in the pipeline 
 
 - English CV template
 - French CV template
-- Generated-CV folder
-- Uploaded-CV folder
+- Shared CV folder for generated and uploaded CVs
 
 ### Processing
 
