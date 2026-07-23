@@ -89,24 +89,45 @@ Requirements:
 - Python 3.12 or later
 - Poetry 2.x
 
-Install the project and its development dependencies. Poetry creates the project environment
-at `.venv`:
+If the current shell blocks local PowerShell scripts, allow them for that shell session only:
 
 ```powershell
-poetry install
+Set-ExecutionPolicy -Scope Process Bypass
+```
+
+Create or update the project environment:
+
+```powershell
+.\dev.ps1 env
+```
+
+Activate it in the current PowerShell session when an interactive environment is useful:
+
+```powershell
+. .\dev.ps1 activate
 ```
 
 Run the automated checks:
 
 ```powershell
-poetry run pytest
-poetry run ruff check .
-poetry run ruff format --check .
+.\dev.ps1 test
+.\dev.ps1 lint
 ```
 
 Start the Streamlit application:
 
 ```powershell
+.\dev.ps1 ui
+```
+
+Run `.\dev.ps1 help` to list all supported targets. The underlying Poetry commands remain
+available for troubleshooting:
+
+```powershell
+poetry install
+poetry run pytest
+poetry run ruff check .
+poetry run ruff format --check .
 poetry run streamlit run src/job_application_copilot/ui/app.py
 ```
 

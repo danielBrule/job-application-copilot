@@ -13,7 +13,7 @@ It is not a mass-application system. Never add automatic application submission,
 3. `docs/data-model.md`
 4. `docs/architecture.md`
 5. `docs/openai-pipeline.md`
-6. The relevant ticket in `docs/backlog.md`
+6. The relevant GitHub issue; use `docs/backlog.md` for milestone context
 7. Relevant files under `docs/decisions/`
 
 ## Non-negotiable rules
@@ -71,11 +71,16 @@ At completion report:
 
 ## Required checks
 
-Use the repository commands documented in `README.md` once implementation begins. At minimum:
+Use the repository commands documented in `README.md`:
 
-```bash
-pytest
-ruff check .
+```powershell
+.\dev.ps1 help
+.\dev.ps1 env
+. .\dev.ps1 activate
+.\dev.ps1 test
+.\dev.ps1 lint
+.\dev.ps1 ui
 ```
 
-Run focused checks first, then the broader suite before completing a ticket.
+At minimum, run `test` and `lint` before completing a ticket. Run focused checks first, then
+the broader suite. Use `ui` for manual verification when the interface is affected.

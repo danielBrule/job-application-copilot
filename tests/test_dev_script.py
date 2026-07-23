@@ -1,0 +1,149 @@
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import tempfile
+from collections.abc import Iterator
+from pathlib import Path
+
+import pytest
+
+PROJECT_ROOT = Path(__file__).parents[1]
+DEV_SCRIPT = PROJECT_ROOT / "dev.ps1"
+POWERSHELL = shutil.which("powershell.exe")
+
+pytestmark = pytest.mark.skipif(
+    POWERSHELL is None,
+    reason="T1.1A supports Windows PowerShell only.",
+)
+
+
+@pytest.fixture
+def workspace_tmp_path() -> Iterator[Path]:
+    with tempfile.TemporaryDirectory(prefix="job-copilot-dev-script-") as directory:
+        yield Path(directory)
+
+
+def run_dev_script(
+    *arguments: str,
+    cwd: Path = PROJECT_ROOT,
+    script: Path = DEV_SCRIPT,
+    environment: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            POWERSHELL or "powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(script),
+            *arguments,
+        ],
+        cwd=cwd,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+
+
+def combined_output(result: subprocess.CompletedProcess[str]) -> str:
+    return f"{result.stdout}\n{result.stderr}"
+
+
+def test_no_target_displays_help() -> None:
+    result = run_dev_script()
+
+    assert result.returncode == 0
+    assert "Job Application Copilot developer commands" in result.stdout
+    assert r".\dev.ps1 test" in result.stdout
+
+
+def test_explicit_help_displays_supported_targets() -> None:
+    result = run_dev_script("help")
+
+    assert result.returncode == 0
+    for target in ("env", "activate", "test", "lint", "ui"):
+        assert target in result.stdout
+
+
+def test_unknown_target_fails_clearly() -> None:
+    result = run_dev_script("unknown")
+
+    assert result.returncode != 0
+    assert "Unknown target 'unknown'." in combined_output(result)
+
+
+def test_missing_environment_has_actionable_error(workspace_tmp_path: Path) -> None:
+    isolated_script = workspace_tmp_path / "dev.ps1"
+    shutil.copy2(DEV_SCRIPT, isolated_script)
+
+    result = run_dev_script(
+        "test",
+        cwd=workspace_tmp_path,
+        script=isolated_script,
+    )
+
+    assert result.returncode != 0
+    assert r"Run '.\dev.ps1 env' first." in combined_output(result)
+
+
+def test_missing_poetry_has_actionable_error(workspace_tmp_path: Path) -> None:
+    isolated_script = workspace_tmp_path / "dev.ps1"
+    shutil.copy2(DEV_SCRIPT, isolated_script)
+    environment = os.environ.copy()
+    environment["APPDATA"] = ""
+    environment["PATH"] = str(Path(os.environ["WINDIR"]) / "System32")
+
+    result = run_dev_script(
+        "env",
+        cwd=workspace_tmp_path,
+        script=isolated_script,
+        environment=environment,
+    )
+
+    assert result.returncode != 0
+    assert "Poetry was not found." in combined_output(result)
+
+
+def test_activation_requires_dot_sourcing() -> None:
+    result = run_dev_script("activate")
+
+    assert result.returncode != 0
+    assert r"Run: . .\dev.ps1 activate" in combined_output(result)
+
+
+def test_dot_sourced_activation_sets_virtual_environment(
+    workspace_tmp_path: Path,
+) -> None:
+    escaped_script = str(DEV_SCRIPT).replace("'", "''")
+    command = f". '{escaped_script}' activate; Write-Output \"VIRTUAL_ENV=$env:VIRTUAL_ENV\""
+
+    result = subprocess.run(
+        [
+            POWERSHELL or "powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            command,
+        ],
+        cwd=workspace_tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert f"VIRTUAL_ENV={PROJECT_ROOT / '.venv'}" in result.stdout
+
+
+def test_lint_target_runs_from_outside_project(
+    workspace_tmp_path: Path,
+) -> None:
+    result = run_dev_script("lint", cwd=workspace_tmp_path)
+
+    assert result.returncode == 0, combined_output(result)
+    assert "All checks passed!" in result.stdout
