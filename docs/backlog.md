@@ -9,6 +9,9 @@ GitHub Issues is the operational source of truth for implementation work:
 issue-import script. Detailed scope, dependencies, acceptance criteria and discussion belong
 in GitHub Issues rather than being duplicated in this document.
 
+Agents should read the relevant GitHub issue for ticket-level requirements. Individual ticket
+sections are intentionally not maintained in this document and should not be expected here.
+
 Status values are `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE` and `DEFERRED`.
 
 ## Delivery sequence

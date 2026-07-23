@@ -49,6 +49,48 @@ Assessment and CV generation run through a local background worker.
 - Limited parallelism can be enabled through configuration.
 - One failed task must not stop the rest of a batch.
 
+Worker counts are validated in the range `1` through `5`.
+
+## Application configuration
+
+Configuration is loaded from process environment variables and an optional `.env` file in the
+directory where the application is started. Copy `.env.example` to `.env` for local overrides.
+The `.env` file and all private data remain excluded from Git.
+
+| Variable | Default |
+| --- | --- |
+| `JAC_DATA_DIR` | `data` |
+| `JAC_DATABASE_PATH` | `<JAC_DATA_DIR>/database/job_application_copilot.db` |
+| `JAC_CV_FOLDER` | `<JAC_DATA_DIR>/cvs` |
+| `JAC_REFERENCE_FOLDER` | `<JAC_DATA_DIR>/reference` |
+| `JAC_ASSESSMENT_WORKER_COUNT` | `1` |
+| `JAC_CV_WORKER_COUNT` | `1` |
+| `JAC_DEFAULT_SOURCE` | `LinkedIn` |
+| `JAC_DEFAULT_LOCATION` | `UK` |
+| `JAC_DEFAULT_LANGUAGE` | `EN` |
+| `OPENAI_API_KEY` | unset |
+
+Supported locations are `UK`, `FR` and `CH`; supported languages are `EN` and `FR`. Relative
+paths are resolved from the application's working directory. Set `JAC_DATA_DIR` to move all
+private application data together. The three specific path variables are optional overrides
+for installations that need to store one category elsewhere.
+
+Private files use the following untracked layout:
+
+```text
+data/
+├── database/
+├── cvs/
+└── reference/
+    ├── document_a/
+    ├── document_b/
+    ├── templates/
+    └── examples/
+        └── french_resume_example.docx
+```
+
+The application does not create these directories while merely loading configuration.
+
 ## Document strategy
 
 - Document A and Document B are maintained as DOCX.

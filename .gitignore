@@ -28,6 +28,7 @@ ENV/
 .env
 .env.*
 *.env
+!.env.example
 
 # Editors / OS
 .vscode/
@@ -35,6 +36,7 @@ ENV/
 .DS_Store
 
 # Data and documents
+data/
 *.csv
 *.xlsx
 !implementation-backlog.csv
