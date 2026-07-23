@@ -1,5 +1,7 @@
 # Job Application Copilot
 
+[![CI](https://github.com/danielBrule/job-application-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/danielBrule/job-application-copilot/actions/workflows/ci.yml)
+
 An **evidence-grounded career decision and document-generation workflow** for assessing opportunities, selecting applications deliberately, and producing traceable, reviewable CVs.
 
 The project is intentionally **not an automated mass-application tool**. It does not submit applications, automate employer portals, or remove human approval from career decisions.
