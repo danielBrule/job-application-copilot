@@ -64,6 +64,7 @@ The `.env` file and all private data remain excluded from Git.
 | `JAC_DATA_DIR` | `data` |
 | `JAC_DATABASE_PATH` | `<JAC_DATA_DIR>/database/job_application_copilot.db` |
 | `JAC_CV_FOLDER` | `<JAC_DATA_DIR>/cvs` |
+| `JAC_LOGS_FOLDER` | `<JAC_DATA_DIR>/logs` |
 | `JAC_REFERENCE_FOLDER` | `<JAC_DATA_DIR>/reference` |
 | `JAC_ASSESSMENT_WORKER_COUNT` | `1` |
 | `JAC_CV_WORKER_COUNT` | `1` |
@@ -83,15 +84,32 @@ Private files use the following untracked layout:
 data/
 ├── database/
 ├── cvs/
+├── logs/
 └── reference/
     ├── document_a/
     ├── document_b/
     ├── templates/
     └── examples/
-        └── french_resume_example.docx
+        ├── french_resume_example_01.docx
+        ├── french_resume_example_02.docx
+        └── french_resume_example_03.docx
 ```
 
-The application does not create these directories while merely loading configuration.
+The application creates missing directories when it starts. Loading configuration alone does
+not modify the filesystem. The example filenames illustrate private local files only; the
+application does not create or commit them.
+
+Prompt versions are also private runtime assets:
+
+```text
+data/reference/prompts/
+├── assessment/
+└── generation/
+    ├── english/
+    └── french/
+```
+
+Prompt files are not committed.
 
 ## Document strategy
 
@@ -124,7 +142,8 @@ Invalid Windows filename characters are sanitised. A numeric suffix prevents acc
 
 ## Status
 
-Specification and implementation backlog complete. Application implementation has not started.
+Foundation implementation is in progress. Delivery is managed through GitHub Issues and
+validated by GitHub Actions.
 
 ## Development
 
@@ -149,6 +168,12 @@ Activate it in the current PowerShell session when an interactive environment is
 
 ```powershell
 . .\dev.ps1 activate
+```
+
+Create missing private directories and validate existing paths without starting the UI:
+
+```powershell
+.\dev.ps1 directories
 ```
 
 Run the automated checks:

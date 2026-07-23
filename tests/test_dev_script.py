@@ -65,7 +65,7 @@ def test_explicit_help_displays_supported_targets() -> None:
     result = run_dev_script("help")
 
     assert result.returncode == 0
-    for target in ("env", "activate", "test", "lint", "ui"):
+    for target in ("env", "activate", "directories", "test", "lint", "ui"):
         assert target in result.stdout
 
 
@@ -113,6 +113,47 @@ def test_activation_requires_dot_sourcing() -> None:
 
     assert result.returncode != 0
     assert r"Run: . .\dev.ps1 activate" in combined_output(result)
+
+
+def test_directories_target_is_idempotent(
+    workspace_tmp_path: Path,
+) -> None:
+    data_dir = workspace_tmp_path / "private-data"
+    environment = os.environ.copy()
+    environment["JAC_DATA_DIR"] = str(data_dir)
+
+    first_result = run_dev_script("directories", environment=environment)
+    second_result = run_dev_script("directories", environment=environment)
+
+    assert first_result.returncode == 0, combined_output(first_result)
+    assert second_result.returncode == 0, combined_output(second_result)
+    assert "Private directories are ready:" in first_result.stdout
+    assert (data_dir / "database").is_dir()
+    assert (data_dir / "cvs").is_dir()
+    assert (data_dir / "logs").is_dir()
+    assert (data_dir / "reference" / "document_a").is_dir()
+    assert (data_dir / "reference" / "document_b").is_dir()
+    assert (data_dir / "reference" / "templates").is_dir()
+    assert (data_dir / "reference" / "examples").is_dir()
+    assert (data_dir / "reference" / "prompts" / "assessment").is_dir()
+    assert (data_dir / "reference" / "prompts" / "generation" / "english").is_dir()
+    assert (data_dir / "reference" / "prompts" / "generation" / "french").is_dir()
+
+
+def test_directories_target_reports_conflicting_file(
+    workspace_tmp_path: Path,
+) -> None:
+    data_dir = workspace_tmp_path / "private-data"
+    data_dir.mkdir()
+    (data_dir / "cvs").write_text("not a directory", encoding="utf-8")
+    environment = os.environ.copy()
+    environment["JAC_DATA_DIR"] = str(data_dir)
+
+    result = run_dev_script("directories", environment=environment)
+
+    assert result.returncode != 0
+    assert "Cannot prepare private directory" in combined_output(result)
+    assert str(data_dir / "cvs") in combined_output(result)
 
 
 def test_dot_sourced_activation_sets_virtual_environment(

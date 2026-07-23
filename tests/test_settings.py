@@ -11,6 +11,7 @@ SETTING_ENVIRONMENT_VARIABLES = (
     "JAC_DATA_DIR",
     "JAC_DATABASE_PATH",
     "JAC_CV_FOLDER",
+    "JAC_LOGS_FOLDER",
     "JAC_REFERENCE_FOLDER",
     "JAC_ASSESSMENT_WORKER_COUNT",
     "JAC_CV_WORKER_COUNT",
@@ -36,7 +37,19 @@ def test_defaults_are_safe_and_typed() -> None:
     assert settings.data_dir == Path("data")
     assert settings.database_path == Path("data/database/job_application_copilot.db")
     assert settings.cv_folder == Path("data/cvs")
+    assert settings.logs_folder == Path("data/logs")
     assert settings.reference_folder == Path("data/reference")
+    assert settings.document_a_folder == Path("data/reference/document_a")
+    assert settings.document_b_folder == Path("data/reference/document_b")
+    assert settings.templates_folder == Path("data/reference/templates")
+    assert settings.french_examples_folder == Path("data/reference/examples")
+    assert settings.assessment_prompts_folder == Path("data/reference/prompts/assessment")
+    assert settings.english_generation_prompts_folder == Path(
+        "data/reference/prompts/generation/english"
+    )
+    assert settings.french_generation_prompts_folder == Path(
+        "data/reference/prompts/generation/french"
+    )
     assert settings.openai_api_key is None
     assert settings.assessment_worker_count == 1
     assert settings.cv_worker_count == 1
@@ -55,6 +68,7 @@ def test_data_paths_are_derived_from_data_directory(
     assert settings.data_dir == Path("private")
     assert settings.database_path == Path("private/database/job_application_copilot.db")
     assert settings.cv_folder == Path("private/cvs")
+    assert settings.logs_folder == Path("private/logs")
     assert settings.reference_folder == Path("private/reference")
 
 
@@ -62,6 +76,7 @@ def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("JAC_DATA_DIR", "ignored-for-specific-paths")
     monkeypatch.setenv("JAC_DATABASE_PATH", "private/copilot.sqlite3")
     monkeypatch.setenv("JAC_CV_FOLDER", "private/cvs")
+    monkeypatch.setenv("JAC_LOGS_FOLDER", "private/logs")
     monkeypatch.setenv("JAC_REFERENCE_FOLDER", "private/reference")
     monkeypatch.setenv("JAC_ASSESSMENT_WORKER_COUNT", "3")
     monkeypatch.setenv("JAC_CV_WORKER_COUNT", "5")
@@ -75,6 +90,7 @@ def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None
     assert settings.data_dir == Path("ignored-for-specific-paths")
     assert settings.database_path == Path("private/copilot.sqlite3")
     assert settings.cv_folder == Path("private/cvs")
+    assert settings.logs_folder == Path("private/logs")
     assert settings.reference_folder == Path("private/reference")
     assert settings.assessment_worker_count == 3
     assert settings.cv_worker_count == 5
@@ -135,15 +151,18 @@ def test_rejects_unsupported_defaults(
 def test_loading_settings_does_not_create_private_directories(tmp_path: Path) -> None:
     database_path = tmp_path / "database" / "copilot.db"
     cv_folder = tmp_path / "cvs"
+    logs_folder = tmp_path / "logs"
     reference_folder = tmp_path / "reference"
 
     AppSettings(
         _env_file=None,
         database_path=database_path,
         cv_folder=cv_folder,
+        logs_folder=logs_folder,
         reference_folder=reference_folder,
     )
 
     assert not database_path.parent.exists()
     assert not cv_folder.exists()
+    assert not logs_folder.exists()
     assert not reference_folder.exists()

@@ -15,7 +15,7 @@ The Settings screen manages:
 - Two additional French prompts
 - English CV template
 - French CV template
-- One or more previous French CVs used only as style and terminology references
+- Two or three previous French CVs used only as style and terminology references
 
 All maintained documents and templates use DOCX. Updates are expected to be rare but must be supported through simple version replacement.
 
@@ -144,7 +144,7 @@ For a job, the user may skip generation and upload an existing DOCX.
 The application:
 
 - validates the DOCX;
-- copies it into the local uploaded-CV folder;
+- copies it into the configured shared CV folder;
 - associates it with the job;
 - records source `UPLOADED`;
 - sets status `READY_FOR_REVIEW`.
