@@ -28,6 +28,7 @@ It is not a mass-application system. Never add automatic application submission,
 - Never invent dates, employers, titles, metrics, technologies or outcomes.
 - Never submit an application automatically.
 - Keep all private career documents, generated CVs, SQLite databases, logs and secrets out of Git.
+- Never log API keys, authentication tokens, passwords or authorization headers.
 
 ## Delivery discipline
 

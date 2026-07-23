@@ -121,7 +121,9 @@ into assessment, English-generation and French-generation directories.
 
 - Secrets only through environment variables.
 - Private inputs and outputs excluded from Git.
-- General logs should store IDs and errors, not full CV/JD content by default.
+- Logs are private local data and may contain application content required for diagnostics.
+- API keys, authentication tokens, passwords and other secrets must never be logged.
+- UI and worker processes use separate rotating files with one shared format and correlation IDs.
 - External model calls are explicit.
 - No automatic employer interaction.
 

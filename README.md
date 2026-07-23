@@ -68,6 +68,9 @@ The `.env` file and all private data remain excluded from Git.
 | `JAC_REFERENCE_FOLDER` | `<JAC_DATA_DIR>/reference` |
 | `JAC_ASSESSMENT_WORKER_COUNT` | `1` |
 | `JAC_CV_WORKER_COUNT` | `1` |
+| `JAC_LOG_LEVEL` | `INFO` |
+| `JAC_LOG_MAX_SIZE_MB` | `5` |
+| `JAC_LOG_BACKUP_COUNT` | `5` |
 | `JAC_DEFAULT_SOURCE` | `LinkedIn` |
 | `JAC_DEFAULT_LOCATION` | `UK` |
 | `JAC_DEFAULT_LANGUAGE` | `EN` |
@@ -110,6 +113,23 @@ data/reference/prompts/
 ```
 
 Prompt files are not committed.
+
+## Private logs
+
+The UI writes UTF-8 structured text to `data/logs/ui.log`. The future background worker uses
+the same format in `data/logs/worker.log` so the processes do not compete while rotating one
+file. Each active file rotates at 5 MiB and retains five backups. Log timestamps use UTC to
+whole seconds. Set `JAC_LOG_LEVEL` to `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL`.
+Use `JAC_LOG_MAX_SIZE_MB` and `JAC_LOG_BACKUP_COUNT` to adjust retention.
+
+Logs are private application data. They may contain job descriptions, CV content, prompts,
+Documents A and B, model inputs and outputs, personal information, local paths, identifiers,
+timings and errors. The complete `data/logs` directory is excluded from Git. Do not publish
+or share logs without reviewing and sanitising them.
+
+API keys, authentication tokens, passwords, authorization headers and other secrets must
+never be logged. The configured OpenAI API key is redacted if its exact value accidentally
+appears in a log record, but this is a safety net rather than a substitute for careful logging.
 
 ## Document strategy
 
