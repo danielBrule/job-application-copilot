@@ -82,6 +82,34 @@ Invalid Windows filename characters are sanitised. A numeric suffix prevents acc
 
 Specification and implementation backlog complete. Application implementation has not started.
 
+## Development
+
+Requirements:
+
+- Python 3.12 or later
+- Poetry 2.x
+
+Install the project and its development dependencies. Poetry creates the project environment
+at `.venv`:
+
+```powershell
+poetry install
+```
+
+Run the automated checks:
+
+```powershell
+poetry run pytest
+poetry run ruff check .
+poetry run ruff format --check .
+```
+
+Start the Streamlit application:
+
+```powershell
+poetry run streamlit run src/job_application_copilot/ui/app.py
+```
+
 ## Importing the backlog into GitHub Issues
 
 The backlog CSV can be imported into GitHub Issues with GitHub CLI. GitHub Issues is the
