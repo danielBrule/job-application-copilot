@@ -1,8 +1,10 @@
-"""Minimal Streamlit application entry point."""
+"""Streamlit application startup and navigation shell."""
 
 import logging
+from pathlib import Path
 
 import streamlit as st
+from pydantic import ValidationError
 
 from job_application_copilot.config import load_settings
 from job_application_copilot.observability import (
@@ -23,11 +25,15 @@ from job_application_copilot.services.local_directories import (
 )
 
 logger = get_logger("job_application_copilot.ui.app")
+PAGES_DIRECTORY = Path(__file__).parent / "pages"
+UNEXPECTED_ERROR_MESSAGE = (
+    "An unexpected application error occurred. See the private UI log for details."
+)
 
 
 def main() -> None:
-    """Render the application scaffold."""
-    st.set_page_config(page_title="Job Application Copilot")
+    """Initialize the application and render its navigation shell."""
+    st.set_page_config(page_title="Job Application Copilot", layout="wide")
 
     try:
         settings = load_settings()
@@ -39,13 +45,41 @@ def main() -> None:
         DatabaseMigrationError,
         LocalDirectoryError,
         LoggingConfigurationError,
+        ValidationError,
     ) as error:
         st.error(str(error))
         st.stop()
 
     log_event(logger, logging.INFO, "application_started")
-    st.title("Job Application Copilot")
-    st.info("The application scaffold is ready.")
+    selected_page = st.navigation(
+        [
+            st.Page(
+                PAGES_DIRECTORY / "jobs.py",
+                title="Jobs",
+                url_path="jobs",
+                default=True,
+            ),
+            st.Page(
+                PAGES_DIRECTORY / "background_runs.py",
+                title="Background Runs",
+                url_path="background-runs",
+            ),
+            st.Page(
+                PAGES_DIRECTORY / "settings.py",
+                title="Settings",
+                url_path="settings",
+            ),
+        ]
+    )
+    try:
+        selected_page.run()
+    except Exception as error:
+        logger.exception(
+            "unexpected_page_error exception_type=%s",
+            type(error).__name__,
+        )
+        st.error(UNEXPECTED_ERROR_MESSAGE)
+        st.stop()
 
 
 if __name__ == "__main__":
