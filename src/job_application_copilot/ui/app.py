@@ -69,6 +69,12 @@ def main() -> None:
                 title="Settings",
                 url_path="settings",
             ),
+            st.Page(
+                PAGES_DIRECTORY / "add_job.py",
+                title="Add job",
+                url_path="add-job",
+                visibility="hidden",
+            ),
         ]
     )
     try:
