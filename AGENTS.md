@@ -79,6 +79,7 @@ Use the repository commands documented in `README.md`:
 .\dev.ps1 env
 . .\dev.ps1 activate
 .\dev.ps1 directories
+.\dev.ps1 database
 .\dev.ps1 test
 .\dev.ps1 lint
 .\dev.ps1 ui
