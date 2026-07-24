@@ -12,6 +12,11 @@ from job_application_copilot.observability import (
     get_logger,
     log_event,
 )
+from job_application_copilot.services.database_bootstrap import (
+    DatabaseHealthError,
+    DatabaseMigrationError,
+    initialize_database,
+)
 from job_application_copilot.services.local_directories import (
     LocalDirectoryError,
     ensure_local_directories,
@@ -28,7 +33,13 @@ def main() -> None:
         settings = load_settings()
         ensure_local_directories(settings)
         configure_logging(settings, LogComponent.UI)
-    except (LocalDirectoryError, LoggingConfigurationError) as error:
+        initialize_database(settings.database_path)
+    except (
+        DatabaseHealthError,
+        DatabaseMigrationError,
+        LocalDirectoryError,
+        LoggingConfigurationError,
+    ) as error:
         st.error(str(error))
         st.stop()
 

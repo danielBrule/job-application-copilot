@@ -33,7 +33,7 @@ The project is intentionally **not an automated mass-application tool**. It does
 - Python 3.12+
 - Streamlit
 - SQLite
-- SQLAlchemy or SQLModel
+- SQLAlchemy 2.x and Alembic
 - OpenAI Responses API
 - OpenAI Files / vector stores where required
 - Pydantic
@@ -194,6 +194,24 @@ Create missing private directories and validate existing paths without starting 
 
 ```powershell
 .\dev.ps1 directories
+```
+
+Create or upgrade the private SQLite database and display its migration and health status:
+
+```powershell
+.\dev.ps1 database
+```
+
+The database uses Alembic for ordered schema migrations. SQLite runs in WAL mode with foreign
+keys enabled and a five-second busy timeout. The private database records its installed
+revision in `alembic_version`; committed scripts under
+`src/job_application_copilot/repositories/migrations/versions` define available revisions.
+
+Preview the migrations as SQL without creating directories, connecting to SQLite, or changing
+the database:
+
+```powershell
+.\dev.ps1 database-sql
 ```
 
 Run the automated checks:

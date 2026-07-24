@@ -65,7 +65,16 @@ def test_explicit_help_displays_supported_targets() -> None:
     result = run_dev_script("help")
 
     assert result.returncode == 0
-    for target in ("env", "activate", "directories", "test", "lint", "ui"):
+    for target in (
+        "env",
+        "activate",
+        "directories",
+        "database",
+        "database-sql",
+        "test",
+        "lint",
+        "ui",
+    ):
         assert target in result.stdout
 
 
@@ -154,6 +163,45 @@ def test_directories_target_reports_conflicting_file(
     assert result.returncode != 0
     assert "Cannot prepare private directory" in combined_output(result)
     assert str(data_dir / "cvs") in combined_output(result)
+
+
+def test_database_target_is_idempotent(
+    workspace_tmp_path: Path,
+) -> None:
+    data_dir = workspace_tmp_path / "private-data"
+    environment = os.environ.copy()
+    environment["JAC_DATA_DIR"] = str(data_dir)
+
+    first_result = run_dev_script("database", environment=environment)
+    second_result = run_dev_script("database", environment=environment)
+
+    assert first_result.returncode == 0, combined_output(first_result)
+    assert second_result.returncode == 0, combined_output(second_result)
+    assert "Previous revision: none" in first_result.stdout
+    assert "Migration status: upgraded" in first_result.stdout
+    assert "Migration status: up to date" in second_result.stdout
+    assert "Current revision: 0001_database_foundation" in second_result.stdout
+    assert "Target revision: 0001_database_foundation" in second_result.stdout
+    assert "Health check: passed" in second_result.stdout
+    assert "Journal mode: WAL" in second_result.stdout
+    assert "Foreign keys: enabled" in second_result.stdout
+    assert "Busy timeout: 5000 ms" in second_result.stdout
+    assert (data_dir / "database" / "job_application_copilot.db").is_file()
+
+
+def test_database_sql_target_is_offline(
+    workspace_tmp_path: Path,
+) -> None:
+    data_dir = workspace_tmp_path / "private-data"
+    environment = os.environ.copy()
+    environment["JAC_DATA_DIR"] = str(data_dir)
+
+    result = run_dev_script("database-sql", environment=environment)
+
+    assert result.returncode == 0, combined_output(result)
+    assert "CREATE TABLE alembic_version" in result.stdout
+    assert "0001_database_foundation" in result.stdout
+    assert not data_dir.exists()
 
 
 def test_dot_sourced_activation_sets_virtual_environment(

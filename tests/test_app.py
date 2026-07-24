@@ -1,9 +1,11 @@
 from pathlib import Path
 
 import pytest
+from sqlalchemy import inspect
 from streamlit.testing.v1 import AppTest
 
 from job_application_copilot.observability import reset_logging
+from job_application_copilot.repositories import create_database
 
 
 def test_streamlit_app_starts_and_creates_private_directories(
@@ -31,5 +33,11 @@ def test_streamlit_app_starts_and_creates_private_directories(
         assert (data_dir / "reference" / "prompts" / "generation" / "french").is_dir()
         log_contents = (data_dir / "logs" / "ui.log").read_text(encoding="utf-8")
         assert "application_started" in log_contents
+        database_path = data_dir / "database" / "job_application_copilot.db"
+        database = create_database(database_path)
+        try:
+            assert inspect(database.engine).get_table_names() == ["alembic_version"]
+        finally:
+            database.dispose()
     finally:
         reset_logging()

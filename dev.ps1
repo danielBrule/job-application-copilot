@@ -19,6 +19,8 @@ Usage:
   .\dev.ps1 env        Create or update .venv with Poetry
   . .\dev.ps1 activate Activate .venv in the current PowerShell session
   .\dev.ps1 directories Create and validate private local directories
+  .\dev.ps1 database   Migrate and validate the local SQLite database
+  .\dev.ps1 database-sql Preview pending database migrations as SQL
   .\dev.ps1 test       Run the Pytest suite
   .\dev.ps1 lint       Run Ruff lint and formatting checks
   .\dev.ps1 ui         Start the Streamlit application
@@ -112,6 +114,25 @@ function Initialize-Directories {
     )
 }
 
+function Initialize-Database {
+    $python = Resolve-VenvTool -Name "python.exe"
+    Invoke-ProjectTool -Executable $python -Arguments @(
+        "-m",
+        "job_application_copilot.services.database_bootstrap"
+    )
+}
+
+function Show-DatabaseMigrationSql {
+    $python = Resolve-VenvTool -Name "python.exe"
+    Invoke-ProjectTool -Executable $python -Arguments @(
+        "-m",
+        "alembic",
+        "upgrade",
+        "head",
+        "--sql"
+    )
+}
+
 function Invoke-Lint {
     $ruff = Resolve-VenvTool -Name "ruff.exe"
     Invoke-ProjectTool -Executable $ruff -Arguments @("check", ".")
@@ -133,6 +154,12 @@ switch ($Target.ToLowerInvariant()) {
     }
     "directories" {
         Initialize-Directories
+    }
+    "database" {
+        Initialize-Database
+    }
+    "database-sql" {
+        Show-DatabaseMigrationSql
     }
     "test" {
         Invoke-Tests
