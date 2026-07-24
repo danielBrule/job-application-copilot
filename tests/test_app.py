@@ -14,6 +14,15 @@ from job_application_copilot.services import JobService
 from job_application_copilot.ui.app import UNEXPECTED_ERROR_MESSAGE
 from job_application_copilot.ui.dependencies import get_database, get_job_service
 from job_application_copilot.ui.job_details import LOAD_ERROR_MESSAGE
+from job_application_copilot.ui.job_filters import (
+    CLEAR_FILTERS_KEY,
+    FILTER_APPLICATION_STATUS_KEY,
+    FILTER_LANGUAGE_KEY,
+    FILTER_LOCATION_KEY,
+    FILTER_SOURCE_KEY,
+    FILTER_TEXT_KEY,
+    FILTER_USER_DECISION_KEY,
+)
 from job_application_copilot.ui.job_form import SAVE_ERROR_MESSAGE
 from job_application_copilot.ui.jobs_dashboard import (
     JOBS_TABLE_KEY,
@@ -137,7 +146,7 @@ def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
 
     try:
         service = get_job_service(data_dir / "database" / "job_application_copilot.db")
-        older = service.create(
+        service.create(
             CreateJob(
                 company="Older Ltd",
                 job_title="Data Engineer",
@@ -157,25 +166,98 @@ def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
         assert list(table.columns) == [
             "company",
             "job_title",
+            "job_url",
             "location",
             "language",
             "source",
-            "job_details",
             "date_added",
             "updated_at",
         ]
         assert list(table["company"]) == ["Older Ltd", "Original Ltd"]
-        assert list(table["job_details"]) == [
-            f"/job-details?job_id={older.id}",
-            f"/job-details?job_id={newer.id}",
-        ]
+        assert table["job_url"].iloc[1] == "https://example.com/original"
         assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
+        assert app.get("page_link")[-1].disabled
 
         app.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": [1]}}
         app.run()
 
         assert app.session_state[SELECTED_JOB_IDS_KEY] == (newer.id,)
         assert app.caption[0].value == "1 job selected."
+        open_selected_job = app.get("page_link")[-1]
+        assert not open_selected_job.disabled
+        assert open_selected_job.label == "Open selected job"
+    finally:
+        reset_logging()
+
+
+def test_jobs_dashboard_combines_filters_clears_selection_and_resets(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+
+    try:
+        service = get_job_service(data_dir / "database" / "job_application_copilot.db")
+        service.create(
+            CreateJob(
+                company="Another Ltd",
+                job_title="Data Engineer",
+                location=Location.FR,
+                language=Language.FR,
+                source="Company website",
+                job_description="Build data systems.",
+                date_added=date(2026, 7, 20),
+                application_status="Not applied",
+            )
+        )
+        matching_job = _create_job_for_edit(service)
+        app.run()
+
+        assert app.selectbox(key=FILTER_SOURCE_KEY).options == [
+            "All",
+            "Company website",
+            "LinkedIn",
+        ]
+
+        app.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": [1]}}
+        app.run()
+        assert app.session_state[SELECTED_JOB_IDS_KEY] == (matching_job.id,)
+
+        app.text_input(key=FILTER_TEXT_KEY).input(" original ").run()
+        assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
+        assert list(app.dataframe[0].value["company"]) == ["Original Ltd"]
+
+        app.selectbox(key=FILTER_LOCATION_KEY).select(Location.UK).run()
+        app.selectbox(key=FILTER_LANGUAGE_KEY).select(Language.EN).run()
+        app.selectbox(key=FILTER_SOURCE_KEY).select("LinkedIn").run()
+        app.selectbox(key=FILTER_USER_DECISION_KEY).select(UserDecision.PURSUE).run()
+        app.text_input(key=FILTER_APPLICATION_STATUS_KEY).input("VIEW").run()
+
+        assert not app.exception
+        assert list(app.dataframe[0].value["company"]) == ["Original Ltd"]
+
+        app.selectbox(key=FILTER_LOCATION_KEY).select(Location.FR).run()
+
+        assert not app.dataframe
+        assert app.info[0].value == "No jobs match the current filters."
+        assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
+
+        app.button(key=CLEAR_FILTERS_KEY).click().run()
+
+        assert app.text_input(key=FILTER_TEXT_KEY).value == ""
+        assert app.selectbox(key=FILTER_LOCATION_KEY).value is None
+        assert app.selectbox(key=FILTER_LANGUAGE_KEY).value is None
+        assert app.selectbox(key=FILTER_SOURCE_KEY).value is None
+        assert app.selectbox(key=FILTER_USER_DECISION_KEY).value is None
+        assert app.text_input(key=FILTER_APPLICATION_STATUS_KEY).value == ""
+        assert list(app.dataframe[0].value["company"]) == [
+            "Another Ltd",
+            "Original Ltd",
+        ]
+        assert len(service.list()) == 2
     finally:
         reset_logging()
 

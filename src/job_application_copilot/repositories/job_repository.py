@@ -76,7 +76,14 @@ class JobRepository:
             if filters.user_decision is not None:
                 statement = statement.where(Job.user_decision == filters.user_decision)
             if filters.application_status is not None:
-                statement = statement.where(Job.application_status == filters.application_status)
+                application_status = filters.application_status.strip()
+                if application_status:
+                    statement = statement.where(
+                        Job.application_status.icontains(
+                            application_status,
+                            autoescape=True,
+                        )
+                    )
 
         statement = statement.order_by(Job.date_added.desc(), Job.id.desc())
         return list(self.session.scalars(statement))
