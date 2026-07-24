@@ -1,12 +1,8 @@
-"""Jobs page."""
+"""Jobs dashboard page."""
 
-import streamlit as st
+from job_application_copilot.config import load_settings
+from job_application_copilot.ui.dependencies import get_job_service
+from job_application_copilot.ui.jobs_dashboard import render_jobs_dashboard
 
-from job_application_copilot.ui.job_form import SAVED_MESSAGE_KEY
-
-st.title("Jobs")
-if saved_message := st.session_state.pop(SAVED_MESSAGE_KEY, None):
-    st.success(saved_message)
-
-st.page_link("pages/add_job.py", label="Add job")
-st.info("The jobs dashboard table will be implemented in T2.5.")
+settings = load_settings()
+render_jobs_dashboard(get_job_service(settings.database_path))
