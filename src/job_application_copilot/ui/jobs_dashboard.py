@@ -10,6 +10,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from job_application_copilot.observability import get_logger
 from job_application_copilot.repositories.models import Job
 from job_application_copilot.services import JobService
+from job_application_copilot.ui.job_filters import (
+    available_sources,
+    has_active_filters,
+    render_job_filters,
+)
 from job_application_copilot.ui.job_form import SAVED_MESSAGE_KEY
 
 logger = get_logger(__name__)
@@ -19,10 +24,10 @@ LOAD_ERROR_MESSAGE = "The jobs could not be loaded. See the private UI log for d
 TABLE_COLUMN_ORDER = (
     "company",
     "job_title",
+    "job_url",
     "location",
     "language",
     "source",
-    "job_details",
     "date_added",
     "updated_at",
 )
@@ -35,10 +40,10 @@ class JobDashboardRow:
     job_id: int
     company: str
     job_title: str
+    job_url: str | None
     location: str
     language: str
     source: str
-    job_details: str
     date_added: date
     updated_at: datetime
 
@@ -50,10 +55,10 @@ class JobDashboardRow:
             job_id=job.id,
             company=job.company,
             job_title=job.job_title,
+            job_url=job.job_url,
             location=job.location.value,
             language=job.language.value,
             source=job.source,
-            job_details=f"/job-details?job_id={job.id}",
             date_added=job.date_added,
             updated_at=job.updated_at,
         )
@@ -64,10 +69,10 @@ class JobDashboardRow:
         return {
             "company": self.company,
             "job_title": self.job_title,
+            "job_url": self.job_url,
             "location": self.location,
             "language": self.language,
             "source": self.source,
-            "job_details": self.job_details,
             "date_added": self.date_added,
             "updated_at": self.updated_at,
         }
@@ -102,16 +107,34 @@ def render_jobs_dashboard(service: JobService) -> None:
     st.page_link("pages/add_job.py", label="Add job")
 
     try:
-        rows = shape_job_rows(service.list())
+        all_jobs = service.list()
     except SQLAlchemyError:
         logger.exception("jobs_dashboard_load_failed")
         st.session_state[SELECTED_JOB_IDS_KEY] = ()
         st.error(LOAD_ERROR_MESSAGE)
         return
 
-    if not rows:
+    if not all_jobs:
         st.session_state[SELECTED_JOB_IDS_KEY] = ()
         st.info("No jobs have been added yet.")
+        return
+
+    filters = render_job_filters(
+        available_sources(all_jobs),
+        clear_dashboard_selection,
+    )
+    try:
+        jobs = service.list(filters) if has_active_filters(filters) else all_jobs
+    except SQLAlchemyError:
+        logger.exception("jobs_dashboard_filter_failed")
+        st.session_state[SELECTED_JOB_IDS_KEY] = ()
+        st.error(LOAD_ERROR_MESSAGE)
+        return
+
+    rows = shape_job_rows(jobs)
+    if not rows:
+        st.session_state[SELECTED_JOB_IDS_KEY] = ()
+        st.info("No jobs match the current filters.")
         return
 
     table_state = st.dataframe(
@@ -122,14 +145,14 @@ def render_jobs_dashboard(service: JobService) -> None:
         column_config={
             "company": st.column_config.TextColumn("Company"),
             "job_title": st.column_config.TextColumn("Job title"),
+            "job_url": st.column_config.LinkColumn(
+                "Job URL",
+                display_text="Open posting",
+                width="small",
+            ),
             "location": st.column_config.TextColumn("Location", width="small"),
             "language": st.column_config.TextColumn("Language", width="small"),
             "source": st.column_config.TextColumn("Source"),
-            "job_details": st.column_config.LinkColumn(
-                "Job Details",
-                display_text="Open",
-                width="small",
-            ),
             "date_added": st.column_config.DateColumn(
                 "Date added",
                 format="YYYY-MM-DD",
@@ -149,3 +172,17 @@ def render_jobs_dashboard(service: JobService) -> None:
     selected_count = len(selected_ids)
     label = "job" if selected_count == 1 else "jobs"
     st.caption(f"{selected_count} {label} selected.")
+    selected_job_id = selected_ids[0] if selected_count == 1 else None
+    st.page_link(
+        "pages/job_details.py",
+        label="Open selected job",
+        disabled=selected_job_id is None,
+        query_params={"job_id": selected_job_id} if selected_job_id is not None else None,
+    )
+
+
+def clear_dashboard_selection() -> None:
+    """Clear stable IDs and Streamlit's row-position selection."""
+
+    st.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": []}}
+    st.session_state[SELECTED_JOB_IDS_KEY] = ()

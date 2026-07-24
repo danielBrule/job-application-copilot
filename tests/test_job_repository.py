@@ -119,13 +119,16 @@ def test_lists_jobs_newest_first_with_stable_id_tiebreaker(
         (JobFilters(source="Company website"), {"Beta"}),
         (JobFilters(user_decision=UserDecision.PURSUE), {"Alpha", "Gamma"}),
         (JobFilters(application_status="Applied"), {"Alpha", "Gamma"}),
+        (JobFilters(application_status="ppli"), {"Alpha", "Gamma"}),
+        (JobFilters(application_status="APPLIED"), {"Alpha", "Gamma"}),
         (
             JobFilters(
+                text="platform",
                 location=Location.UK,
                 language=Language.FR,
                 source="LinkedIn",
                 user_decision=UserDecision.PURSUE,
-                application_status="Applied",
+                application_status="ppli",
             ),
             {"Gamma"},
         ),
