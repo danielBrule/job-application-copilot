@@ -1,12 +1,13 @@
-"""Tests for add-job form validation and command mapping."""
+"""Tests for shared job-form validation and command mapping."""
 
 from datetime import date
 
 import pytest
 from pydantic import ValidationError
 
-from job_application_copilot.domain import Language, Location
-from job_application_copilot.ui.job_form import AddJobFormData, validation_messages
+from job_application_copilot.domain import Language, Location, UserDecision
+from job_application_copilot.repositories.models import Job
+from job_application_copilot.ui.job_form import JobFormData, validation_messages
 
 
 def valid_form_data() -> dict[str, object]:
@@ -40,15 +41,15 @@ def test_required_text_fields_reject_whitespace(
     values[field_name] = "   "
 
     with pytest.raises(ValidationError) as captured:
-        AddJobFormData.model_validate(values)
+        JobFormData.model_validate(values)
 
     assert validation_messages(captured.value) == [f"{label} is required."]
 
 
 def test_valid_form_data_normalizes_short_fields_and_maps_to_command() -> None:
-    form_data = AddJobFormData.model_validate(valid_form_data())
+    form_data = JobFormData.model_validate(valid_form_data())
 
-    command = form_data.to_command()
+    command = form_data.to_create_command()
 
     assert command.company == "Example Ltd"
     assert command.job_title == "Platform Engineer"
@@ -66,7 +67,42 @@ def test_blank_optional_values_become_none() -> None:
     values["job_url"] = " "
     values["general_notes"] = "\n"
 
-    command = AddJobFormData.model_validate(values).to_command()
+    command = JobFormData.model_validate(values).to_create_command()
 
     assert command.job_url is None
     assert command.general_notes is None
+
+
+def test_update_command_replaces_form_fields_and_preserves_other_job_state() -> None:
+    current_job = Job(
+        id=7,
+        company="Old company",
+        job_title="Old title",
+        location=Location.UK,
+        language=Language.EN,
+        source="LinkedIn",
+        job_url=None,
+        job_description="Old description",
+        date_added=date(2026, 7, 1),
+        general_notes=None,
+        user_decision=UserDecision.PURSUE,
+        application_status="Interview",
+        application_date=date(2026, 7, 2),
+        next_action="Prepare",
+        next_action_date=date(2026, 7, 30),
+        salary_expectation="GBP 150,000",
+        closure_reason=None,
+    )
+
+    command = JobFormData.model_validate(valid_form_data()).to_update_command(current_job)
+
+    assert command.company == "Example Ltd"
+    assert command.job_title == "Platform Engineer"
+    assert command.job_url == "https://example.com/job"
+    assert command.user_decision is UserDecision.PURSUE
+    assert command.application_status == "Interview"
+    assert command.application_date == date(2026, 7, 2)
+    assert command.next_action == "Prepare"
+    assert command.next_action_date == date(2026, 7, 30)
+    assert command.salary_expectation == "GBP 150,000"
+    assert command.closure_reason is None

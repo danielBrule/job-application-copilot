@@ -6,11 +6,14 @@ import streamlit as st
 from sqlalchemy import inspect
 from streamlit.testing.v1 import AppTest
 
+from job_application_copilot.domain import CreateJob, Language, Location, UserDecision
 from job_application_copilot.observability import reset_logging
 from job_application_copilot.repositories import create_database
+from job_application_copilot.repositories.models import Job
 from job_application_copilot.services import JobService
 from job_application_copilot.ui.app import UNEXPECTED_ERROR_MESSAGE
 from job_application_copilot.ui.dependencies import get_database, get_job_service
+from job_application_copilot.ui.job_details import LOAD_ERROR_MESSAGE
 from job_application_copilot.ui.job_form import SAVE_ERROR_MESSAGE
 
 APP_PATH = Path(__file__).parents[1] / "src" / "job_application_copilot" / "ui" / "app.py"
@@ -271,6 +274,267 @@ def _fill_required_add_job_fields(
     app.text_input(key=f"add_job_{version}_job_title").input("Platform Engineer")
     app.text_area(key=f"add_job_{version}_job_description").input(
         "Build and operate reliable systems."
+    )
+
+
+def test_job_details_form_loads_existing_values_and_persists_edits(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH)).run()
+
+    try:
+        service = get_job_service(data_dir / "database" / "job_application_copilot.db")
+        job = _create_job_for_edit(service)
+        app.query_params["job_id"] = str(job.id)
+        app.switch_page("pages/job_details.py").run()
+
+        assert not app.exception
+        assert app.title[0].value == "Job details"
+        assert app.subheader[0].value == "Edit job"
+        assert app.text_input(key=f"edit_job_{job.id}_company").value == "Original Ltd"
+        assert app.text_input(key=f"edit_job_{job.id}_job_title").value == "Original title"
+        assert app.selectbox(key=f"edit_job_{job.id}_location").value == "UK"
+        assert app.selectbox(key=f"edit_job_{job.id}_language").value == "EN"
+        assert app.text_input(key=f"edit_job_{job.id}_source").value == "LinkedIn"
+        assert (
+            app.text_input(key=f"edit_job_{job.id}_job_url").value == "https://example.com/original"
+        )
+        assert (
+            app.text_area(key=f"edit_job_{job.id}_job_description").value == "Original description"
+        )
+        assert app.date_input(key=f"edit_job_{job.id}_date_added").value == date(2026, 7, 1)
+        assert app.text_area(key=f"edit_job_{job.id}_general_notes").value == "Original notes"
+
+        app.text_input(key=f"edit_job_{job.id}_company").input("Updated Ltd")
+        app.text_input(key=f"edit_job_{job.id}_job_title").input("Updated title")
+        app.selectbox(key=f"edit_job_{job.id}_location").select("FR")
+        app.selectbox(key=f"edit_job_{job.id}_language").select("FR")
+        app.text_input(key=f"edit_job_{job.id}_source").input("Company website")
+        app.text_input(key=f"edit_job_{job.id}_job_url").input("https://example.com/updated")
+        app.text_area(key=f"edit_job_{job.id}_job_description").input("Updated description")
+        app.date_input(key=f"edit_job_{job.id}_date_added").set_value(date(2026, 7, 20))
+        app.text_area(key=f"edit_job_{job.id}_general_notes").input("Updated notes")
+        app.button(key=f"FormSubmitter:edit_job_{job.id}_form-Save").click().run()
+
+        assert not app.exception
+        assert app.title[0].value == "Jobs"
+        assert app.success[0].value == "Saved Updated Ltd — Updated title."
+        updated = service.get(job.id)
+        assert updated is not None
+        assert updated.company == "Updated Ltd"
+        assert updated.job_title == "Updated title"
+        assert updated.location is Location.FR
+        assert updated.language is Language.FR
+        assert updated.source == "Company website"
+        assert updated.job_url == "https://example.com/updated"
+        assert updated.job_description == "Updated description"
+        assert updated.date_added == date(2026, 7, 20)
+        assert updated.general_notes == "Updated notes"
+        assert updated.user_decision is UserDecision.PURSUE
+        assert updated.application_status == "Interview"
+        assert updated.next_action == "Prepare interview"
+    finally:
+        reset_logging()
+
+
+def test_cancel_job_edit_returns_to_jobs_without_updating(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH)).run()
+
+    try:
+        service = get_job_service(data_dir / "database" / "job_application_copilot.db")
+        job = _create_job_for_edit(service)
+        app.query_params["job_id"] = str(job.id)
+        app.switch_page("pages/job_details.py").run()
+        app.text_input(key=f"edit_job_{job.id}_company").input("Must not persist")
+        app.button(key=f"FormSubmitter:edit_job_{job.id}_form-Cancel").click().run()
+
+        assert not app.exception
+        assert app.title[0].value == "Jobs"
+        stored = service.get(job.id)
+        assert stored is not None
+        assert stored.company == "Original Ltd"
+    finally:
+        reset_logging()
+
+
+@pytest.mark.parametrize(
+    ("job_id", "expected_message"),
+    [
+        (None, "A job ID is required."),
+        ("abc", "The job ID must be a positive integer."),
+        ("0", "The job ID must be a positive integer."),
+        ("999", "Job 999 does not exist."),
+    ],
+)
+def test_job_details_rejects_missing_invalid_or_unknown_job_id(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    job_id: str | None,
+    expected_message: str,
+) -> None:
+    monkeypatch.setenv("JAC_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH)).run()
+
+    try:
+        if job_id is not None:
+            app.query_params["job_id"] = job_id
+        app.switch_page("pages/job_details.py").run()
+
+        assert not app.exception
+        assert app.title[0].value == "Job details"
+        assert app.error[0].value == expected_message
+        assert not app.subheader
+    finally:
+        reset_logging()
+
+
+def test_job_edit_rejects_another_jobs_url(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH)).run()
+
+    try:
+        service = get_job_service(data_dir / "database" / "job_application_copilot.db")
+        first = _create_job_for_edit(service)
+        second = service.create(
+            CreateJob(
+                company="Second Ltd",
+                job_title="Second title",
+                location=Location.FR,
+                language=Language.FR,
+                source="Company website",
+                job_url="https://example.com/second",
+                job_description="Second description",
+                date_added=date(2026, 7, 2),
+            )
+        )
+        app.query_params["job_id"] = str(second.id)
+        app.switch_page("pages/job_details.py").run()
+        app.text_input(key=f"edit_job_{second.id}_job_url").input(first.job_url or "")
+        app.button(key=f"FormSubmitter:edit_job_{second.id}_form-Save").click().run()
+
+        assert not app.exception
+        assert app.error[0].value == f"Another job already uses this exact URL (job {first.id})."
+        stored = service.get(second.id)
+        assert stored is not None
+        assert stored.job_url == "https://example.com/second"
+    finally:
+        reset_logging()
+
+
+def test_job_load_database_failure_shows_safe_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("JAC_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH)).run()
+
+    def fail_get(self: JobService, job_id: int) -> None:
+        del self, job_id
+        from sqlalchemy.exc import OperationalError
+
+        raise OperationalError("SELECT", {}, RuntimeError("private database detail"))
+
+    try:
+        monkeypatch.setattr(JobService, "get", fail_get)
+        app.query_params["job_id"] = "1"
+        app.switch_page("pages/job_details.py").run()
+
+        assert not app.exception
+        assert app.error[0].value == LOAD_ERROR_MESSAGE
+        assert "private database detail" not in app.error[0].value
+    finally:
+        reset_logging()
+
+
+def test_job_deleted_before_save_rerun_shows_useful_load_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH)).run()
+
+    try:
+        service = get_job_service(data_dir / "database" / "job_application_copilot.db")
+        job = _create_job_for_edit(service)
+        app.query_params["job_id"] = str(job.id)
+        app.switch_page("pages/job_details.py").run()
+        service.delete(job.id)
+        app.button(key=f"FormSubmitter:edit_job_{job.id}_form-Save").click().run()
+
+        assert not app.exception
+        assert app.error[0].value == f"Job {job.id} does not exist."
+    finally:
+        reset_logging()
+
+
+def test_job_update_database_failure_shows_safe_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH)).run()
+
+    def fail_update(self: JobService, job_id: int, command: object) -> None:
+        del self, job_id, command
+        from sqlalchemy.exc import OperationalError
+
+        raise OperationalError("UPDATE", {}, RuntimeError("private database detail"))
+
+    try:
+        service = get_job_service(data_dir / "database" / "job_application_copilot.db")
+        job = _create_job_for_edit(service)
+        app.query_params["job_id"] = str(job.id)
+        app.switch_page("pages/job_details.py").run()
+        monkeypatch.setattr(JobService, "update", fail_update)
+        app.button(key=f"FormSubmitter:edit_job_{job.id}_form-Save").click().run()
+
+        assert not app.exception
+        assert app.error[0].value == SAVE_ERROR_MESSAGE
+        assert "private database detail" not in app.error[0].value
+    finally:
+        reset_logging()
+
+
+def _create_job_for_edit(service: JobService) -> Job:
+    return service.create(
+        CreateJob(
+            company="Original Ltd",
+            job_title="Original title",
+            location=Location.UK,
+            language=Language.EN,
+            source="LinkedIn",
+            job_url="https://example.com/original",
+            job_description="Original description",
+            date_added=date(2026, 7, 1),
+            general_notes="Original notes",
+            user_decision=UserDecision.PURSUE,
+            application_status="Interview",
+            application_date=date(2026, 7, 10),
+            next_action="Prepare interview",
+            next_action_date=date(2026, 7, 30),
+            salary_expectation="GBP 150,000",
+        )
     )
 
 

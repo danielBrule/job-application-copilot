@@ -163,8 +163,8 @@ Invalid Windows filename characters are sanitised. A numeric suffix prevents acc
 ## Status
 
 Implementation is in progress. Delivery is managed through GitHub Issues and validated by
-GitHub Actions. The Streamlit application supports manual job entry; dashboard, background-run
-and settings controls are delivered by later tickets.
+GitHub Actions. The Streamlit application supports manual job entry and editing; dashboard,
+background-run and settings controls are delivered by later tickets.
 
 ## Development
 
