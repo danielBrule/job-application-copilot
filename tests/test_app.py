@@ -39,7 +39,10 @@ def test_streamlit_app_starts_and_creates_private_directories(
         database_path = data_dir / "database" / "job_application_copilot.db"
         database = create_database(database_path)
         try:
-            assert inspect(database.engine).get_table_names() == ["alembic_version"]
+            assert inspect(database.engine).get_table_names() == [
+                "alembic_version",
+                "jobs",
+            ]
         finally:
             database.dispose()
     finally:
