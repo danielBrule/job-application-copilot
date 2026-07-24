@@ -15,6 +15,13 @@ from job_application_copilot.ui.app import UNEXPECTED_ERROR_MESSAGE
 from job_application_copilot.ui.dependencies import get_database, get_job_service
 from job_application_copilot.ui.job_details import LOAD_ERROR_MESSAGE
 from job_application_copilot.ui.job_form import SAVE_ERROR_MESSAGE
+from job_application_copilot.ui.jobs_dashboard import (
+    JOBS_TABLE_KEY,
+    SELECTED_JOB_IDS_KEY,
+)
+from job_application_copilot.ui.jobs_dashboard import (
+    LOAD_ERROR_MESSAGE as JOBS_LOAD_ERROR_MESSAGE,
+)
 
 APP_PATH = Path(__file__).parents[1] / "src" / "job_application_copilot" / "ui" / "app.py"
 
@@ -67,11 +74,6 @@ def test_streamlit_app_starts_and_creates_private_directories(
     ("page_path", "expected_title", "expected_message"),
     [
         (
-            "pages/jobs.py",
-            "Jobs",
-            "The jobs dashboard table will be implemented in T2.5.",
-        ),
-        (
             "pages/background_runs.py",
             "Background Runs",
             "Background task monitoring will be implemented in milestone M4.",
@@ -101,6 +103,104 @@ def test_navigation_reaches_each_primary_page(
         assert not app.exception
         assert app.title[0].value == expected_title
         assert app.info[0].value == expected_message
+    finally:
+        reset_logging()
+
+
+def test_empty_jobs_dashboard_shows_add_prompt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("JAC_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.chdir(tmp_path)
+
+    app = AppTest.from_file(str(APP_PATH)).run()
+
+    try:
+        assert not app.exception
+        assert app.title[0].value == "Jobs"
+        assert app.info[0].value == "No jobs have been added yet."
+        assert not app.dataframe
+        assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
+    finally:
+        reset_logging()
+
+
+def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+
+    try:
+        service = get_job_service(data_dir / "database" / "job_application_copilot.db")
+        older = service.create(
+            CreateJob(
+                company="Older Ltd",
+                job_title="Data Engineer",
+                location=Location.FR,
+                language=Language.FR,
+                source="Company website",
+                job_description="Build data systems.",
+                date_added=date(2026, 7, 20),
+            )
+        )
+        newer = _create_job_for_edit(service)
+        app.run()
+
+        assert not app.exception
+        assert len(app.dataframe) == 1
+        table = app.dataframe[0].value
+        assert list(table.columns) == [
+            "company",
+            "job_title",
+            "location",
+            "language",
+            "source",
+            "job_details",
+            "date_added",
+            "updated_at",
+        ]
+        assert list(table["company"]) == ["Older Ltd", "Original Ltd"]
+        assert list(table["job_details"]) == [
+            f"/job-details?job_id={older.id}",
+            f"/job-details?job_id={newer.id}",
+        ]
+        assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
+
+        app.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": [1]}}
+        app.run()
+
+        assert app.session_state[SELECTED_JOB_IDS_KEY] == (newer.id,)
+        assert app.caption[0].value == "1 job selected."
+    finally:
+        reset_logging()
+
+
+def test_jobs_dashboard_database_failure_shows_safe_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("JAC_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.chdir(tmp_path)
+
+    def fail_list(self: JobService, filters: object = None) -> None:
+        del self, filters
+        from sqlalchemy.exc import OperationalError
+
+        raise OperationalError("SELECT", {}, RuntimeError("private database detail"))
+
+    monkeypatch.setattr(JobService, "list", fail_list)
+    app = AppTest.from_file(str(APP_PATH)).run()
+
+    try:
+        assert not app.exception
+        assert app.error[0].value == JOBS_LOAD_ERROR_MESSAGE
+        assert "private database detail" not in app.error[0].value
+        assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
     finally:
         reset_logging()
 
