@@ -1,27 +1,12 @@
 """Typed application settings loaded from the environment."""
 
-from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
-class Location(StrEnum):
-    """Supported job locations."""
-
-    UK = "UK"
-    FR = "FR"
-    CH = "CH"
-
-
-class Language(StrEnum):
-    """Supported job and CV languages."""
-
-    EN = "EN"
-    FR = "FR"
-
+from job_application_copilot.domain import Language, Location
 
 LogLevelName = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 

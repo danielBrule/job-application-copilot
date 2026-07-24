@@ -19,7 +19,7 @@ from job_application_copilot.services.database_bootstrap import (
     initialize_database,
 )
 
-FOUNDATION_REVISION = "0001_database_foundation"
+HEAD_REVISION = "0002_create_jobs_table"
 
 
 def test_creates_and_repeatedly_migrates_foundation_database(
@@ -45,17 +45,17 @@ def test_creates_and_repeatedly_migrates_foundation_database(
     assert database_path.exists()
     assert first_status.previous_revision is None
     assert first_status.migration_was_applied
-    assert first_status.current_revision == FOUNDATION_REVISION
-    assert first_status.target_revision == FOUNDATION_REVISION
-    assert second_status.previous_revision == FOUNDATION_REVISION
+    assert first_status.current_revision == HEAD_REVISION
+    assert first_status.target_revision == HEAD_REVISION
+    assert second_status.previous_revision == HEAD_REVISION
     assert not second_status.migration_was_applied
-    assert second_status.current_revision == FOUNDATION_REVISION
+    assert second_status.current_revision == HEAD_REVISION
     assert second_status.health.journal_mode.lower() == "wal"
     assert second_status.health.foreign_keys_enabled
     assert second_status.health.busy_timeout_ms == 5_000
 
 
-def test_foundation_migration_creates_only_revision_metadata(
+def test_migrations_create_revision_metadata_and_jobs_table(
     tmp_path: Path,
 ) -> None:
     database_path = tmp_path / "copilot.db"
@@ -63,7 +63,7 @@ def test_foundation_migration_creates_only_revision_metadata(
     database = create_database(database_path)
 
     try:
-        assert inspect(database.engine).get_table_names() == ["alembic_version"]
+        assert inspect(database.engine).get_table_names() == ["alembic_version", "jobs"]
     finally:
         database.dispose()
 

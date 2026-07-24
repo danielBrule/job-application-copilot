@@ -180,8 +180,8 @@ def test_database_target_is_idempotent(
     assert "Previous revision: none" in first_result.stdout
     assert "Migration status: upgraded" in first_result.stdout
     assert "Migration status: up to date" in second_result.stdout
-    assert "Current revision: 0001_database_foundation" in second_result.stdout
-    assert "Target revision: 0001_database_foundation" in second_result.stdout
+    assert "Current revision: 0002_create_jobs_table" in second_result.stdout
+    assert "Target revision: 0002_create_jobs_table" in second_result.stdout
     assert "Health check: passed" in second_result.stdout
     assert "Journal mode: WAL" in second_result.stdout
     assert "Foreign keys: enabled" in second_result.stdout
