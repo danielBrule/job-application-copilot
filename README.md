@@ -162,9 +162,9 @@ Invalid Windows filename characters are sanitised. A numeric suffix prevents acc
 
 ## Status
 
-Foundation implementation is in progress. Delivery is managed through GitHub Issues and
-validated by GitHub Actions. The Streamlit shell currently provides empty Jobs, Background
-Runs and Settings pages; their functional controls are delivered by later tickets.
+Implementation is in progress. Delivery is managed through GitHub Issues and validated by
+GitHub Actions. The Streamlit application supports manual job entry; dashboard, background-run
+and settings controls are delivered by later tickets.
 
 ## Development
 
