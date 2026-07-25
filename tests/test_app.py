@@ -72,6 +72,7 @@ def test_streamlit_app_starts_and_creates_private_directories(
             assert inspect(database.engine).get_table_names() == [
                 "alembic_version",
                 "jobs",
+                "reference_assets",
             ]
         finally:
             database.dispose()

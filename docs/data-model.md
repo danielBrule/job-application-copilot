@@ -151,8 +151,10 @@ This table is the source for token and processing-time KPIs.
 
 ## Reference asset
 
+- `asset_key`: stable logical identity shared by all versions of one asset
 - `asset_type`
 - `name`
+- optional `language_code`
 - `version`
 - `file_path`
 - `file_hash`
@@ -161,19 +163,22 @@ This table is the source for token and processing-time KPIs.
 - `openai_file_id`
 - `openai_vector_store_id`
 - `uploaded_at`
+- `updated_at`
 
-Asset categories:
+Asset types are deliberately broad:
 
-- Document A
-- Document B
-- Assessment prompt
-- Four English CV prompts
-- Two French prompts
-- English template
-- French template
-- French reference CV
+- document
+- prompt
+- template
+- reference example
 
-Multiple French reference CVs may be active. Single-instance asset types have one active version.
+The asset key identifies Document A, Document B, each prompt, each language-specific template
+and each reference example without hard-coding a fixed number of prompts or languages into the
+schema. Only one version of an asset key may be active. Multiple reference examples may be active
+because each example has its own key.
+
+Processing status is `PENDING`, `PROCESSING`, `READY` or `FAILED`. Only a `READY` version may be
+active. Prior valid versions remain `READY` when made inactive.
 
 ## Document B section
 

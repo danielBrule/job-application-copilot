@@ -1,25 +1,13 @@
 """SQLAlchemy persistence model for jobs."""
 
-from datetime import UTC, date, datetime
-from enum import StrEnum
+from datetime import date, datetime
 
 from sqlalchemy import CheckConstraint, Date, DateTime, Enum, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from job_application_copilot.domain import Language, Location, UserDecision
 from job_application_copilot.repositories.base import Base
-
-
-def utc_now() -> datetime:
-    """Return a timezone-naive UTC timestamp to whole seconds for SQLite."""
-
-    return datetime.now(UTC).replace(tzinfo=None, microsecond=0)
-
-
-def enum_values[EnumMember: StrEnum](enum_type: type[EnumMember]) -> list[str]:
-    """Store stable enum values rather than Python member names."""
-
-    return [member.value for member in enum_type]
+from job_application_copilot.repositories.models.common import enum_values, utc_now
 
 
 class Job(Base):

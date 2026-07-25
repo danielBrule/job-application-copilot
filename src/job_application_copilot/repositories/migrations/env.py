@@ -6,14 +6,14 @@ from alembic import context
 from sqlalchemy.engine import Connection
 
 from job_application_copilot.config import load_settings
+from job_application_copilot.repositories import models
 from job_application_copilot.repositories.database import (
     create_database,
     create_database_url,
 )
-from job_application_copilot.repositories.models import Job
 from job_application_copilot.services.local_directories import ensure_local_directories
 
-target_metadata = Job.metadata
+target_metadata = models.ReferenceAsset.metadata
 
 
 def run_migrations_offline() -> None:
