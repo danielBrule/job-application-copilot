@@ -19,7 +19,7 @@ from job_application_copilot.services.database_bootstrap import (
     initialize_database,
 )
 
-HEAD_REVISION = "0002_create_jobs_table"
+HEAD_REVISION = "0003_create_reference_assets_table"
 
 
 def test_creates_and_repeatedly_migrates_foundation_database(
@@ -55,7 +55,7 @@ def test_creates_and_repeatedly_migrates_foundation_database(
     assert second_status.health.busy_timeout_ms == 5_000
 
 
-def test_migrations_create_revision_metadata_and_jobs_table(
+def test_migrations_create_current_domain_tables(
     tmp_path: Path,
 ) -> None:
     database_path = tmp_path / "copilot.db"
@@ -63,7 +63,11 @@ def test_migrations_create_revision_metadata_and_jobs_table(
     database = create_database(database_path)
 
     try:
-        assert inspect(database.engine).get_table_names() == ["alembic_version", "jobs"]
+        assert inspect(database.engine).get_table_names() == [
+            "alembic_version",
+            "jobs",
+            "reference_assets",
+        ]
     finally:
         database.dispose()
 

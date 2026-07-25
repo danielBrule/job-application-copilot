@@ -8,12 +8,18 @@ from job_application_copilot.domain.job import (
     UpdateJob,
     UserDecision,
 )
+from job_application_copilot.domain.reference_asset import (
+    ReferenceAssetProcessingStatus,
+    ReferenceAssetType,
+)
 
 __all__ = [
     "CreateJob",
     "JobFilters",
     "Language",
     "Location",
+    "ReferenceAssetProcessingStatus",
+    "ReferenceAssetType",
     "UpdateJob",
     "UserDecision",
 ]
