@@ -4,8 +4,9 @@ from pathlib import Path
 
 import streamlit as st
 
+from job_application_copilot.config import AppSettings
 from job_application_copilot.repositories import Database, create_database
-from job_application_copilot.services import JobService
+from job_application_copilot.services import JobService, PromptService
 
 
 def _dispose_database(database: Database) -> None:
@@ -23,3 +24,9 @@ def get_job_service(database_path: Path) -> JobService:
     """Build a job service using the UI process's shared database facade."""
 
     return JobService(get_database(database_path))
+
+
+def get_prompt_service(settings: AppSettings) -> PromptService:
+    """Build a prompt service using shared database and configured private storage."""
+
+    return PromptService(get_database(settings.database_path), settings)

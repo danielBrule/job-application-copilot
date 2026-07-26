@@ -11,8 +11,13 @@ from job_application_copilot.repositories.job_repository import (
     JobNotFoundError,
     JobRepository,
 )
+from job_application_copilot.repositories.prompt_definition_repository import (
+    PromptDefinitionNotFoundError,
+    PromptDefinitionRepository,
+)
 from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
+    ReferenceAssetVersionNotFoundError,
 )
 
 __all__ = [
@@ -21,6 +26,9 @@ __all__ = [
     "DuplicateJobUrlError",
     "JobNotFoundError",
     "JobRepository",
+    "PromptDefinitionNotFoundError",
+    "PromptDefinitionRepository",
+    "ReferenceAssetVersionNotFoundError",
     "ReferenceAssetRepository",
     "create_database",
     "create_database_url",

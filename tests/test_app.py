@@ -72,6 +72,7 @@ def test_streamlit_app_starts_and_creates_private_directories(
             assert inspect(database.engine).get_table_names() == [
                 "alembic_version",
                 "jobs",
+                "prompt_definitions",
                 "reference_assets",
             ]
         finally:
@@ -87,11 +88,6 @@ def test_streamlit_app_starts_and_creates_private_directories(
             "pages/background_runs.py",
             "Background Runs",
             "Background task monitoring will be implemented in milestone M4.",
-        ),
-        (
-            "pages/settings.py",
-            "Settings",
-            "Reference asset management will be implemented in milestone M3.",
         ),
     ],
 )
@@ -113,6 +109,67 @@ def test_navigation_reaches_each_primary_page(
         assert not app.exception
         assert app.title[0].value == expected_title
         assert app.info[0].value == expected_message
+    finally:
+        reset_logging()
+
+
+def test_settings_page_displays_seeded_prompt_completeness(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("JAC_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.chdir(tmp_path)
+
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+
+    try:
+        app.switch_page("pages/settings.py").run()
+
+        assert not app.exception
+        assert app.title[0].value == "Settings"
+        assert app.header[0].value == "Prompts"
+        assert [subheader.value for subheader in app.subheader] == [
+            "Assessment",
+            "Generation / English",
+            "Generation / French",
+        ]
+        assert len(app.dataframe) == 1
+        assert [expander.label for expander in app.expander] == [
+            "1. Assessment prompt — Missing",
+            "1. English generation prompt 1 — Missing",
+            "2. English generation prompt 2 — Missing",
+            "3. English generation prompt 3 — Missing",
+            "4. English generation prompt 4 — Missing",
+            "1. French extension prompt 1 — Missing",
+            "2. French extension prompt 2 — Missing",
+            "Add pipeline prompt",
+        ]
+    finally:
+        reset_logging()
+
+
+def test_settings_page_saves_prompt_text_as_active_version(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+
+    try:
+        app.switch_page("pages/settings.py").run()
+        app.text_area[0].set_value("Assessment instructions.\n")
+        app.button(
+            key="FormSubmitter:prompt_text_assessment-Save as new active version"
+        ).click().run()
+
+        assert not app.exception
+        assert app.expander[0].label == "1. Assessment prompt — v1 READY"
+        assert (
+            data_dir / "reference" / "prompts" / "assessment" / "assessment-v0001.txt"
+        ).read_text(encoding="utf-8") == "Assessment instructions.\n"
     finally:
         reset_logging()
 

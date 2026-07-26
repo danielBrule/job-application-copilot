@@ -67,22 +67,28 @@ class AppSettings(BaseSettings):
         return self.reference_folder / "examples"
 
     @property
+    def prompts_folder(self) -> Path:
+        """Root directory containing private prompt versions."""
+
+        return self.reference_folder / "prompts"
+
+    @property
     def assessment_prompts_folder(self) -> Path:
         """Directory containing private assessment prompt versions."""
 
-        return self.reference_folder / "prompts" / "assessment"
+        return self.prompts_folder / "assessment"
 
     @property
     def english_generation_prompts_folder(self) -> Path:
         """Directory containing private English generation prompt versions."""
 
-        return self.reference_folder / "prompts" / "generation" / "english"
+        return self.prompts_folder / "generation" / "english"
 
     @property
     def french_generation_prompts_folder(self) -> Path:
         """Directory containing private French generation prompt versions."""
 
-        return self.reference_folder / "prompts" / "generation" / "french"
+        return self.prompts_folder / "generation" / "french"
 
 
 def load_settings() -> AppSettings:

@@ -11,6 +11,7 @@ dist/
 *.egg
 pip-wheel-metadata/
 .pytest_cache/
+.pytest-tmp/
 .ruff_cache/
 .mypy_cache/
 .pytype/

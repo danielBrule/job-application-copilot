@@ -114,6 +114,12 @@ data/reference/prompts/
 
 Prompt files are not committed.
 
+The Settings page manages data-driven prompt definitions and private UTF-8 text versions. The
+initial configuration contains one assessment prompt, four English-generation stages and two
+French-extension stages, but enabled definitions determine the required counts at runtime.
+Saving edited text creates a new immutable active version; earlier versions remain available
+for explicit rollback.
+
 Reference DOCX uploads are limited to 5 MiB and are validated as readable DOCX packages before
 storage. Each logical asset uses an immutable versioned filename such as
 `document-a-v0001.docx`; an existing file is never overwritten. Stored files and their database
@@ -169,8 +175,9 @@ Invalid Windows filename characters are sanitised. A numeric suffix prevents acc
 
 Implementation is in progress. Delivery is managed through GitHub Issues and validated by
 GitHub Actions. The Streamlit application supports manual job entry and editing through a
-sortable, selectable and filterable Jobs dashboard; background-run and settings controls are
-delivered by later tickets.
+sortable, selectable and filterable Jobs dashboard. Prompt definitions, editing, completeness
+and version activation are available on Settings; other reference assets and background-run
+controls are delivered by later tickets.
 
 ## Development
 

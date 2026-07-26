@@ -19,7 +19,7 @@ from job_application_copilot.services.database_bootstrap import (
     initialize_database,
 )
 
-HEAD_REVISION = "0003_create_reference_assets_table"
+HEAD_REVISION = "0004_create_prompt_definitions"
 
 
 def test_creates_and_repeatedly_migrates_foundation_database(
@@ -66,6 +66,7 @@ def test_migrations_create_current_domain_tables(
         assert inspect(database.engine).get_table_names() == [
             "alembic_version",
             "jobs",
+            "prompt_definitions",
             "reference_assets",
         ]
     finally:

@@ -205,6 +205,7 @@ A failure affects only its own task.
 
 - Active Document A DOCX
 - Assessment prompt
+- Prompt text editor and retained versions
 - Versions and processing state
 - Replace/edit actions
 
@@ -212,6 +213,7 @@ A failure affects only its own task.
 
 - Active Document B DOCX
 - Four ordered English prompts
+- Add, enable or disable prompt definitions
 - Versions and processing state
 - Replace/edit actions
 
@@ -223,6 +225,9 @@ A failure affects only its own task.
 - French prompt 2
 
 The two French prompts are shown after the four English prompts in the pipeline order.
+These are the initial enabled definitions. Prompt counts, pipeline groups and languages are
+data-driven. The Settings screen shows ready/required counts and missing prompt keys for each
+group.
 
 ### Templates and storage
 
