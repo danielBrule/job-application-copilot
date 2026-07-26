@@ -114,6 +114,11 @@ data/reference/prompts/
 
 Prompt files are not committed.
 
+Reference DOCX uploads are limited to 5 MiB and are validated as readable DOCX packages before
+storage. Each logical asset uses an immutable versioned filename such as
+`document-a-v0001.docx`; an existing file is never overwritten. Stored files and their database
+metadata remain private under `data/`.
+
 ## Private logs
 
 The UI writes UTF-8 structured text to `data/logs/ui.log`. The future background worker uses

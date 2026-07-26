@@ -154,7 +154,7 @@ This table is the source for token and processing-time KPIs.
 - `asset_key`: stable logical identity shared by all versions of one asset
 - `asset_type`
 - `name`
-- optional `language_code`
+- optional lowercase `language_code`, such as `en`, `fr` or `de`
 - `version`
 - `file_path`
 - `file_hash`
