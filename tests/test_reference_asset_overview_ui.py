@@ -95,7 +95,7 @@ def test_shapes_missing_active_candidate_example_and_prompt_rows() -> None:
         "Active input",
         "Latest candidate",
         "Required input",
-        "Requirement",
+        "Required input",
         "Required group",
     ]
     assert rows[0].as_dict() == {
@@ -112,7 +112,40 @@ def test_shapes_missing_active_candidate_example_and_prompt_rows() -> None:
     }
     assert rows[1].status == "FAILED — not active"
     assert rows[2].status == "MISSING"
-    assert rows[3].version_or_count == "0/2"
-    assert rows[3].details == "2 more ready example(s) required."
+    assert rows[3].asset_key == "french-reference-examples"
+    assert rows[3].status == "MISSING"
     assert rows[4].version_or_count == "3/4"
     assert rows[4].details == "Missing: cv-generation-en-stage-4"
+
+
+def test_shows_active_examples_once_and_hides_reversibly_removed_examples() -> None:
+    active = summary(
+        id=10,
+        asset_key="french-example-platform",
+        version=2,
+        status=ReferenceAssetProcessingStatus.READY,
+        active=True,
+    )
+    removed = summary(
+        id=11,
+        asset_key="french-example-operations",
+        version=1,
+        status=ReferenceAssetProcessingStatus.READY,
+        active=False,
+    )
+    overview = SettingsAssetOverview(
+        required_assets=(),
+        french_examples=FrenchReferenceExamplesOverview(
+            minimum_required=2,
+            active_versions=(active,),
+            latest_versions=(active, removed),
+        ),
+        prompt_groups=(),
+    )
+
+    rows = build_reference_asset_rows(overview)
+
+    assert overview.french_examples.removed_versions == (removed,)
+    assert [(row.asset_key, row.role) for row in rows] == [
+        ("french-example-platform", "Active example")
+    ]

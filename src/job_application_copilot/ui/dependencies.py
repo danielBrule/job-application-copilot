@@ -10,6 +10,7 @@ from job_application_copilot.services import (
     JobService,
     PromptService,
     ReferenceAssetOverviewService,
+    ReferenceAssetStorageService,
 )
 
 
@@ -46,4 +47,15 @@ def get_reference_asset_overview_service(
         database,
         PromptService(database, settings),
         settings.minimum_french_reference_examples,
+    )
+
+
+def get_reference_asset_storage_service(
+    settings: AppSettings,
+) -> ReferenceAssetStorageService:
+    """Build validated DOCX storage over the shared Settings database."""
+
+    return ReferenceAssetStorageService(
+        get_database(settings.database_path),
+        settings,
     )

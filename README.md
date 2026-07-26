@@ -130,7 +130,14 @@ in the UI. Set `JAC_MINIMUM_FRENCH_REFERENCE_EXAMPLES` to change that minimum.
 Reference DOCX uploads are limited to 5 MiB and are validated as readable DOCX packages before
 storage. Each logical asset uses an immutable versioned filename such as
 `document-a-v0001.docx`; an existing file is never overwritten. Stored files and their database
-metadata remain private under `data/`.
+metadata remain private under `data/`. Settings provides working upload/replacement controls for
+Documents A and B, both templates and dynamic French examples. A validated template or French
+example becomes the active `READY` version immediately. A validated Document A or B is retained
+as an inactive `PENDING` candidate until its later OpenAI processing succeeds, so the current
+active document remains usable. French examples are identified by their user-facing name; the
+application derives the internal key and treats the same normalized name as the same versioned
+example. Duplicate content is rejected across all French examples. Removing an example excludes
+it from readiness but retains its files and metadata so it can be restored.
 
 ## Private logs
 
@@ -183,9 +190,9 @@ Invalid Windows filename characters are sanitised. A numeric suffix prevents acc
 Implementation is in progress. Delivery is managed through GitHub Issues and validated by
 GitHub Actions. The Streamlit application supports manual job entry and editing through a
 sortable, selectable and filterable Jobs dashboard. Prompt definitions, editing, completeness
-and version activation are available on Settings alongside a complete read-only local asset
-readiness overview. Reference-asset replacement and background-run controls are delivered by
-later tickets.
+and version activation are available on Settings alongside a complete local asset readiness
+overview and validated DOCX replacement controls. OpenAI reference processing and background-run
+controls are delivered by later tickets.
 
 ## Development
 

@@ -220,3 +220,4 @@ Locally extracted for deterministic routing:
 - default source, LinkedIn
 - default location, UK
 - default language, EN
+- minimum active `READY` French reference examples, default 2

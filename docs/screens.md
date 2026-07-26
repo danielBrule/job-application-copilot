@@ -210,7 +210,7 @@ pipelines, including missing inputs:
 - Document B
 - English CV template
 - French CV template
-- French CV examples, with at least two active ready examples required
+- French CV examples, measured against the configured active-ready minimum
 - Every enabled prompt group, using its current data-driven required count
 
 For stored assets, the overview shows the asset key, name, immutable stored filename,
@@ -219,8 +219,21 @@ pending or failed candidate appear separately so a failed replacement does not m
 currently usable input appear unavailable. French examples are not limited to a fixed
 number or fixed set of keys.
 
-Replacement controls are added by the dedicated replacement workflow; the overview does
-not display inactive controls.
+Below the overview, working DOCX upload/replacement forms are provided for the four canonical
+document/template assets. A dynamic French-example form accepts only a meaningful name and DOCX;
+the application derives its internal stable key. Reusing the same normalized name with changed
+content creates the next version, while duplicate content is rejected across all example names.
+Prompts retain their separate text editing workflow.
+
+French-example readiness is displayed once above the asset table. Each active example then
+appears in exactly one table row. Removing an example excludes it from readiness and hides it
+from the active table without deleting its retained versions or files. Removed examples remain
+available through a Restore action.
+
+After local validation, templates and French examples become active and `READY`. Documents A
+and B appear as inactive `PENDING` candidates until their later OpenAI processing succeeds.
+The prior active document remains visible and usable. Invalid or duplicate uploads do not alter
+the active version.
 
 ### Assessment
 

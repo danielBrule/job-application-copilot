@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
 from pathlib import Path
 
 from job_application_copilot.config import AppSettings
 from job_application_copilot.documents import validate_docx
 from job_application_copilot.domain import (
+    DOCUMENT_A_KEY,
+    DOCUMENT_B_KEY,
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
 )
@@ -19,20 +22,35 @@ from job_application_copilot.repositories.reference_asset_repository import (
 )
 
 ASSET_KEY_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-DOCUMENT_A_KEY = "document-a"
-DOCUMENT_B_KEY = "document-b"
 
 
 class DuplicateReferenceAssetError(ValueError):
     """Raised when identical content already exists for a logical asset."""
 
-    def __init__(self, asset_key: str, existing_version: int) -> None:
+    def __init__(
+        self,
+        asset_key: str,
+        existing_version: int,
+        *,
+        existing_asset_key: str | None = None,
+        existing_name: str | None = None,
+    ) -> None:
         self.asset_key = asset_key
         self.existing_version = existing_version
-        super().__init__(
-            f"Reference asset '{asset_key}' already has identical content "
-            f"in version {existing_version}."
-        )
+        self.existing_asset_key = existing_asset_key or asset_key
+        self.existing_name = existing_name
+        if self.existing_asset_key == asset_key:
+            message = (
+                f"Reference asset '{asset_key}' already has identical content "
+                f"in version {existing_version}."
+            )
+        else:
+            existing_label = existing_name or self.existing_asset_key
+            message = (
+                f"The same content already exists in French example "
+                f"'{existing_label}' version {existing_version}."
+            )
+        super().__init__(message)
 
 
 class ReferenceAssetStorageError(RuntimeError):
@@ -41,6 +59,10 @@ class ReferenceAssetStorageError(RuntimeError):
 
 class UnsupportedReferenceAssetError(ValueError):
     """Raised when an asset category is not handled by DOCX storage."""
+
+
+class ReferenceExampleNotFoundError(LookupError):
+    """Raised when a French reference example cannot be removed or restored."""
 
 
 class ReferenceAssetStorageService:
@@ -62,6 +84,150 @@ class ReferenceAssetStorageService:
     ) -> ReferenceAsset:
         """Validate and persist one new inactive, pending DOCX version."""
 
+        return self._store_version(
+            filename=filename,
+            content=content,
+            asset_key=asset_key,
+            asset_type=asset_type,
+            name=name,
+            language_code=language_code,
+            activate_after_validation=False,
+        )
+
+    def replace(
+        self,
+        *,
+        filename: str,
+        content: bytes,
+        asset_key: str,
+        asset_type: ReferenceAssetType,
+        name: str,
+        language_code: str | None = None,
+    ) -> ReferenceAsset:
+        """Store a replacement and activate it when local validation is sufficient.
+
+        Templates and reference examples are locally complete and become READY and
+        active immediately. Documents remain inactive PENDING candidates until the
+        later OpenAI workflow has completed.
+        """
+
+        return self._store_version(
+            filename=filename,
+            content=content,
+            asset_key=asset_key,
+            asset_type=asset_type,
+            name=name,
+            language_code=language_code,
+            activate_after_validation=asset_type
+            in {
+                ReferenceAssetType.TEMPLATE,
+                ReferenceAssetType.REFERENCE_EXAMPLE,
+            },
+        )
+
+    def replace_french_example(
+        self,
+        *,
+        filename: str,
+        content: bytes,
+        name: str,
+    ) -> ReferenceAsset:
+        """Add or version a French example whose stable key is derived from its name."""
+
+        normalized_name, derived_key = self._french_example_identity(name)
+        with self.database.session() as session:
+            versions = ReferenceAssetRepository(session).list_by_type(
+                ReferenceAssetType.REFERENCE_EXAMPLE,
+                language_code="fr",
+            )
+            matching_keys = {
+                version.asset_key
+                for version in versions
+                if self._normalize_example_name(version.name)
+                == self._normalize_example_name(normalized_name)
+            }
+            if len(matching_keys) > 1:
+                raise ValueError(
+                    f"More than one French example already uses the name "
+                    f"'{normalized_name}'. Remove the duplicate names first."
+                )
+            asset_key = next(iter(matching_keys), derived_key)
+            conflicting_versions = [
+                version
+                for version in versions
+                if version.asset_key == asset_key
+                and self._normalize_example_name(version.name)
+                != self._normalize_example_name(normalized_name)
+            ]
+            if conflicting_versions:
+                raise ValueError(
+                    f"French example name '{normalized_name}' conflicts with an "
+                    "existing internal identity. Choose a more specific name."
+                )
+        return self.replace(
+            filename=filename,
+            content=content,
+            asset_key=asset_key,
+            asset_type=ReferenceAssetType.REFERENCE_EXAMPLE,
+            name=normalized_name,
+            language_code="fr",
+        )
+
+    def remove_french_example(self, asset_key: str) -> ReferenceAsset:
+        """Remove an active French example from readiness without deleting history."""
+
+        with self.database.session() as session:
+            repository = ReferenceAssetRepository(session)
+            active = repository.get_active(asset_key)
+            if active is None or not self._is_french_example(active):
+                raise ReferenceExampleNotFoundError(
+                    f"Active French example '{asset_key}' does not exist."
+                )
+            active.is_active = False
+            session.flush()
+            return active
+
+    def restore_french_example(self, asset_key: str) -> ReferenceAsset:
+        """Restore the latest retained READY French-example version."""
+
+        with self.database.session() as session:
+            repository = ReferenceAssetRepository(session)
+            current = repository.get_active(asset_key)
+            if current is not None:
+                if not self._is_french_example(current):
+                    raise ReferenceExampleNotFoundError(
+                        f"French example '{asset_key}' does not exist."
+                    )
+                return current
+
+            target = next(
+                (
+                    version
+                    for version in repository.list_versions(asset_key)
+                    if self._is_french_example(version)
+                    and version.processing_status is ReferenceAssetProcessingStatus.READY
+                ),
+                None,
+            )
+            if target is None:
+                raise ReferenceExampleNotFoundError(
+                    f"Restorable French example '{asset_key}' does not exist."
+                )
+            target.is_active = True
+            session.flush()
+            return target
+
+    def _store_version(
+        self,
+        *,
+        filename: str,
+        content: bytes,
+        asset_key: str,
+        asset_type: ReferenceAssetType,
+        name: str,
+        language_code: str | None,
+        activate_after_validation: bool,
+    ) -> ReferenceAsset:
         normalized_key = self._validate_asset_key(asset_key)
         normalized_name = name.strip()
         if not normalized_name:
@@ -79,15 +245,30 @@ class ReferenceAssetStorageService:
         try:
             with self.database.session() as session:
                 repository = ReferenceAssetRepository(session)
-                duplicate = repository.find_by_hash(normalized_key, file_hash)
+                duplicate = (
+                    repository.find_by_hash_for_type(asset_type, file_hash)
+                    if asset_type is ReferenceAssetType.REFERENCE_EXAMPLE
+                    else repository.find_by_hash(normalized_key, file_hash)
+                )
                 if duplicate is not None:
-                    raise DuplicateReferenceAssetError(normalized_key, duplicate.version)
+                    raise DuplicateReferenceAssetError(
+                        normalized_key,
+                        duplicate.version,
+                        existing_asset_key=duplicate.asset_key,
+                        existing_name=duplicate.name,
+                    )
 
                 version = repository.next_version(normalized_key)
                 destination.mkdir(parents=True, exist_ok=True)
                 stored_path = destination / f"{normalized_key}-v{version:04d}.docx"
                 self._write_exclusively(stored_path, content)
                 file_created = True
+
+                if activate_after_validation:
+                    current = repository.get_active(normalized_key)
+                    if current is not None:
+                        current.is_active = False
+                        session.flush()
 
                 return repository.add(
                     ReferenceAsset(
@@ -98,8 +279,12 @@ class ReferenceAssetStorageService:
                         version=version,
                         file_path=self._relative_file_path(stored_path),
                         file_hash=file_hash,
-                        is_active=False,
-                        processing_status=ReferenceAssetProcessingStatus.PENDING,
+                        is_active=activate_after_validation,
+                        processing_status=(
+                            ReferenceAssetProcessingStatus.READY
+                            if activate_after_validation
+                            else ReferenceAssetProcessingStatus.PENDING
+                        ),
                     )
                 )
         except Exception:
@@ -145,6 +330,36 @@ class ReferenceAssetStorageService:
                 "numbers, and single hyphens."
             )
         return normalized_key
+
+    @staticmethod
+    def _french_example_identity(name: str) -> tuple[str, str]:
+        normalized_name = " ".join(name.split())
+        if not normalized_name:
+            raise ValueError("French example name must not be blank.")
+
+        ascii_name = (
+            unicodedata.normalize("NFKD", normalized_name)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+            .casefold()
+        )
+        slug = re.sub(r"[^a-z0-9]+", "-", ascii_name).strip("-")
+        if not slug:
+            raise ValueError("French example name must contain at least one letter or number.")
+        asset_key = f"french-example-{slug}"
+        if len(asset_key) > 255:
+            raise ValueError("French example name is too long.")
+        return normalized_name, asset_key
+
+    @staticmethod
+    def _normalize_example_name(name: str) -> str:
+        return " ".join(name.split()).casefold()
+
+    @staticmethod
+    def _is_french_example(asset: ReferenceAsset) -> bool:
+        return (
+            asset.asset_type is ReferenceAssetType.REFERENCE_EXAMPLE and asset.language_code == "fr"
+        )
 
     @staticmethod
     def _write_exclusively(path: Path, content: bytes) -> None:
