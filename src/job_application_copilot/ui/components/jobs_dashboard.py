@@ -1,4 +1,4 @@
-"""Initial Jobs dashboard table and selection state."""
+"""Jobs dashboard table component and selection state."""
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -10,12 +10,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from job_application_copilot.observability import get_logger
 from job_application_copilot.repositories.models import Job
 from job_application_copilot.services import JobService
-from job_application_copilot.ui.job_filters import (
+from job_application_copilot.ui.components.job_filters import (
     available_sources,
     has_active_filters,
     render_job_filters,
 )
-from job_application_copilot.ui.job_form import SAVED_MESSAGE_KEY
+from job_application_copilot.ui.components.job_form import SAVED_MESSAGE_KEY
 
 logger = get_logger(__name__)
 JOBS_TABLE_KEY = "jobs_dashboard_table"

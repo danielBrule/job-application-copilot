@@ -4,7 +4,7 @@ from datetime import date
 
 from job_application_copilot.domain import Language, Location, UserDecision
 from job_application_copilot.repositories.models import Job
-from job_application_copilot.ui.job_filters import (
+from job_application_copilot.ui.components.job_filters import (
     available_sources,
     build_job_filters,
     has_active_filters,

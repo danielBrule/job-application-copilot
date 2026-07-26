@@ -12,7 +12,7 @@ from job_application_copilot.domain import (
     RequiredReferenceAssetOverview,
     SettingsAssetOverview,
 )
-from job_application_copilot.ui.reference_asset_overview import (
+from job_application_copilot.ui.components.reference_asset_overview import (
     build_reference_asset_rows,
 )
 

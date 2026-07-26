@@ -2,7 +2,7 @@
 
 import pytest
 
-from job_application_copilot.ui.job_details import parse_job_id
+from job_application_copilot.ui.components.job_details import parse_job_id
 
 
 @pytest.mark.parametrize("value", [None, "", "abc", "1.5", "0", "-1"])

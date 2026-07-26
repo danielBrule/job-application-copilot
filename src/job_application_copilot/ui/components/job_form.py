@@ -1,4 +1,4 @@
-"""Shared validation and Streamlit forms for job entry."""
+"""Shared validation and Streamlit job-form components."""
 
 import logging
 from dataclasses import dataclass

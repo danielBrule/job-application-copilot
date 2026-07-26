@@ -6,7 +6,7 @@ import pytest
 
 from job_application_copilot.domain import Language, Location
 from job_application_copilot.repositories.models import Job
-from job_application_copilot.ui.jobs_dashboard import (
+from job_application_copilot.ui.components.jobs_dashboard import (
     TABLE_COLUMN_ORDER,
     JobDashboardRow,
     selected_job_ids,

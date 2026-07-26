@@ -1,4 +1,4 @@
-"""Job Details page orchestration."""
+"""Job Details page-content component."""
 
 import logging
 
@@ -7,7 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from job_application_copilot.observability import get_logger, log_event
 from job_application_copilot.services import JobService
-from job_application_copilot.ui.job_form import render_edit_job_form
+from job_application_copilot.ui.components.job_form import render_edit_job_form
 
 logger = get_logger(__name__)
 LOAD_ERROR_MESSAGE = "The job could not be loaded. See the private UI log for details."
