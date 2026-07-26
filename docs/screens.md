@@ -201,6 +201,27 @@ A failure affects only its own task.
 
 ## 5. Settings
 
+### Reference asset overview
+
+The top of the page shows every input required by the assessment and CV-generation
+pipelines, including missing inputs:
+
+- Document A
+- Document B
+- English CV template
+- French CV template
+- French CV examples, with at least two active ready examples required
+- Every enabled prompt group, using its current data-driven required count
+
+For stored assets, the overview shows the asset key, name, immutable stored filename,
+version, upload time, processing status and active state. The active version and a newer
+pending or failed candidate appear separately so a failed replacement does not make the
+currently usable input appear unavailable. French examples are not limited to a fixed
+number or fixed set of keys.
+
+Replacement controls are added by the dedicated replacement workflow; the overview does
+not display inactive controls.
+
 ### Assessment
 
 - Active Document A DOCX

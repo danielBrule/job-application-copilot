@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
@@ -6,10 +6,17 @@ import streamlit as st
 from sqlalchemy import inspect
 from streamlit.testing.v1 import AppTest
 
-from job_application_copilot.domain import CreateJob, Language, Location, UserDecision
+from job_application_copilot.domain import (
+    CreateJob,
+    Language,
+    Location,
+    ReferenceAssetProcessingStatus,
+    ReferenceAssetType,
+    UserDecision,
+)
 from job_application_copilot.observability import reset_logging
 from job_application_copilot.repositories import create_database
-from job_application_copilot.repositories.models import Job
+from job_application_copilot.repositories.models import Job, ReferenceAsset
 from job_application_copilot.services import JobService
 from job_application_copilot.ui.app import UNEXPECTED_ERROR_MESSAGE
 from job_application_copilot.ui.dependencies import get_database, get_job_service
@@ -127,13 +134,28 @@ def test_settings_page_displays_seeded_prompt_completeness(
 
         assert not app.exception
         assert app.title[0].value == "Settings"
-        assert app.header[0].value == "Prompts"
+        assert [header.value for header in app.header] == [
+            "Reference assets",
+            "Prompts",
+        ]
         assert [subheader.value for subheader in app.subheader] == [
             "Assessment",
             "Generation / English",
             "Generation / French",
         ]
         assert len(app.dataframe) == 1
+        overview_table = app.dataframe[0].value
+        assert overview_table["Asset key"].tolist() == [
+            "document-a",
+            "document-b",
+            "cv-template-en",
+            "cv-template-fr",
+            "french-reference-examples",
+            "assessment",
+            "generation/english",
+            "generation/french",
+        ]
+        assert overview_table["Status"].tolist() == ["MISSING"] * 8
         assert [expander.label for expander in app.expander] == [
             "1. Assessment prompt — Missing",
             "1. English generation prompt 1 — Missing",
@@ -170,6 +192,48 @@ def test_settings_page_saves_prompt_text_as_active_version(
         assert (
             data_dir / "reference" / "prompts" / "assessment" / "assessment-v0001.txt"
         ).read_text(encoding="utf-8") == "Assessment instructions.\n"
+    finally:
+        reset_logging()
+
+
+def test_settings_page_displays_populated_asset_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+    database = get_database(data_dir / "database" / "job_application_copilot.db")
+    with database.session() as session:
+        session.add(
+            ReferenceAsset(
+                asset_key="document-a",
+                asset_type=ReferenceAssetType.DOCUMENT,
+                name="Career evidence",
+                version=1,
+                file_path="document_a/document-a-v0001.docx",
+                file_hash="hash-document-a",
+                processing_status=ReferenceAssetProcessingStatus.READY,
+                is_active=True,
+                uploaded_at=datetime(2026, 7, 26, 11, 30, 45),
+                updated_at=datetime(2026, 7, 26, 11, 30, 45),
+            )
+        )
+
+    try:
+        app.switch_page("pages/settings.py").run()
+
+        assert not app.exception
+        overview_table = app.dataframe[0].value
+        document_a = overview_table.loc[overview_table["Asset key"] == "document-a"].iloc[0]
+        assert document_a["Name"] == "Career evidence"
+        assert document_a["Stored filename"] == "document-a-v0001.docx"
+        assert document_a["Version / count"] == "v1"
+        assert document_a["Uploaded"] == "2026-07-26 11:30:45 UTC"
+        assert document_a["Status"] == "READY"
+        assert document_a["Active"] == "Yes"
     finally:
         reset_logging()
 

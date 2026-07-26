@@ -21,6 +21,7 @@ SETTING_ENVIRONMENT_VARIABLES = (
     "JAC_DEFAULT_SOURCE",
     "JAC_DEFAULT_LOCATION",
     "JAC_DEFAULT_LANGUAGE",
+    "JAC_MINIMUM_FRENCH_REFERENCE_EXAMPLES",
     "OPENAI_API_KEY",
     "JAC_OPENAI_API_KEY",
 )
@@ -63,6 +64,7 @@ def test_defaults_are_safe_and_typed() -> None:
     assert settings.default_source == "LinkedIn"
     assert settings.default_location is Location.UK
     assert settings.default_language is Language.EN
+    assert settings.minimum_french_reference_examples == 2
 
 
 def test_data_paths_are_derived_from_data_directory(
@@ -93,6 +95,7 @@ def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("JAC_DEFAULT_SOURCE", "Company website")
     monkeypatch.setenv("JAC_DEFAULT_LOCATION", "CH")
     monkeypatch.setenv("JAC_DEFAULT_LANGUAGE", "FR")
+    monkeypatch.setenv("JAC_MINIMUM_FRENCH_REFERENCE_EXAMPLES", "3")
     monkeypatch.setenv("OPENAI_API_KEY", "secret-value")
 
     settings = AppSettings(_env_file=None)
@@ -110,6 +113,7 @@ def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None
     assert settings.default_source == "Company website"
     assert settings.default_location is Location.CH
     assert settings.default_language is Language.FR
+    assert settings.minimum_french_reference_examples == 3
     assert settings.openai_api_key is not None
     assert settings.openai_api_key.get_secret_value() == "secret-value"
     assert "secret-value" not in repr(settings)
@@ -160,6 +164,17 @@ def test_rejects_invalid_log_retention(
     monkeypatch.setenv(variable, value)
 
     with pytest.raises(ValidationError):
+        AppSettings(_env_file=None)
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "not-an-integer"])
+def test_rejects_invalid_french_reference_example_minimum(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+) -> None:
+    monkeypatch.setenv("JAC_MINIMUM_FRENCH_REFERENCE_EXAMPLES", value)
+
+    with pytest.raises(ValidationError, match="minimum_french_reference_examples"):
         AppSettings(_env_file=None)
 
 
