@@ -18,6 +18,9 @@ The Settings screen manages:
 - Two or three previous French CVs used only as style and terminology references
 
 All maintained documents and templates use DOCX. Updates are expected to be rare but must be supported through simple version replacement.
+The prompt list is data-driven: the values above are the initial enabled definitions, not fixed
+application limits. Prompt definitions, pipeline groups and language codes may be added or
+disabled without a schema or enum change.
 
 ## 3. Job entry
 

@@ -10,6 +10,7 @@ Job 1 ── 0..* Background Tasks
 Job 1 ── 0..* LLM Calls
 Background Batch 1 ── 1..* Background Tasks
 Reference Asset Type 1 ── 0..* Versions
+Prompt Definition 1 ── 0..* Prompt Reference-Asset Versions
 ```
 
 ## Job
@@ -179,6 +180,23 @@ because each example has its own key.
 
 Processing status is `PENDING`, `PROCESSING`, `READY` or `FAILED`. Only a `READY` version may be
 active. Prior valid versions remain `READY` when made inactive.
+
+## Prompt definition
+
+One row describes the stable pipeline role shared by every text version of a prompt:
+
+- `asset_key`, the primary key and logical link to reference-asset versions
+- `name`
+- `pipeline_group`, an enum-free safe path such as `assessment` or `generation/english`
+- optional lowercase `language_code`
+- positive `position`, unique within the pipeline group
+- `is_enabled`
+- timestamps
+
+An enabled definition is required even before prompt text exists. It is ready only when its
+asset key has an active `READY` prompt reference-asset version. Disabled definitions and all
+their immutable text versions are retained but do not count as required. Prompt counts,
+pipeline groups and language codes are therefore data-driven rather than schema constants.
 
 ## Document B section
 

@@ -117,6 +117,13 @@ Generated and uploaded CVs share one folder. All generated CVs use one naming co
 Versioned prompts are private local assets stored below `data/reference/prompts`, separated
 into assessment, English-generation and French-generation directories.
 
+Prompt definitions are stored separately from their immutable text versions. A definition
+declares the stable asset key, enum-free pipeline group, optional language, position and enabled
+state; `reference_assets` records each UTF-8 text version, hash and active state. This allows
+missing required prompts and completeness to be reported even when no prompt file exists.
+Adding another prompt group or language requires data changes only. Prompt execution remains a
+later pipeline responsibility.
+
 ## 9. Security and privacy
 
 - Secrets only through environment variables.

@@ -18,7 +18,7 @@ from job_application_copilot.services.database_bootstrap import (
 )
 
 FOUNDATION_REVISION = "0001_database_foundation"
-HEAD_REVISION = "0003_create_reference_assets_table"
+HEAD_REVISION = "0004_create_prompt_definitions"
 
 
 @pytest.fixture

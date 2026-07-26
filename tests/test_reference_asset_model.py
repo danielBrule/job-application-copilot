@@ -22,6 +22,7 @@ from job_application_copilot.services.database_bootstrap import (
 
 JOB_REVISION = "0002_create_jobs_table"
 REFERENCE_ASSET_REVISION = "0003_create_reference_assets_table"
+HEAD_REVISION = "0004_create_prompt_definitions"
 
 
 @pytest.fixture
@@ -296,7 +297,7 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
             for constraint in inspector.get_unique_constraints("reference_assets")
         }
 
-        assert status.current_revision == REFERENCE_ASSET_REVISION
+        assert status.current_revision == HEAD_REVISION
         assert set(columns) == {
             "id",
             "asset_key",
@@ -357,4 +358,4 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
 
     upgraded = initialize_database(database_path)
     assert upgraded.previous_revision == JOB_REVISION
-    assert upgraded.current_revision == REFERENCE_ASSET_REVISION
+    assert upgraded.current_revision == HEAD_REVISION

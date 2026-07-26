@@ -8,6 +8,10 @@ from job_application_copilot.domain.job import (
     UpdateJob,
     UserDecision,
 )
+from job_application_copilot.domain.prompt import (
+    CreatePromptDefinition,
+    PromptCompleteness,
+)
 from job_application_copilot.domain.reference_asset import (
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
@@ -15,9 +19,11 @@ from job_application_copilot.domain.reference_asset import (
 
 __all__ = [
     "CreateJob",
+    "CreatePromptDefinition",
     "JobFilters",
     "Language",
     "Location",
+    "PromptCompleteness",
     "ReferenceAssetProcessingStatus",
     "ReferenceAssetType",
     "UpdateJob",

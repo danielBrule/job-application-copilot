@@ -42,6 +42,7 @@ def test_defaults_are_safe_and_typed() -> None:
     assert settings.cv_folder == Path("data/cvs")
     assert settings.logs_folder == Path("data/logs")
     assert settings.reference_folder == Path("data/reference")
+    assert settings.prompts_folder == Path("data/reference/prompts")
     assert settings.document_a_folder == Path("data/reference/document_a")
     assert settings.document_b_folder == Path("data/reference/document_b")
     assert settings.templates_folder == Path("data/reference/templates")
