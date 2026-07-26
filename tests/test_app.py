@@ -1,8 +1,10 @@
 from datetime import date, datetime
+from io import BytesIO
 from pathlib import Path
 
 import pytest
 import streamlit as st
+from docx import Document
 from sqlalchemy import inspect
 from streamlit.testing.v1 import AppTest
 
@@ -40,6 +42,15 @@ from job_application_copilot.ui.jobs_dashboard import (
 )
 
 APP_PATH = Path(__file__).parents[1] / "src" / "job_application_copilot" / "ui" / "app.py"
+SETTINGS_APP_TIMEOUT = 30
+
+
+def make_docx(text: str = "Reference content") -> bytes:
+    buffer = BytesIO()
+    document = Document()
+    document.add_paragraph(text)
+    document.save(buffer)
+    return buffer.getvalue()
 
 
 @pytest.fixture(autouse=True)
@@ -56,7 +67,7 @@ def test_streamlit_app_starts_and_creates_private_directories(
     monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
     monkeypatch.chdir(tmp_path)
 
-    app = AppTest.from_file(str(APP_PATH)).run()
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
 
     try:
         assert not app.exception
@@ -108,7 +119,7 @@ def test_navigation_reaches_each_primary_page(
     monkeypatch.setenv("JAC_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.chdir(tmp_path)
 
-    app = AppTest.from_file(str(APP_PATH)).run()
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
 
     try:
         app.switch_page(page_path).run()
@@ -127,7 +138,10 @@ def test_settings_page_displays_seeded_prompt_completeness(
     monkeypatch.setenv("JAC_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.chdir(tmp_path)
 
-    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+    app = AppTest.from_file(
+        str(APP_PATH),
+        default_timeout=SETTINGS_APP_TIMEOUT,
+    ).run()
 
     try:
         app.switch_page("pages/settings.py").run()
@@ -139,6 +153,7 @@ def test_settings_page_displays_seeded_prompt_completeness(
             "Prompts",
         ]
         assert [subheader.value for subheader in app.subheader] == [
+            "Local DOCX uploads",
             "Assessment",
             "Generation / English",
             "Generation / French",
@@ -157,6 +172,11 @@ def test_settings_page_displays_seeded_prompt_completeness(
         ]
         assert overview_table["Status"].tolist() == ["MISSING"] * 8
         assert [expander.label for expander in app.expander] == [
+            "Upload or replace Document A",
+            "Upload or replace Document B",
+            "Upload or replace English CV template",
+            "Upload or replace French CV template",
+            "Manage French CV examples",
             "1. Assessment prompt — Missing",
             "1. English generation prompt 1 — Missing",
             "2. English generation prompt 2 — Missing",
@@ -178,7 +198,10 @@ def test_settings_page_saves_prompt_text_as_active_version(
     monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
     monkeypatch.chdir(tmp_path)
 
-    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+    app = AppTest.from_file(
+        str(APP_PATH),
+        default_timeout=SETTINGS_APP_TIMEOUT,
+    ).run()
 
     try:
         app.switch_page("pages/settings.py").run()
@@ -188,10 +211,197 @@ def test_settings_page_saves_prompt_text_as_active_version(
         ).click().run()
 
         assert not app.exception
-        assert app.expander[0].label == "1. Assessment prompt — v1 READY"
+        assert app.expander[5].label == "1. Assessment prompt — v1 READY"
         assert (
             data_dir / "reference" / "prompts" / "assessment" / "assessment-v0001.txt"
         ).read_text(encoding="utf-8") == "Assessment instructions.\n"
+    finally:
+        reset_logging()
+
+
+def test_settings_page_activates_valid_template_replacement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+
+    app = AppTest.from_file(
+        str(APP_PATH),
+        default_timeout=SETTINGS_APP_TIMEOUT,
+    ).run()
+
+    try:
+        app.switch_page("pages/settings.py").run()
+        app.file_uploader[2].upload(
+            "english-template.docx",
+            make_docx("English template"),
+        )
+        app.button(
+            key=("FormSubmitter:replace_reference_asset_cv-template-en-Validate and store")
+        ).click().run()
+
+        assert not app.exception
+        assert app.success[0].value == "'cv-template-en' version 1 is active and READY."
+        overview_table = app.dataframe[0].value
+        template = overview_table.loc[overview_table["Asset key"] == "cv-template-en"].iloc[0]
+        assert template["Version / count"] == "v1"
+        assert template["Status"] == "READY"
+        assert template["Active"] == "Yes"
+        assert (data_dir / "reference" / "templates" / "cv-template-en-v0001.docx").exists()
+    finally:
+        reset_logging()
+
+
+def test_settings_page_requires_a_docx_before_replacement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("JAC_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.chdir(tmp_path)
+
+    app = AppTest.from_file(
+        str(APP_PATH),
+        default_timeout=SETTINGS_APP_TIMEOUT,
+    ).run()
+
+    try:
+        app.switch_page("pages/settings.py").run()
+        app.button(
+            key=("FormSubmitter:replace_reference_asset_document-a-Validate and store")
+        ).click().run()
+
+        assert not app.exception
+        assert app.error[0].value == "Choose a DOCX file."
+    finally:
+        reset_logging()
+
+
+def test_settings_page_keeps_document_replacement_pending(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+
+    app = AppTest.from_file(
+        str(APP_PATH),
+        default_timeout=SETTINGS_APP_TIMEOUT,
+    ).run()
+    active_content = make_docx("Active Document A")
+    active_path = data_dir / "reference" / "document_a" / "document-a-v0001.docx"
+    active_path.write_bytes(active_content)
+    database = get_database(data_dir / "database" / "job_application_copilot.db")
+    with database.session() as session:
+        session.add(
+            ReferenceAsset(
+                asset_key="document-a",
+                asset_type=ReferenceAssetType.DOCUMENT,
+                name="Document A",
+                version=1,
+                file_path="document_a/document-a-v0001.docx",
+                file_hash="hash-document-a-v1",
+                processing_status=ReferenceAssetProcessingStatus.READY,
+                is_active=True,
+            )
+        )
+
+    try:
+        app.switch_page("pages/settings.py").run()
+        app.file_uploader[0].upload(
+            "document-a-replacement.docx",
+            make_docx("Pending Document A"),
+        )
+        app.button(
+            key=("FormSubmitter:replace_reference_asset_document-a-Validate and store")
+        ).click().run()
+
+        assert not app.exception
+        assert app.success[0].value == (
+            "'document-a' version 2 is stored as PENDING. "
+            "Any existing active version remains in use."
+        )
+        overview_table = app.dataframe[0].value
+        document_rows = overview_table.loc[overview_table["Asset key"] == "document-a"]
+        assert document_rows["Role"].tolist() == [
+            "Active input",
+            "Latest candidate",
+        ]
+        assert document_rows["Status"].tolist() == [
+            "READY",
+            "PENDING — not active",
+        ]
+        assert active_path.read_bytes() == active_content
+    finally:
+        reset_logging()
+
+
+def test_settings_page_adds_dynamic_french_reference_example(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+
+    app = AppTest.from_file(
+        str(APP_PATH),
+        default_timeout=SETTINGS_APP_TIMEOUT,
+    ).run()
+
+    try:
+        app.switch_page("pages/settings.py").run()
+        app.text_input[0].input("French platform CV")
+        app.file_uploader[4].upload(
+            "french-example.docx",
+            make_docx("French style example"),
+        )
+        app.button(
+            key="FormSubmitter:replace_french_reference_example-Validate and store"
+        ).click().run()
+
+        assert not app.exception
+        overview_table = app.dataframe[0].value
+        example_key = "french-example-french-platform-cv"
+        example = overview_table.loc[overview_table["Asset key"] == example_key].iloc[0]
+        assert example["Role"] == "Active example"
+        assert example["Status"] == "READY"
+        assert example["Active"] == "Yes"
+        assert "french-reference-examples" not in overview_table["Asset key"].tolist()
+        assert any(
+            caption.value == "French examples: 1/2 active and ready — MISSING."
+            for caption in app.caption
+        )
+
+        app.button(key="remove_french_example").click().run()
+
+        assert not app.exception
+        assert app.success[0].value == (
+            "'French platform CV' version 1 was removed from active examples."
+        )
+        overview_table = app.dataframe[0].value
+        assert example_key not in overview_table["Asset key"].tolist()
+        missing = overview_table.loc[
+            overview_table["Asset key"] == "french-reference-examples"
+        ].iloc[0]
+        assert missing["Status"] == "MISSING"
+        stored_path = data_dir / "reference" / "examples" / f"{example_key}-v0001.docx"
+        assert stored_path.exists()
+
+        app = AppTest.from_file(
+            str(APP_PATH),
+            default_timeout=SETTINGS_APP_TIMEOUT,
+        ).run()
+        app.switch_page("pages/settings.py").run()
+        app.button(key="restore_french_example").click().run()
+
+        assert not app.exception
+        assert app.success[0].value == ("'French platform CV' version 1 was restored.")
+        overview_table = app.dataframe[0].value
+        assert example_key in overview_table["Asset key"].tolist()
+        assert stored_path.exists()
     finally:
         reset_logging()
 
@@ -204,7 +414,10 @@ def test_settings_page_displays_populated_asset_metadata(
     monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
     monkeypatch.chdir(tmp_path)
 
-    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+    app = AppTest.from_file(
+        str(APP_PATH),
+        default_timeout=SETTINGS_APP_TIMEOUT,
+    ).run()
     database = get_database(data_dir / "database" / "job_application_copilot.db")
     with database.session() as session:
         session.add(

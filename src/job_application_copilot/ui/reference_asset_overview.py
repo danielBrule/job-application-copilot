@@ -6,6 +6,7 @@ from datetime import datetime
 import streamlit as st
 
 from job_application_copilot.domain import (
+    ReferenceAssetProcessingStatus,
     ReferenceAssetVersionSummary,
     SettingsAssetOverview,
 )
@@ -83,26 +84,8 @@ def build_reference_asset_rows(
             )
 
     examples = overview.french_examples
-    rows.append(
-        ReferenceAssetOverviewRow(
-            category="French CV examples",
-            asset_key="french-reference-examples",
-            role="Requirement",
-            name="French style and terminology references",
-            stored_filename="—",
-            version_or_count=f"{examples.ready_count}/{examples.minimum_required}",
-            uploaded="—",
-            status="READY" if examples.is_ready else "MISSING",
-            active="—",
-            details=(
-                "Minimum ready examples satisfied."
-                if examples.is_ready
-                else f"{examples.minimum_required - examples.ready_count} more ready "
-                "example(s) required."
-            ),
-        )
-    )
     active_examples = {version.asset_key: version for version in examples.active_versions}
+    visible_example_count = 0
     for latest in examples.latest_versions:
         active = active_examples.get(latest.asset_key)
         if active is not None:
@@ -113,7 +96,10 @@ def build_reference_asset_rows(
                     version=active,
                 )
             )
-        if active is None or active.id != latest.id:
+            visible_example_count += 1
+        if (
+            active is None or active.id != latest.id
+        ) and latest.processing_status is not ReferenceAssetProcessingStatus.READY:
             rows.append(
                 _version_row(
                     category="French CV examples",
@@ -121,6 +107,16 @@ def build_reference_asset_rows(
                     version=latest,
                 )
             )
+            visible_example_count += 1
+
+    if visible_example_count == 0:
+        rows.append(
+            _missing_row(
+                category="French CV examples",
+                asset_key="french-reference-examples",
+                name="French style and terminology references",
+            )
+        )
 
     for group in overview.prompt_groups:
         rows.append(
@@ -144,7 +140,9 @@ def build_reference_asset_rows(
     return rows
 
 
-def render_reference_asset_overview(service: ReferenceAssetOverviewService) -> None:
+def render_reference_asset_overview(
+    service: ReferenceAssetOverviewService,
+) -> SettingsAssetOverview | None:
     """Render required reference inputs and their active/latest status."""
 
     st.header("Reference assets")
@@ -157,14 +155,16 @@ def render_reference_asset_overview(service: ReferenceAssetOverviewService) -> N
     except Exception:
         logger.exception("reference_asset_overview_load_failed")
         st.error(REFERENCE_OVERVIEW_ERROR_MESSAGE)
-        return
+        return None
 
+    st.caption(_french_examples_readiness(overview))
     rows = build_reference_asset_rows(overview)
     st.dataframe(
         [row.as_dict() for row in rows],
         hide_index=True,
         width="stretch",
     )
+    return overview
 
 
 def _missing_row(
@@ -217,3 +217,12 @@ def _format_utc(value: datetime) -> str:
 
 def _display_group(pipeline_group: str) -> str:
     return pipeline_group.replace("/", " / ").replace("-", " ").title()
+
+
+def _french_examples_readiness(overview: SettingsAssetOverview) -> str:
+    examples = overview.french_examples
+    status = "READY" if examples.is_ready else "MISSING"
+    return (
+        f"French examples: {examples.ready_count}/{examples.minimum_required} "
+        f"active and ready — {status}."
+    )

@@ -119,6 +119,18 @@ class FrenchReferenceExamplesOverview:
     def is_ready(self) -> bool:
         return self.ready_count >= self.minimum_required
 
+    @property
+    def removed_versions(self) -> tuple[ReferenceAssetVersionSummary, ...]:
+        """Latest retained READY examples that are intentionally inactive."""
+
+        active_keys = {version.asset_key for version in self.active_versions}
+        return tuple(
+            version
+            for version in self.latest_versions
+            if version.asset_key not in active_keys
+            and version.processing_status is ReferenceAssetProcessingStatus.READY
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class SettingsAssetOverview:

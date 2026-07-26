@@ -85,6 +85,19 @@ A new version is active only after local validation and any required remote proc
 
 The old local DOCX and metadata remain inactive. Old remote stores are retained until the user chooses manual cleanup.
 
+Local replacement is one logical operation across immutable file creation and database metadata.
+If metadata storage or activation fails, the new file is removed and the database transaction
+restores the previous active version. Templates and French reference examples require only local
+DOCX validation, so they become `READY` and active immediately. Documents A and B require later
+OpenAI processing: local replacement stores them as inactive `PENDING` candidates and does not
+displace the current active document.
+
+French reference-example identity is derived deterministically from its normalized user-facing
+name; the internal asset key is not user input. Content hashes are unique across the whole
+reference-example category so the same CV cannot be added under another name. Removal is a
+reversible active-state change: retained READY versions and local files remain available for
+restoration and do not count toward configured readiness while inactive.
+
 ## 7. OpenAI calls
 
 - Use the Responses API.

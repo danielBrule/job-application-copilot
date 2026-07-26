@@ -42,6 +42,22 @@ class ReferenceAssetRepository:
             )
         )
 
+    def find_by_hash_for_type(
+        self,
+        asset_type: ReferenceAssetType,
+        file_hash: str,
+    ) -> ReferenceAsset | None:
+        """Return matching content anywhere in one reference-asset category."""
+
+        return self.session.scalar(
+            select(ReferenceAsset)
+            .where(
+                ReferenceAsset.asset_type == asset_type,
+                ReferenceAsset.file_hash == file_hash,
+            )
+            .order_by(ReferenceAsset.uploaded_at.desc(), ReferenceAsset.id.desc())
+        )
+
     def next_version(self, asset_key: str) -> int:
         """Return the next positive immutable version for a logical asset."""
 

@@ -19,6 +19,7 @@ from job_application_copilot.services.reference_asset_storage import (
     DuplicateReferenceAssetError,
     ReferenceAssetStorageError,
     ReferenceAssetStorageService,
+    ReferenceExampleNotFoundError,
     UnsupportedReferenceAssetError,
 )
 
@@ -34,6 +35,7 @@ __all__ = [
     "PromptStorageError",
     "ReferenceAssetStorageError",
     "ReferenceAssetOverviewService",
+    "ReferenceExampleNotFoundError",
     "ReferenceAssetStorageService",
     "UnsupportedReferenceAssetError",
 ]
