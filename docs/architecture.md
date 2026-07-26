@@ -34,6 +34,8 @@ OpenAI client / DOCX renderer / file services
 ```text
 src/job_application_copilot/
 ├── ui/
+│   ├── pages/
+│   └── components/
 ├── domain/
 ├── services/
 ├── repositories/
@@ -45,6 +47,12 @@ src/job_application_copilot/
 ```
 
 Business logic must not live directly in Streamlit pages.
+
+`ui/pages` contains only the thin entry points registered with Streamlit navigation. They
+load dependencies and compose a page. Forms, tables, filters and rendered page sections live
+under `ui/components`; these components call application services and contain presentation
+logic, not business rules. Application startup and process-local dependency construction remain
+at `ui/app.py` and `ui/dependencies.py`.
 
 ## 4. Background processing
 

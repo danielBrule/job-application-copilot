@@ -1,7 +1,7 @@
 """Tests for prompt Settings presentation shaping."""
 
 from job_application_copilot.domain import PromptCompleteness
-from job_application_copilot.ui.prompt_settings import build_completeness_rows
+from job_application_copilot.ui.components.prompt_settings import build_completeness_rows
 
 
 def test_shapes_prompt_completeness_for_settings_table() -> None:

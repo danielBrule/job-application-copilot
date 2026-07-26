@@ -1,4 +1,4 @@
-"""Settings overview presentation for required local reference assets."""
+"""Settings overview component for required local reference assets."""
 
 from dataclasses import dataclass
 from datetime import datetime

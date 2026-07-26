@@ -7,7 +7,10 @@ from pydantic import ValidationError
 
 from job_application_copilot.domain import Language, Location, UserDecision
 from job_application_copilot.repositories.models import Job
-from job_application_copilot.ui.job_form import JobFormData, validation_messages
+from job_application_copilot.ui.components.job_form import (
+    JobFormData,
+    validation_messages,
+)
 
 
 def valid_form_data() -> dict[str, object]:

@@ -1,4 +1,4 @@
-"""Prompt-specific Settings UI and presentation shaping."""
+"""Prompt-specific Settings component and presentation shaping."""
 
 from __future__ import annotations
 

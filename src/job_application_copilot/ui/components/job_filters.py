@@ -1,4 +1,4 @@
-"""Jobs dashboard filter controls and normalization."""
+"""Jobs dashboard filter component and normalization."""
 
 from collections.abc import Callable, Iterable
 

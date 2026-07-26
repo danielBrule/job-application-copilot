@@ -21,9 +21,8 @@ from job_application_copilot.repositories import create_database
 from job_application_copilot.repositories.models import Job, ReferenceAsset
 from job_application_copilot.services import JobService
 from job_application_copilot.ui.app import UNEXPECTED_ERROR_MESSAGE
-from job_application_copilot.ui.dependencies import get_database, get_job_service
-from job_application_copilot.ui.job_details import LOAD_ERROR_MESSAGE
-from job_application_copilot.ui.job_filters import (
+from job_application_copilot.ui.components.job_details import LOAD_ERROR_MESSAGE
+from job_application_copilot.ui.components.job_filters import (
     CLEAR_FILTERS_KEY,
     FILTER_APPLICATION_STATUS_KEY,
     FILTER_LANGUAGE_KEY,
@@ -32,14 +31,15 @@ from job_application_copilot.ui.job_filters import (
     FILTER_TEXT_KEY,
     FILTER_USER_DECISION_KEY,
 )
-from job_application_copilot.ui.job_form import SAVE_ERROR_MESSAGE
-from job_application_copilot.ui.jobs_dashboard import (
+from job_application_copilot.ui.components.job_form import SAVE_ERROR_MESSAGE
+from job_application_copilot.ui.components.jobs_dashboard import (
     JOBS_TABLE_KEY,
     SELECTED_JOB_IDS_KEY,
 )
-from job_application_copilot.ui.jobs_dashboard import (
+from job_application_copilot.ui.components.jobs_dashboard import (
     LOAD_ERROR_MESSAGE as JOBS_LOAD_ERROR_MESSAGE,
 )
+from job_application_copilot.ui.dependencies import get_database, get_job_service
 
 APP_PATH = Path(__file__).parents[1] / "src" / "job_application_copilot" / "ui" / "app.py"
 SETTINGS_APP_TIMEOUT = 30

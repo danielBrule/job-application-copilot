@@ -3,17 +3,17 @@
 import streamlit as st
 
 from job_application_copilot.config import load_settings
+from job_application_copilot.ui.components.prompt_settings import render_prompt_settings
+from job_application_copilot.ui.components.reference_asset_overview import (
+    render_reference_asset_overview,
+)
+from job_application_copilot.ui.components.reference_asset_replacement import (
+    render_reference_asset_replacements,
+)
 from job_application_copilot.ui.dependencies import (
     get_prompt_service,
     get_reference_asset_overview_service,
     get_reference_asset_storage_service,
-)
-from job_application_copilot.ui.prompt_settings import render_prompt_settings
-from job_application_copilot.ui.reference_asset_overview import (
-    render_reference_asset_overview,
-)
-from job_application_copilot.ui.reference_asset_replacement import (
-    render_reference_asset_replacements,
 )
 
 settings = load_settings()

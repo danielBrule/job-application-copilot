@@ -1,4 +1,4 @@
-"""Settings controls for validated local DOCX replacement."""
+"""Settings component for validated local DOCX replacement."""
 
 from typing import Protocol
 
