@@ -11,6 +11,9 @@ from job_application_copilot.repositories.job_repository import (
     JobNotFoundError,
     JobRepository,
 )
+from job_application_copilot.repositories.reference_asset_repository import (
+    ReferenceAssetRepository,
+)
 
 __all__ = [
     "Database",
@@ -18,6 +21,7 @@ __all__ = [
     "DuplicateJobUrlError",
     "JobNotFoundError",
     "JobRepository",
+    "ReferenceAssetRepository",
     "create_database",
     "create_database_url",
 ]
