@@ -41,6 +41,7 @@ class AppSettings(BaseSettings):
     default_source: str = "LinkedIn"
     default_location: Location = Location.UK
     default_language: Language = Language.EN
+    minimum_french_reference_examples: int = Field(default=2, ge=1)
 
     @property
     def document_a_folder(self) -> Path:

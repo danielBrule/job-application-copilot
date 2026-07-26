@@ -120,6 +120,13 @@ French-extension stages, but enabled definitions determine the required counts a
 Saving edited text creates a new immutable active version; earlier versions remain available
 for explicit rollback.
 
+The same page provides a read-only readiness overview for Documents A and B, the English
+and French templates, French CV examples and every enabled prompt group. It shows active
+versions and newer inactive candidates separately, including stored filename, version,
+upload time and processing status. At least two active ready French examples are required;
+additional examples and prompt groups are discovered from stored data rather than capped
+in the UI. Set `JAC_MINIMUM_FRENCH_REFERENCE_EXAMPLES` to change that minimum.
+
 Reference DOCX uploads are limited to 5 MiB and are validated as readable DOCX packages before
 storage. Each logical asset uses an immutable versioned filename such as
 `document-a-v0001.docx`; an existing file is never overwritten. Stored files and their database
@@ -176,8 +183,9 @@ Invalid Windows filename characters are sanitised. A numeric suffix prevents acc
 Implementation is in progress. Delivery is managed through GitHub Issues and validated by
 GitHub Actions. The Streamlit application supports manual job entry and editing through a
 sortable, selectable and filterable Jobs dashboard. Prompt definitions, editing, completeness
-and version activation are available on Settings; other reference assets and background-run
-controls are delivered by later tickets.
+and version activation are available on Settings alongside a complete read-only local asset
+readiness overview. Reference-asset replacement and background-run controls are delivered by
+later tickets.
 
 ## Development
 

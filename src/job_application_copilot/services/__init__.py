@@ -12,6 +12,9 @@ from job_application_copilot.services.prompt_service import (
     PromptService,
     PromptStorageError,
 )
+from job_application_copilot.services.reference_asset_overview import (
+    ReferenceAssetOverviewService,
+)
 from job_application_copilot.services.reference_asset_storage import (
     DuplicateReferenceAssetError,
     ReferenceAssetStorageError,
@@ -30,6 +33,7 @@ __all__ = [
     "PromptService",
     "PromptStorageError",
     "ReferenceAssetStorageError",
+    "ReferenceAssetOverviewService",
     "ReferenceAssetStorageService",
     "UnsupportedReferenceAssetError",
 ]

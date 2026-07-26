@@ -62,10 +62,16 @@ def build_completeness_rows(
     ]
 
 
-def render_prompt_settings(service: PromptService) -> None:
+def render_prompt_settings(
+    service: PromptService,
+    *,
+    show_page_title: bool = True,
+    show_completeness: bool = True,
+) -> None:
     """Render prompt completeness, definitions, editing, and activation."""
 
-    st.title("Settings")
+    if show_page_title:
+        st.title("Settings")
     st.header("Prompts")
     st.caption(
         "Prompt definitions determine required pipeline stages. Saving text creates "
@@ -80,15 +86,16 @@ def render_prompt_settings(service: PromptService) -> None:
         st.error(PROMPT_UI_ERROR_MESSAGE)
         return
 
-    rows = build_completeness_rows(completeness)
-    if rows:
-        st.dataframe(
-            [row.as_dict() for row in rows],
-            hide_index=True,
-            width="stretch",
-        )
-    else:
-        st.warning("No enabled prompt definitions are configured.")
+    if show_completeness:
+        rows = build_completeness_rows(completeness)
+        if rows:
+            st.dataframe(
+                [row.as_dict() for row in rows],
+                hide_index=True,
+                width="stretch",
+            )
+        else:
+            st.warning("No enabled prompt definitions are configured.")
 
     if not definitions:
         st.info("No prompt definitions exist.")

@@ -124,6 +124,13 @@ missing required prompts and completeness to be reported even when no prompt fil
 Adding another prompt group or language requires data changes only. Prompt execution remains a
 later pipeline responsibility.
 
+The Settings asset overview is a read-only aggregation over the reference-asset repository
+and prompt-definition service. Stable non-prompt pipeline roles use canonical asset keys,
+while prompt groups and French reference examples remain data-driven. It reports active
+versions separately from the latest inactive candidate, allowing an active ready asset to
+remain usable while a newer version is pending or failed. The Streamlit layer only shapes
+this presentation-neutral read model into table rows.
+
 ## 9. Security and privacy
 
 - Secrets only through environment variables.

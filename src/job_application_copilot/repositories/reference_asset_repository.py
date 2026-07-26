@@ -84,6 +84,23 @@ class ReferenceAssetRepository:
             )
         )
 
+    def list_by_type(
+        self,
+        asset_type: ReferenceAssetType,
+        *,
+        language_code: str | None = None,
+    ) -> list[ReferenceAsset]:
+        """Return category versions in stable logical-key and newest-first order."""
+
+        statement = select(ReferenceAsset).where(ReferenceAsset.asset_type == asset_type)
+        if language_code is not None:
+            statement = statement.where(ReferenceAsset.language_code == language_code)
+        statement = statement.order_by(
+            ReferenceAsset.asset_key,
+            ReferenceAsset.version.desc(),
+        )
+        return list(self.session.scalars(statement))
+
     def list_active_ready_prompts(self) -> list[ReferenceAsset]:
         """Return active prompt versions that are ready for use."""
 

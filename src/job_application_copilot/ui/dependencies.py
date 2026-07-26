@@ -6,7 +6,11 @@ import streamlit as st
 
 from job_application_copilot.config import AppSettings
 from job_application_copilot.repositories import Database, create_database
-from job_application_copilot.services import JobService, PromptService
+from job_application_copilot.services import (
+    JobService,
+    PromptService,
+    ReferenceAssetOverviewService,
+)
 
 
 def _dispose_database(database: Database) -> None:
@@ -30,3 +34,16 @@ def get_prompt_service(settings: AppSettings) -> PromptService:
     """Build a prompt service using shared database and configured private storage."""
 
     return PromptService(get_database(settings.database_path), settings)
+
+
+def get_reference_asset_overview_service(
+    settings: AppSettings,
+) -> ReferenceAssetOverviewService:
+    """Build the read-only Settings overview over shared process dependencies."""
+
+    database = get_database(settings.database_path)
+    return ReferenceAssetOverviewService(
+        database,
+        PromptService(database, settings),
+        settings.minimum_french_reference_examples,
+    )
