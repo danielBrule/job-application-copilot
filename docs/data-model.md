@@ -189,7 +189,11 @@ For Document B, the vector-store ID is recorded as soon as the remote store is c
 Activation requires the attached file to reach OpenAI status `completed` and a direct validation
 search to return non-empty content from that file. The processed usage bytes are retained for
 inactive stores so later cleanup can show their storage impact. Indexing does not report model
-token usage.
+token usage. Explicit cleanup clears successfully deleted remote identifiers and vector-store
+usage from an inactive version while retaining its local path, hash, version, status and dates.
+Each remote association is cleared after its corresponding deletion so partial cleanup can be
+retried safely. Restoring a cleaned version reuses that same row and local file, verifies the
+stored hash, and repopulates its remote identifiers rather than creating another version.
 
 ## Prompt definition
 

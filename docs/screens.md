@@ -286,5 +286,8 @@ group.
 ### Remote assets
 
 - Active OpenAI identifiers
-- Inactive stores
-- Manual delete action for inactive stores
+- Inactive tracked vector stores and uploaded files
+- Stored vector-store usage where available
+- Per-version confirmation and manual delete action
+- Local DOCX and version metadata retained after remote cleanup
+- Restore-and-activate action for retained Document A and Document B versions with no remote IDs

@@ -33,9 +33,12 @@ from job_application_copilot.services import (
     DocumentBProcessingError,
     DocumentBProcessingService,
     ReferenceAssetStorageService,
-    document_b_processing,
 )
 from job_application_copilot.services.database_bootstrap import initialize_database
+from job_application_copilot.services.remote_reference_operation import (
+    release_remote_reference_operation,
+    try_acquire_remote_reference_operation,
+)
 
 
 def make_docx(text: str) -> bytes:
@@ -270,11 +273,11 @@ def test_rejects_a_second_attempt_while_processing_is_running(
     ],
 ) -> None:
     service, _, _, client = processing_context
-    assert document_b_processing._DOCUMENT_B_PROCESSING_LOCK.acquire(blocking=False)
+    assert try_acquire_remote_reference_operation()
     try:
-        with pytest.raises(DocumentBProcessingError, match="already processing"):
+        with pytest.raises(DocumentBProcessingError, match="already running"):
             service.process(1)
     finally:
-        document_b_processing._DOCUMENT_B_PROCESSING_LOCK.release()
+        release_remote_reference_operation()
 
     client.upload_docx.assert_not_called()

@@ -11,6 +11,9 @@ from job_application_copilot.ui.components.prompt_settings import render_prompt_
 from job_application_copilot.ui.components.reference_asset_overview import (
     render_reference_asset_overview,
 )
+from job_application_copilot.ui.components.reference_asset_remote_cleanup import (
+    render_reference_asset_remote_cleanup,
+)
 from job_application_copilot.ui.components.reference_asset_replacement import (
     render_reference_asset_replacements,
 )
@@ -18,6 +21,7 @@ from job_application_copilot.ui.dependencies import (
     get_document_b_processing_service,
     get_prompt_service,
     get_reference_asset_overview_service,
+    get_reference_asset_remote_cleanup_service,
     get_reference_asset_storage_service,
 )
 
@@ -44,6 +48,9 @@ render_reference_asset_replacements(
 render_document_b_processing(
     document_b_processing_service,
     document_b_overview,
+)
+render_reference_asset_remote_cleanup(
+    get_reference_asset_remote_cleanup_service(settings),
 )
 render_prompt_settings(
     get_prompt_service(settings),

@@ -1,6 +1,6 @@
 """Session-scoped persistence operations for reference assets."""
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from job_application_copilot.domain import (
@@ -42,6 +42,82 @@ class ReferenceAssetRepository:
                     ReferenceAsset.version,
                 )
             )
+        )
+
+    def list_inactive_with_remote_resources(self) -> list[ReferenceAsset]:
+        """Return safely cleanable inactive versions with stored OpenAI identifiers."""
+
+        return list(
+            self.session.scalars(
+                select(ReferenceAsset)
+                .where(
+                    ReferenceAsset.is_active.is_(False),
+                    ReferenceAsset.processing_status != ReferenceAssetProcessingStatus.PROCESSING,
+                    or_(
+                        ReferenceAsset.openai_file_id.is_not(None),
+                        ReferenceAsset.openai_vector_store_id.is_not(None),
+                    ),
+                )
+                .order_by(
+                    ReferenceAsset.asset_key,
+                    ReferenceAsset.version.desc(),
+                )
+            )
+        )
+
+    def list_inactive_documents_without_remote_resources(
+        self,
+        *,
+        asset_keys: frozenset[str],
+    ) -> list[ReferenceAsset]:
+        """Return retained local document versions available for remote restoration."""
+
+        return list(
+            self.session.scalars(
+                select(ReferenceAsset)
+                .where(
+                    ReferenceAsset.asset_key.in_(asset_keys),
+                    ReferenceAsset.asset_type == ReferenceAssetType.DOCUMENT,
+                    ReferenceAsset.is_active.is_(False),
+                    ReferenceAsset.processing_status != ReferenceAssetProcessingStatus.PROCESSING,
+                    ReferenceAsset.openai_file_id.is_(None),
+                    ReferenceAsset.openai_vector_store_id.is_(None),
+                )
+                .order_by(
+                    ReferenceAsset.asset_key,
+                    ReferenceAsset.version.desc(),
+                )
+            )
+        )
+
+    def has_active_remote_reference(
+        self,
+        *,
+        openai_file_id: str | None,
+        openai_vector_store_id: str | None,
+    ) -> bool:
+        """Return whether an active version references either remote identifier."""
+
+        identifier_matches = []
+        if openai_file_id is not None:
+            identifier_matches.append(ReferenceAsset.openai_file_id == openai_file_id)
+        if openai_vector_store_id is not None:
+            identifier_matches.append(
+                ReferenceAsset.openai_vector_store_id == openai_vector_store_id
+            )
+        if not identifier_matches:
+            return False
+
+        return (
+            self.session.scalar(
+                select(ReferenceAsset.id)
+                .where(
+                    ReferenceAsset.is_active.is_(True),
+                    or_(*identifier_matches),
+                )
+                .limit(1)
+            )
+            is not None
         )
 
     def delete_all(self) -> int:

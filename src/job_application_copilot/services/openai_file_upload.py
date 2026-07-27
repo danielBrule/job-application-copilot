@@ -88,7 +88,7 @@ class OpenAIFileUploadService:
             self._validate_upload_target(asset)
             if asset.openai_file_id is not None:
                 return b"", "", asset
-            if asset.processing_status is ReferenceAssetProcessingStatus.READY:
+            if asset.processing_status is ReferenceAssetProcessingStatus.READY and asset.is_active:
                 raise OpenAIFileUploadNotAllowedError(
                     f"Reference asset '{asset_key}' version {version} is already READY "
                     "but has no OpenAI file ID."

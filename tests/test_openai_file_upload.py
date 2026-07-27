@@ -260,6 +260,40 @@ def test_processing_without_file_id_resumes_interrupted_upload(
     client.upload_docx.assert_called_once()
 
 
+def test_inactive_ready_document_can_rebuild_deleted_remote_file(
+    upload_context: tuple[
+        OpenAIFileUploadService,
+        ReferenceAssetStorageService,
+        Database,
+        AppSettings,
+        Mock,
+    ],
+) -> None:
+    service, storage, database, _, client = upload_context
+    retained = storage.replace(
+        filename="retained.docx",
+        content=make_docx("Retained Document A"),
+        asset_key="document-a",
+        asset_type=ReferenceAssetType.DOCUMENT,
+        name="Document A",
+    )
+    with database.session() as session:
+        candidate = ReferenceAssetRepository(session).require_version(
+            retained.asset_key,
+            retained.version,
+        )
+        candidate.processing_status = ReferenceAssetProcessingStatus.READY
+        candidate.is_active = False
+    client.upload_docx.return_value = uploaded_file("file_restored")
+
+    result = service.upload(retained.asset_key, retained.version)
+
+    assert result.openai_file_id == "file_restored"
+    assert result.processing_status is ReferenceAssetProcessingStatus.READY
+    assert result.is_active
+    client.upload_docx.assert_called_once()
+
+
 def test_rejects_non_document_asset(
     upload_context: tuple[
         OpenAIFileUploadService,

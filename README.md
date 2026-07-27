@@ -159,8 +159,18 @@ Deactivation of the prior version and activation of the candidate are one databa
 failure leaves the prior version active. Inactive and failed stores retain their identifiers and
 processed usage bytes for later explicit cleanup. Vector-store indexing does not report model
 tokens. A hard process stop in the short interval after OpenAI creates a resource but before its
-ID is stored locally can leave an untracked remote resource; the cleanup workflow owns removal
-of such resources.
+ID is stored locally can leave an untracked remote resource; safe discovery of those untracked
+resources requires a separate ownership-tagging workflow.
+
+Settings lists tracked OpenAI resources for inactive, non-processing reference versions.
+Cleanup requires explicit per-version confirmation, deletes a Document B vector store before
+its uploaded file, and deletes only the uploaded file for Document A. Local DOCX files, hashes,
+version history and processing status are retained. Successful remote steps are saved
+individually so a partial failure can be retried without repeating completed deletion.
+An inactive retained Document A or Document B version with no remaining remote identifiers can
+be restored without creating a duplicate local version. Restoration rechecks the retained
+file's hash, rebuilds its OpenAI resources, and activates it only after the normal validation
+workflow succeeds; the current active version remains unchanged if restoration fails.
 
 ## Private logs
 
