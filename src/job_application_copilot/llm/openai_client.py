@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Literal
 
 from openai import (
     APIConnectionError,
@@ -16,7 +17,7 @@ from openai import (
 
 from job_application_copilot.config import AppSettings
 
-OPENAI_FILE_PURPOSE = "user_data"
+OPENAI_FILE_PURPOSE: Literal["user_data"] = "user_data"
 OPENAI_FILE_UPLOAD_MAX_RETRIES = 2
 OPENAI_FILE_UPLOAD_TIMEOUT_SECONDS = 120.0
 OPENAI_VECTOR_STORE_POLL_INTERVAL_SECONDS = 1.0

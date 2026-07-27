@@ -124,7 +124,7 @@ class ReferenceAssetRepository:
         """Delete every reference-asset version and return the affected row count."""
 
         result = self.session.execute(delete(ReferenceAsset))
-        return result.rowcount
+        return int(getattr(result, "rowcount", 0))
 
     def find_by_hash(self, asset_key: str, file_hash: str) -> ReferenceAsset | None:
         """Return a matching version for the same logical asset, if one exists."""

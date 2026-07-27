@@ -26,8 +26,10 @@ Usage:
   .\dev.ps1 database-sql Preview pending database migrations as SQL
   .\dev.ps1 reset-reference-assets -Force Reset all development Settings assets
   .\dev.ps1 test       Run the Pytest suite
+  .\dev.ps1 coverage   Run Pytest with branch coverage reporting
   .\dev.ps1 test-openai Run opt-in tests against real OpenAI files and vector stores
   .\dev.ps1 lint       Run Ruff lint and formatting checks
+  .\dev.ps1 type       Run mypy static type checks
   .\dev.ps1 ui         Start the Streamlit application
   .\dev.ps1 help       Show this help
 "@
@@ -108,7 +110,27 @@ function Enable-Environment {
 
 function Invoke-Tests {
     $python = Resolve-VenvTool -Name "python.exe"
-    Invoke-ProjectTool -Executable $python -Arguments @("-m", "pytest")
+    $baseTemp = ".pytest-tmp/tests-$([Guid]::NewGuid().ToString("N"))"
+    Invoke-ProjectTool -Executable $python -Arguments @(
+        "-m",
+        "pytest",
+        "--basetemp",
+        $baseTemp
+    )
+}
+
+function Invoke-Coverage {
+    $python = Resolve-VenvTool -Name "python.exe"
+    $baseTemp = ".pytest-tmp/coverage-$([Guid]::NewGuid().ToString("N"))"
+    Invoke-ProjectTool -Executable $python -Arguments @(
+        "-m",
+        "pytest",
+        "--basetemp",
+        $baseTemp,
+        "--cov=job_application_copilot",
+        "--cov-branch",
+        "--cov-report=term-missing"
+    )
 }
 
 function Invoke-OpenAIIntegrationTests {
@@ -192,6 +214,11 @@ function Invoke-Lint {
     Invoke-ProjectTool -Executable $ruff -Arguments @("format", "--check", ".")
 }
 
+function Invoke-TypeChecks {
+    $python = Resolve-VenvTool -Name "python.exe"
+    Invoke-ProjectTool -Executable $python -Arguments @("-m", "mypy")
+}
+
 function Start-UserInterface {
     $streamlit = Resolve-VenvTool -Name "streamlit.exe"
     $application = Join-Path $script:ProjectRoot "src\job_application_copilot\ui\app.py"
@@ -220,11 +247,17 @@ switch ($Target.ToLowerInvariant()) {
     "test" {
         Invoke-Tests
     }
+    "coverage" {
+        Invoke-Coverage
+    }
     "test-openai" {
         Invoke-OpenAIIntegrationTests
     }
     "lint" {
         Invoke-Lint
+    }
+    "type" {
+        Invoke-TypeChecks
     }
     "ui" {
         Start-UserInterface

@@ -292,8 +292,14 @@ Run the automated checks:
 
 ```powershell
 .\dev.ps1 test
+.\dev.ps1 coverage
 .\dev.ps1 lint
+.\dev.ps1 type
 ```
+
+`coverage` runs the complete test suite with branch coverage and reports missing lines. It
+establishes visibility without enforcing a percentage threshold. `type` checks the production
+package with mypy. CI runs both checks in addition to the normal test, lint and format checks.
 
 The real OpenAI integration tests are intentionally excluded unless explicitly enabled. They
 upload temporary DOCX files; the vector-store test also indexes, searches and activates a
@@ -319,9 +325,19 @@ available for troubleshooting:
 ```powershell
 poetry install
 poetry run pytest
+poetry run pytest --cov=job_application_copilot --cov-branch --cov-report=term-missing
 poetry run ruff check .
 poetry run ruff format --check .
+poetry run mypy
 poetry run streamlit run src/job_application_copilot/ui/app.py
+```
+
+The developer-script test targets automatically use a unique writable directory below
+`.pytest-tmp`. When invoking pytest directly in a restricted environment, provide an equivalent
+project-local base directory:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest --basetemp=.pytest-tmp/local
 ```
 
 ## Importing the backlog into GitHub Issues

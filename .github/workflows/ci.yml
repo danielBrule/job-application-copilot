@@ -41,6 +41,14 @@ jobs:
         shell: powershell
         run: .\dev.ps1 test
 
+      - name: Measure branch coverage
+        shell: powershell
+        run: .\dev.ps1 coverage
+
       - name: Run lint and formatting checks
         shell: powershell
         run: .\dev.ps1 lint
+
+      - name: Run static type checks
+        shell: powershell
+        run: .\dev.ps1 type

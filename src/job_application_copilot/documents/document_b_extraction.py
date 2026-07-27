@@ -88,10 +88,8 @@ def extract_document_b_sections(content: bytes) -> tuple[ExtractedDocumentBSecti
                 builders.append(current)
                 continue
             block = _paragraph_block(item)
-        elif isinstance(item, Table):
-            block = _table_block(item)
         else:
-            continue
+            block = _table_block(item)
 
         if not block:
             continue
@@ -160,6 +158,8 @@ def _heading(paragraph: Paragraph) -> tuple[str | None, str, int] | None:
 
 
 def _style_heading_level(paragraph: Paragraph) -> int | None:
+    if paragraph.style is None:
+        return None
     for value, pattern in (
         (paragraph.style.style_id, HEADING_STYLE_ID_PATTERN),
         (paragraph.style.name, HEADING_STYLE_NAME_PATTERN),
@@ -175,7 +175,7 @@ def _is_conservative_numbered_fallback(paragraph: Paragraph) -> bool:
 
     visible_runs = [run for run in paragraph.runs if run.text.strip()]
     all_bold = bool(visible_runs) and all(run.bold is True for run in visible_runs)
-    style_name = paragraph.style.name.casefold()
+    style_name = paragraph.style.name.casefold() if paragraph.style is not None else ""
     heading_named_style = "heading" in style_name or "title" in style_name
     return all_bold or heading_named_style
 
@@ -184,7 +184,8 @@ def _paragraph_block(paragraph: Paragraph) -> str:
     text = _normalise_text(paragraph.text)
     if not text:
         return ""
-    if paragraph.style.name.casefold().startswith("list") and not re.match(
+    style_name = paragraph.style.name.casefold() if paragraph.style is not None else ""
+    if style_name.startswith("list") and not re.match(
         r"^(?:[-*•]|\d+[.)])\s+",
         text,
     ):

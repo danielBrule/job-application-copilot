@@ -167,7 +167,10 @@ def render_jobs_dashboard(service: JobService) -> None:
         selection_mode="multi-row",
         width="stretch",
     )
-    selected_ids = selected_job_ids(rows, table_state.selection.rows)
+    selected_ids = selected_job_ids(
+        rows,
+        table_state.selection.rows,  # type: ignore[attr-defined]
+    )
     st.session_state[SELECTED_JOB_IDS_KEY] = selected_ids
     selected_count = len(selected_ids)
     label = "job" if selected_count == 1 else "jobs"
@@ -177,7 +180,7 @@ def render_jobs_dashboard(service: JobService) -> None:
         "pages/job_details.py",
         label="Open selected job",
         disabled=selected_job_id is None,
-        query_params={"job_id": selected_job_id} if selected_job_id is not None else None,
+        query_params={"job_id": str(selected_job_id)} if selected_job_id is not None else None,
     )
 
 

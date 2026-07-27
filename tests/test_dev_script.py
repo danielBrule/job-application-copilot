@@ -75,8 +75,10 @@ def test_explicit_help_displays_supported_targets() -> None:
         "database-sql",
         "reset-reference-assets",
         "test",
+        "coverage",
         "test-openai",
         "lint",
+        "type",
         "ui",
     ):
         assert target in result.stdout

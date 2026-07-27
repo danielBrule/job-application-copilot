@@ -72,14 +72,19 @@ class DocumentBVectorStoreService:
         if prepared.is_active:
             return prepared
 
+        file_id = prepared.openai_file_id
+        if file_id is None:
+            raise DocumentBVectorStoreNotAllowedError(
+                f"Document B version {version} must be uploaded to OpenAI before indexing."
+            )
         vector_store_id = prepared.openai_vector_store_id
         if vector_store_id is None:
-            vector_store_id = self._create_and_record_store(prepared)
+            vector_store_id = self._create_and_record_store(prepared, file_id=file_id)
 
         try:
             indexed_file = self.client.wait_for_vector_store_file(
                 vector_store_id=vector_store_id,
-                file_id=prepared.openai_file_id,
+                file_id=file_id,
                 timeout_seconds=self.settings.openai_vector_store_timeout_seconds,
             )
             self._require_completed(indexed_file)
@@ -87,7 +92,7 @@ class DocumentBVectorStoreService:
                 vector_store_id=vector_store_id,
                 query=DOCUMENT_B_VALIDATION_QUERY,
             )
-            self._validate_search_results(results, prepared.openai_file_id)
+            self._validate_search_results(results, file_id)
             return self._activate(
                 asset_key,
                 version,
@@ -139,11 +144,11 @@ class DocumentBVectorStoreService:
                 "Only canonical Document B versions may be indexed in this vector store."
             )
 
-    def _create_and_record_store(self, asset: ReferenceAsset) -> str:
+    def _create_and_record_store(self, asset: ReferenceAsset, *, file_id: str) -> str:
         try:
             created = self.client.create_vector_store(
                 name=_vector_store_name(asset.version),
-                file_id=asset.openai_file_id,
+                file_id=file_id,
             )
         except OpenAIClientError as error:
             self._record_failure(asset.asset_key, asset.version, str(error))
