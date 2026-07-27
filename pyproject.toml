@@ -10,7 +10,8 @@ dependencies = [
     "streamlit (>=1.60.0,<2.0.0)",
     "sqlalchemy (>=2.0,<3.0)",
     "alembic (>=1.18,<2.0)",
-    "python-docx (>=1.2,<2.0)"
+    "python-docx (>=1.2,<2.0)",
+    "openai (>=2.48.0,<3.0.0)"
 ]
 
 [build-system]
@@ -23,6 +24,9 @@ packages = [{ include = "job_application_copilot", from = "src" }]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["-p", "no:cacheprovider"]
+markers = [
+    "openai_integration: opt-in test that creates and deletes a real OpenAI file"
+]
 
 [tool.ruff]
 target-version = "py312"

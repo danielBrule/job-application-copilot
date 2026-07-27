@@ -14,11 +14,11 @@ from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.repositories.models import Job
 from job_application_copilot.services.database_bootstrap import (
     MIGRATIONS_DIRECTORY,
+    get_migration_head,
     initialize_database,
 )
 
 FOUNDATION_REVISION = "0001_database_foundation"
-HEAD_REVISION = "0004_create_prompt_definitions"
 
 
 @pytest.fixture
@@ -281,7 +281,7 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
         columns = {column["name"]: column for column in inspector.get_columns("jobs")}
         checks = {constraint["name"] for constraint in inspector.get_check_constraints("jobs")}
 
-        assert status.current_revision == HEAD_REVISION
+        assert status.current_revision == get_migration_head()
         assert set(columns) == {
             "id",
             "company",
@@ -334,4 +334,4 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
 
     upgraded = initialize_database(database_path)
     assert upgraded.previous_revision == FOUNDATION_REVISION
-    assert upgraded.current_revision == HEAD_REVISION
+    assert upgraded.current_revision == get_migration_head()

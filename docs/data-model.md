@@ -161,6 +161,7 @@ This table is the source for token and processing-time KPIs.
 - `file_hash`
 - `is_active`
 - `processing_status`
+- `processing_error`, the latest sanitised failure or null
 - `openai_file_id`
 - `openai_vector_store_id`
 - `uploaded_at`
@@ -179,7 +180,9 @@ schema. Only one version of an asset key may be active. Multiple reference examp
 because each example has its own key.
 
 Processing status is `PENDING`, `PROCESSING`, `READY` or `FAILED`. Only a `READY` version may be
-active. Prior valid versions remain `READY` when made inactive.
+active. Prior valid versions remain `READY` when made inactive. Starting or successfully
+completing remote processing clears `processing_error`; a failed attempt records its latest
+actionable, secret-safe explanation.
 
 ## Prompt definition
 

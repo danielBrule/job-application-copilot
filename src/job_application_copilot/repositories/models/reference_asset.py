@@ -118,6 +118,7 @@ class ReferenceAsset(Base):
     )
     openai_file_id: Mapped[str | None] = mapped_column(String(255))
     openai_vector_store_id: Mapped[str | None] = mapped_column(String(255))
+    processing_error: Mapped[str | None] = mapped_column(String(2048))
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,

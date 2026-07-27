@@ -130,6 +130,12 @@ def _migration_config() -> Config:
     return config
 
 
+def get_migration_head() -> str:
+    """Return the current application migration head from Alembic metadata."""
+
+    return _target_revision(_migration_config())
+
+
 def _target_revision(config: Config) -> str:
     revision = ScriptDirectory.from_config(config).get_current_head()
     if revision is None:

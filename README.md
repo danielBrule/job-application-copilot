@@ -139,6 +139,13 @@ application derives the internal key and treats the same normalized name as the 
 example. Duplicate content is rejected across all French examples. Removing an example excludes
 it from readiness but retains its files and metadata so it can be restored.
 
+Canonical Document A and Document B candidates can be uploaded through the OpenAI file-upload
+service using the Files API `user_data` purpose. Before upload, the service checks that the
+retained file still matches its stored SHA-256 hash. A successful Document A upload stores the
+OpenAI file ID and atomically activates that version. A successful Document B upload stores the
+file ID but leaves the candidate pending for its later vector-store lifecycle. Failed attempts
+retain the current active version, record a sanitised processing error and may be retried.
+
 ## Private logs
 
 The UI writes UTF-8 structured text to `data/logs/ui.log`. The future background worker uses
@@ -192,7 +199,9 @@ GitHub Actions. The Streamlit application supports manual job entry and editing 
 sortable, selectable and filterable Jobs dashboard. Prompt definitions, editing, completeness
 and version activation are available on Settings alongside a complete local asset readiness
 overview and validated DOCX replacement controls. OpenAI reference processing and background-run
-controls are delivered by later tickets.
+controls are delivered incrementally: file upload and identifier persistence are available,
+while Document B vector-store processing and background-run controls are delivered by later
+tickets.
 
 ## Development
 
@@ -249,6 +258,18 @@ Run the automated checks:
 .\dev.ps1 test
 .\dev.ps1 lint
 ```
+
+The real OpenAI file-upload integration test is intentionally excluded unless explicitly
+enabled. It creates a temporary DOCX, persists the returned file ID in a temporary database and
+deletes the remote file during cleanup:
+
+```powershell
+.\dev.ps1 test-openai
+```
+
+`OPENAI_API_KEY` must be available in `.env` or the process environment. Ordinary test and CI
+runs skip this external test and never contact OpenAI. The explicit target temporarily enables
+the integration marker for its child test process and restores the previous environment afterward.
 
 Start the Streamlit application:
 

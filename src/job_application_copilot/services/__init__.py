@@ -5,6 +5,12 @@ from job_application_copilot.repositories import (
     JobNotFoundError,
 )
 from job_application_copilot.services.job_service import JobService
+from job_application_copilot.services.openai_file_upload import (
+    OpenAIFileUploadError,
+    OpenAIFileUploadNotAllowedError,
+    OpenAIFileUploadService,
+    ReferenceAssetIntegrityError,
+)
 from job_application_copilot.services.prompt_service import (
     DuplicatePromptContentError,
     DuplicatePromptDefinitionError,
@@ -30,11 +36,15 @@ __all__ = [
     "DuplicateReferenceAssetError",
     "JobNotFoundError",
     "JobService",
+    "OpenAIFileUploadError",
+    "OpenAIFileUploadNotAllowedError",
+    "OpenAIFileUploadService",
     "PromptActivationError",
     "PromptService",
     "PromptStorageError",
     "ReferenceAssetStorageError",
     "ReferenceAssetOverviewService",
+    "ReferenceAssetIntegrityError",
     "ReferenceExampleNotFoundError",
     "ReferenceAssetStorageService",
     "UnsupportedReferenceAssetError",

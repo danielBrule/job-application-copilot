@@ -17,12 +17,12 @@ from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.repositories.models import ReferenceAsset
 from job_application_copilot.services.database_bootstrap import (
     MIGRATIONS_DIRECTORY,
+    get_migration_head,
     initialize_database,
 )
 
 JOB_REVISION = "0002_create_jobs_table"
 REFERENCE_ASSET_REVISION = "0003_create_reference_assets_table"
-HEAD_REVISION = "0004_create_prompt_definitions"
 
 
 @pytest.fixture
@@ -71,6 +71,7 @@ def test_round_trips_metadata_and_internal_defaults(
         file_path="document_b/document-b-v2.docx",
         file_hash="sha256-value",
         processing_status=ReferenceAssetProcessingStatus.PROCESSING,
+        processing_error="Previous upload failed.",
         openai_file_id="file_123",
         openai_vector_store_id="vs_123",
     )
@@ -90,6 +91,7 @@ def test_round_trips_metadata_and_internal_defaults(
         assert not stored.is_active
         assert stored.openai_file_id == "file_123"
         assert stored.openai_vector_store_id == "vs_123"
+        assert stored.processing_error == "Previous upload failed."
         assert stored.uploaded_at.microsecond == 0
         assert stored.updated_at.microsecond == 0
 
@@ -297,7 +299,7 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
             for constraint in inspector.get_unique_constraints("reference_assets")
         }
 
-        assert status.current_revision == HEAD_REVISION
+        assert status.current_revision == get_migration_head()
         assert set(columns) == {
             "id",
             "asset_key",
@@ -311,6 +313,7 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
             "processing_status",
             "openai_file_id",
             "openai_vector_store_id",
+            "processing_error",
             "uploaded_at",
             "updated_at",
         }
@@ -358,4 +361,4 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
 
     upgraded = initialize_database(database_path)
     assert upgraded.previous_revision == JOB_REVISION
-    assert upgraded.current_revision == HEAD_REVISION
+    assert upgraded.current_revision == get_migration_head()

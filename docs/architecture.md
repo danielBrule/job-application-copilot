@@ -106,6 +106,13 @@ reference-example category so the same CV cannot be added under another name. Re
 reversible active-state change: retained READY versions and local files remain available for
 restoration and do not count toward configured readiness while inactive.
 
+Only canonical Document A and Document B versions are authorised for OpenAI file upload. The
+service verifies the retained local file against its recorded hash and uploads the exact bytes
+with the Files API `user_data` purpose. A successful Document A upload is sufficient to make that
+version `READY` and active. A successful Document B upload stores its file ID but leaves the
+version inactive and `PENDING` for vector-store processing. Upload failures preserve the prior
+active version and store one sanitised, retryable processing error.
+
 ## 7. OpenAI calls
 
 - Use the Responses API.
