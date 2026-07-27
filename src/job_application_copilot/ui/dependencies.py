@@ -7,6 +7,7 @@ import streamlit as st
 from job_application_copilot.config import AppSettings
 from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.services import (
+    DocumentBProcessingService,
     JobService,
     PromptService,
     ReferenceAssetOverviewService,
@@ -35,6 +36,17 @@ def get_prompt_service(settings: AppSettings) -> PromptService:
     """Build a prompt service using shared database and configured private storage."""
 
     return PromptService(get_database(settings.database_path), settings)
+
+
+def get_document_b_processing_service(
+    settings: AppSettings,
+) -> DocumentBProcessingService:
+    """Build the synchronous Settings workflow over shared local persistence."""
+
+    return DocumentBProcessingService(
+        get_database(settings.database_path),
+        settings,
+    )
 
 
 def get_reference_asset_overview_service(

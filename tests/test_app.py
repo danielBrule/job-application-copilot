@@ -19,8 +19,18 @@ from job_application_copilot.domain import (
 from job_application_copilot.observability import reset_logging
 from job_application_copilot.repositories import create_database
 from job_application_copilot.repositories.models import Job, ReferenceAsset
-from job_application_copilot.services import JobService
+from job_application_copilot.repositories.reference_asset_repository import (
+    ReferenceAssetRepository,
+)
+from job_application_copilot.services import (
+    DocumentBProcessingError,
+    DocumentBProcessingService,
+    JobService,
+)
 from job_application_copilot.ui.app import UNEXPECTED_ERROR_MESSAGE
+from job_application_copilot.ui.components.document_b_processing import (
+    DOCUMENT_B_PROCESSING_BUTTON_KEY,
+)
 from job_application_copilot.ui.components.job_details import LOAD_ERROR_MESSAGE
 from job_application_copilot.ui.components.job_filters import (
     CLEAR_FILTERS_KEY,
@@ -334,6 +344,180 @@ def test_settings_page_keeps_document_replacement_pending(
             "PENDING — not active",
         ]
         assert active_path.read_bytes() == active_content
+    finally:
+        reset_logging()
+
+
+def test_settings_page_uploads_processes_and_activates_document_b(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(
+        str(APP_PATH),
+        default_timeout=SETTINGS_APP_TIMEOUT,
+    ).run()
+
+    def activate(
+        service: DocumentBProcessingService,
+        version: int,
+    ) -> ReferenceAsset:
+        with service.database.session() as session:
+            candidate = ReferenceAssetRepository(session).require_version(
+                "document-b",
+                version,
+            )
+            candidate.openai_file_id = "file_b"
+            candidate.openai_vector_store_id = "vs_b"
+            candidate.processing_status = ReferenceAssetProcessingStatus.READY
+            candidate.is_active = True
+            session.flush()
+            return candidate
+
+    monkeypatch.setattr(DocumentBProcessingService, "_process", activate)
+
+    try:
+        app.switch_page("pages/settings.py").run()
+        initial_button_key = (
+            "FormSubmitter:replace_reference_asset_document-b-Upload and activate with OpenAI"
+        )
+        app.file_uploader[1].upload(
+            "document-b.docx",
+            make_docx("Document B"),
+        )
+        app.button(key=initial_button_key).click().run()
+
+        assert not app.exception
+        assert app.success[0].value == "'document-b' version 1 is active and READY."
+        overview_table = app.dataframe[0].value
+        document_b = overview_table.loc[overview_table["Asset key"] == "document-b"].iloc[0]
+        assert document_b["Status"] == "READY"
+        assert document_b["Active"] == "Yes"
+        assert app.button(
+            key=(
+                "FormSubmitter:replace_reference_asset_document-b-Replace and activate with OpenAI"
+            )
+        )
+    finally:
+        reset_logging()
+
+
+def test_settings_page_processes_and_activates_pending_document_b(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(
+        str(APP_PATH),
+        default_timeout=SETTINGS_APP_TIMEOUT,
+    ).run()
+    database = get_database(data_dir / "database" / "job_application_copilot.db")
+    with database.session() as session:
+        session.add(
+            ReferenceAsset(
+                asset_key="document-b",
+                asset_type=ReferenceAssetType.DOCUMENT,
+                name="Document B",
+                version=1,
+                file_path="document_b/document-b-v0001.docx",
+                file_hash="hash-document-b",
+                processing_status=ReferenceAssetProcessingStatus.PENDING,
+            )
+        )
+
+    def activate(
+        service: DocumentBProcessingService,
+        version: int,
+    ) -> ReferenceAsset:
+        with service.database.session() as session:
+            candidate = ReferenceAssetRepository(session).require_version(
+                "document-b",
+                version,
+            )
+            candidate.openai_file_id = "file_b"
+            candidate.openai_vector_store_id = "vs_b"
+            candidate.processing_status = ReferenceAssetProcessingStatus.READY
+            candidate.is_active = True
+            session.flush()
+            return candidate
+
+    monkeypatch.setattr(DocumentBProcessingService, "process", activate)
+
+    try:
+        app.switch_page("pages/settings.py").run()
+
+        assert app.button(key=DOCUMENT_B_PROCESSING_BUTTON_KEY)
+        assert any(
+            caption.value.startswith("Document B v1 is PENDING and not active.")
+            for caption in app.caption
+        )
+
+        app.button(key=DOCUMENT_B_PROCESSING_BUTTON_KEY).click().run()
+
+        assert not app.exception
+        assert app.success[0].value == "Document B version 1 is active and READY."
+        overview_table = app.dataframe[0].value
+        document_b = overview_table.loc[overview_table["Asset key"] == "document-b"].iloc[0]
+        assert document_b["Status"] == "READY"
+        assert document_b["Active"] == "Yes"
+    finally:
+        reset_logging()
+
+
+def test_settings_page_reports_document_b_processing_failure_without_activation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(
+        str(APP_PATH),
+        default_timeout=SETTINGS_APP_TIMEOUT,
+    ).run()
+    database = get_database(data_dir / "database" / "job_application_copilot.db")
+    with database.session() as session:
+        session.add(
+            ReferenceAsset(
+                asset_key="document-b",
+                asset_type=ReferenceAssetType.DOCUMENT,
+                name="Document B",
+                version=1,
+                file_path="document_b/document-b-v0001.docx",
+                file_hash="hash-document-b",
+                processing_status=ReferenceAssetProcessingStatus.PENDING,
+            )
+        )
+
+    def fail_processing(
+        service: DocumentBProcessingService,
+        version: int,
+    ) -> ReferenceAsset:
+        del service, version
+        raise DocumentBProcessingError("OpenAI could not be reached after the configured retries.")
+
+    monkeypatch.setattr(DocumentBProcessingService, "process", fail_processing)
+
+    try:
+        app.switch_page("pages/settings.py").run()
+        app.button(key=DOCUMENT_B_PROCESSING_BUTTON_KEY).click().run()
+
+        assert not app.exception
+        assert app.error[0].value == (
+            "Document B processing failed: "
+            "OpenAI could not be reached after the configured retries."
+        )
+        with database.session() as session:
+            candidate = ReferenceAssetRepository(session).require_version(
+                "document-b",
+                1,
+            )
+            assert candidate.processing_status is ReferenceAssetProcessingStatus.PENDING
+            assert not candidate.is_active
     finally:
         reset_logging()
 

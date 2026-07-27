@@ -88,16 +88,14 @@ class OpenAIFileUploadService:
             self._validate_upload_target(asset)
             if asset.openai_file_id is not None:
                 return b"", "", asset
-            if asset.processing_status is ReferenceAssetProcessingStatus.PROCESSING:
-                raise OpenAIFileUploadNotAllowedError(
-                    f"Reference asset '{asset_key}' version {version} is already processing."
-                )
             if asset.processing_status is ReferenceAssetProcessingStatus.READY:
                 raise OpenAIFileUploadNotAllowedError(
                     f"Reference asset '{asset_key}' version {version} is already READY "
                     "but has no OpenAI file ID."
                 )
 
+            # PROCESSING without a persisted remote ID means a previous local process may
+            # have stopped during upload. This local, single-user workflow is safe to resume.
             stored_path = self._resolve_stored_path(asset.file_path)
             try:
                 content = stored_path.read_bytes()

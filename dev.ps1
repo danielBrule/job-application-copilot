@@ -115,6 +115,8 @@ function Invoke-OpenAIIntegrationTests {
     $python = Resolve-VenvTool -Name "python.exe"
     $flagName = "JAC_RUN_OPENAI_INTEGRATION"
     $existingFlag = Get-Item -LiteralPath "Env:$flagName" -ErrorAction SilentlyContinue
+    $testRunId = [Guid]::NewGuid().ToString("N")
+    $baseTemp = ".pytest-tmp/openai-$testRunId"
 
     Write-Output (
         "This target contacts OpenAI, uploads temporary DOCX files, creates and searches a " +
@@ -126,7 +128,9 @@ function Invoke-OpenAIIntegrationTests {
             "-m",
             "pytest",
             "-m",
-            "openai_integration"
+            "openai_integration",
+            "--basetemp",
+            $baseTemp
         )
     }
     finally {

@@ -119,6 +119,16 @@ ID, polls the attached file with a bounded wait, and runs one direct validation 
 the prior version and activating the candidate occur in one database transaction, so failure
 restores the prior active version. Failed and inactive stores retain their IDs and processed
 usage bytes for the explicit cleanup workflow; indexing itself has no reported model-token usage.
+The Settings page stores a new Document B version and runs this lifecycle synchronously through
+one explicit upload-or-replace-and-activate action. A separate processing action remains for
+pending, failed or interrupted candidates. One workflow-owned OpenAI client is closed after
+success or failure, and an existing file or vector-store ID makes retries resume without
+recreating that resource. A locally `PROCESSING` version without the next remote ID is also
+retryable after an application restart.
+One process-local guard rejects a second attempt while the current application process is still
+working, without preventing recovery after that process restarts.
+Because a process can stop between a successful remote create and local ID persistence, cleanup
+must also discover application-named OpenAI resources that are not represented locally.
 
 ## 7. OpenAI calls
 

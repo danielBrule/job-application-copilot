@@ -144,8 +144,13 @@ Canonical Document A and Document B candidates can be uploaded through the OpenA
 service using the Files API `user_data` purpose. Before upload, the service checks that the
 retained file still matches its stored SHA-256 hash. A successful Document A upload stores the
 OpenAI file ID and atomically activates that version. A successful Document B upload stores the
-file ID but leaves the candidate pending for its later vector-store lifecycle. Failed attempts
-retain the current active version, record a sanitised processing error and may be retried.
+file ID before continuing into its vector-store lifecycle. The Document B upload form exposes
+this as **Upload and activate with OpenAI**, or **Replace and activate with OpenAI** when a
+version already exists. Failed attempts retain the current active version, record a sanitised
+processing error and expose **Process and activate** for recovery without uploading an already
+stored OpenAI file again. If the local application stops while a version is `PROCESSING`, the
+same recovery action resumes from each persisted OpenAI ID; a version interrupted before an ID
+was saved restarts that remote step.
 
 For Document B, the vector-store lifecycle creates one store for the uploaded file, waits up to
 `JAC_OPENAI_VECTOR_STORE_TIMEOUT_SECONDS` for indexing, and runs a direct validation search.
@@ -153,7 +158,9 @@ The candidate becomes active only when indexing is complete and its content is r
 Deactivation of the prior version and activation of the candidate are one database transaction;
 failure leaves the prior version active. Inactive and failed stores retain their identifiers and
 processed usage bytes for later explicit cleanup. Vector-store indexing does not report model
-tokens.
+tokens. A hard process stop in the short interval after OpenAI creates a resource but before its
+ID is stored locally can leave an untracked remote resource; the cleanup workflow owns removal
+of such resources.
 
 ## Private logs
 
@@ -209,8 +216,8 @@ sortable, selectable and filterable Jobs dashboard. Prompt definitions, editing,
 and version activation are available on Settings alongside a complete local asset readiness
 overview and validated DOCX replacement controls. OpenAI reference processing and background-run
 controls are delivered incrementally: file upload, identifier persistence and Document B
-vector-store processing are available, while background-run controls are delivered by later
-tickets.
+vector-store processing and activation are available from Settings, while background-run
+controls are delivered by later tickets.
 
 ## Development
 
