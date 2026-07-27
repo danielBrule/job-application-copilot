@@ -7,9 +7,9 @@ from job_application_copilot.domain import (
     ReferenceAssetVersionSummary,
     RequiredReferenceAsset,
 )
+from job_application_copilot.errors import ApplicationStorageError, ApplicationValidationError
 from job_application_copilot.observability import get_logger
 from job_application_copilot.services import (
-    ReferenceAssetStorageError,
     ReferenceAssetStorageService,
     ReferenceExampleNotFoundError,
 )
@@ -131,7 +131,7 @@ def _replace_french_example(
             content=upload.getvalue(),
             name=name,
         )
-    except (ReferenceAssetStorageError, ValueError) as error:
+    except (ApplicationStorageError, ApplicationValidationError) as error:
         st.error(str(error))
     except Exception:
         logger.exception("french_reference_example_replacement_failed name=%s", name)
@@ -197,7 +197,7 @@ def _replace_uploaded_asset(
             name=requirement.label,
             language_code=requirement.language_code,
         )
-    except (ReferenceAssetStorageError, ValueError) as error:
+    except (ApplicationStorageError, ApplicationValidationError) as error:
         st.error(str(error))
     except Exception:
         logger.exception(

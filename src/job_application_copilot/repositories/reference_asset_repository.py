@@ -7,10 +7,11 @@ from job_application_copilot.domain import (
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
 )
+from job_application_copilot.errors import ApplicationNotFoundError
 from job_application_copilot.repositories.models import ReferenceAsset
 
 
-class ReferenceAssetVersionNotFoundError(LookupError):
+class ReferenceAssetVersionNotFoundError(ApplicationNotFoundError):
     """Raised when a required immutable asset version does not exist."""
 
     def __init__(self, asset_key: str, version: int) -> None:

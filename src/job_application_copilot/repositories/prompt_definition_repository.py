@@ -3,10 +3,11 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from job_application_copilot.errors import ApplicationNotFoundError
 from job_application_copilot.repositories.models import PromptDefinition
 
 
-class PromptDefinitionNotFoundError(LookupError):
+class PromptDefinitionNotFoundError(ApplicationNotFoundError):
     """Raised when a required prompt definition does not exist."""
 
     def __init__(self, asset_key: str) -> None:

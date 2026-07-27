@@ -12,6 +12,11 @@ from job_application_copilot.domain import (
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
 )
+from job_application_copilot.errors import (
+    ApplicationIntegrityError,
+    ApplicationValidationError,
+    ExternalServiceError,
+)
 from job_application_copilot.llm import (
     OpenAIClientError,
     OpenAIFileOperations,
@@ -28,15 +33,15 @@ logger = get_logger(__name__)
 AUTHORISED_OPENAI_DOCUMENT_KEYS = frozenset({DOCUMENT_A_KEY, DOCUMENT_B_KEY})
 
 
-class OpenAIFileUploadError(RuntimeError):
+class OpenAIFileUploadError(ExternalServiceError):
     """Raised when an authorised asset cannot complete its OpenAI upload."""
 
 
-class OpenAIFileUploadNotAllowedError(ValueError):
+class OpenAIFileUploadNotAllowedError(ApplicationValidationError):
     """Raised when an asset is not eligible for OpenAI file upload."""
 
 
-class ReferenceAssetIntegrityError(RuntimeError):
+class ReferenceAssetIntegrityError(ApplicationIntegrityError):
     """Raised when retained local content no longer matches its stored metadata."""
 
 

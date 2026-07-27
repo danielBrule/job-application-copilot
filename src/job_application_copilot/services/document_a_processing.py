@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import DOCUMENT_A_KEY, ReferenceAssetType
+from job_application_copilot.errors import ExternalServiceError
 from job_application_copilot.llm import OpenAIClient
 from job_application_copilot.repositories import Database
 from job_application_copilot.repositories.models import ReferenceAsset
@@ -26,7 +27,7 @@ from job_application_copilot.services.remote_reference_operation import (
 )
 
 
-class DocumentAProcessingError(RuntimeError):
+class DocumentAProcessingError(ExternalServiceError):
     """Safe failure from the complete user-triggered Document A workflow."""
 
 

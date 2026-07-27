@@ -11,6 +11,7 @@ from job_application_copilot.domain import (
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
 )
+from job_application_copilot.errors import ApplicationValidationError, ExternalServiceError
 from job_application_copilot.llm import (
     OpenAIClient,
     OpenAIClientError,
@@ -41,19 +42,19 @@ from job_application_copilot.services.remote_reference_operation import (
 REMOTE_DOCUMENT_KEYS = frozenset({DOCUMENT_A_KEY, DOCUMENT_B_KEY})
 
 
-class ReferenceAssetRemoteCleanupError(RuntimeError):
+class ReferenceAssetRemoteCleanupError(ExternalServiceError):
     """Safe failure from explicit inactive-resource cleanup."""
 
 
-class ReferenceAssetRemoteCleanupNotAllowedError(ValueError):
+class ReferenceAssetRemoteCleanupNotAllowedError(ApplicationValidationError):
     """Raised when a reference version is not safe to clean."""
 
 
-class ReferenceAssetRemoteRestoreError(RuntimeError):
+class ReferenceAssetRemoteRestoreError(ExternalServiceError):
     """Safe failure from restoring one retained local reference version."""
 
 
-class ReferenceAssetRemoteRestoreNotAllowedError(ValueError):
+class ReferenceAssetRemoteRestoreNotAllowedError(ApplicationValidationError):
     """Raised when a retained version is not eligible for restoration."""
 
 

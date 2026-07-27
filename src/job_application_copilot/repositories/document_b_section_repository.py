@@ -3,10 +3,11 @@
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from job_application_copilot.errors import ApplicationNotFoundError
 from job_application_copilot.repositories.models import DocumentBSection
 
 
-class DocumentBSectionNotFoundError(LookupError):
+class DocumentBSectionNotFoundError(ApplicationNotFoundError):
     """Raised when a requested section ID is absent from a Document B version."""
 
     def __init__(self, version: int, section_id: str) -> None:

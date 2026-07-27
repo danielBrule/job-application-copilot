@@ -7,6 +7,7 @@ from job_application_copilot.domain import (
     DOCUMENT_B_KEY,
     ReferenceAssetType,
 )
+from job_application_copilot.errors import ExternalServiceError
 from job_application_copilot.llm import OpenAIClient
 from job_application_copilot.repositories import Database
 from job_application_copilot.repositories.models import ReferenceAsset
@@ -34,7 +35,7 @@ from job_application_copilot.services.remote_reference_operation import (
 )
 
 
-class DocumentBProcessingError(RuntimeError):
+class DocumentBProcessingError(ExternalServiceError):
     """Safe failure from the complete user-triggered Document B workflow."""
 
 

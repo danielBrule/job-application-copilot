@@ -14,6 +14,11 @@ from job_application_copilot.domain import (
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
 )
+from job_application_copilot.errors import (
+    ApplicationNotFoundError,
+    ApplicationStorageError,
+    ApplicationValidationError,
+)
 from job_application_copilot.repositories import Database
 from job_application_copilot.repositories.models import ReferenceAsset
 from job_application_copilot.repositories.reference_asset_repository import (
@@ -32,7 +37,7 @@ from job_application_copilot.services.immutable_file_storage import (
 ASSET_KEY_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
-class DuplicateReferenceAssetError(ValueError):
+class DuplicateReferenceAssetError(ApplicationValidationError):
     """Raised when identical content already exists for a logical asset."""
 
     def __init__(
@@ -61,16 +66,20 @@ class DuplicateReferenceAssetError(ValueError):
         super().__init__(message)
 
 
-class ReferenceAssetStorageError(RuntimeError):
+class ReferenceAssetStorageError(ApplicationStorageError):
     """Raised when validated content cannot be stored safely."""
 
 
-class UnsupportedReferenceAssetError(ValueError):
+class UnsupportedReferenceAssetError(ApplicationValidationError):
     """Raised when an asset category is not handled by DOCX storage."""
 
 
-class ReferenceExampleNotFoundError(LookupError):
+class ReferenceExampleNotFoundError(ApplicationNotFoundError):
     """Raised when a French reference example cannot be removed or restored."""
+
+
+class ReferenceAssetValidationError(ApplicationValidationError):
+    """Raised when reference-asset input does not satisfy local boundary rules."""
 
 
 class ReferenceAssetStorageService:
@@ -155,7 +164,7 @@ class ReferenceAssetStorageService:
                 == self._normalize_example_name(normalized_name)
             }
             if len(matching_keys) > 1:
-                raise ValueError(
+                raise ReferenceAssetValidationError(
                     f"More than one French example already uses the name "
                     f"'{normalized_name}'. Remove the duplicate names first."
                 )
@@ -168,7 +177,7 @@ class ReferenceAssetStorageService:
                 != self._normalize_example_name(normalized_name)
             ]
             if conflicting_versions:
-                raise ValueError(
+                raise ReferenceAssetValidationError(
                     f"French example name '{normalized_name}' conflicts with an "
                     "existing internal identity. Choose a more specific name."
                 )
@@ -239,10 +248,10 @@ class ReferenceAssetStorageService:
         normalized_key = self._validate_asset_key(asset_key)
         normalized_name = name.strip()
         if not normalized_name:
-            raise ValueError("Reference asset name must not be blank.")
+            raise ReferenceAssetValidationError("Reference asset name must not be blank.")
         normalized_language = language_code.strip().lower() if language_code is not None else None
         if normalized_language == "":
-            raise ValueError("Reference asset language must not be blank.")
+            raise ReferenceAssetValidationError("Reference asset language must not be blank.")
 
         destination = self._destination_folder(asset_type, normalized_key)
         validate_docx(filename, content)
@@ -332,7 +341,7 @@ class ReferenceAssetStorageService:
     def _validate_asset_key(asset_key: str) -> str:
         normalized_key = asset_key.strip()
         if not ASSET_KEY_PATTERN.fullmatch(normalized_key):
-            raise ValueError(
+            raise ReferenceAssetValidationError(
                 "Reference asset key must be a lowercase slug containing letters, "
                 "numbers, and single hyphens."
             )
@@ -342,7 +351,7 @@ class ReferenceAssetStorageService:
     def _french_example_identity(name: str) -> tuple[str, str]:
         normalized_name = " ".join(name.split())
         if not normalized_name:
-            raise ValueError("French example name must not be blank.")
+            raise ReferenceAssetValidationError("French example name must not be blank.")
 
         ascii_name = (
             unicodedata.normalize("NFKD", normalized_name)
@@ -352,10 +361,12 @@ class ReferenceAssetStorageService:
         )
         slug = re.sub(r"[^a-z0-9]+", "-", ascii_name).strip("-")
         if not slug:
-            raise ValueError("French example name must contain at least one letter or number.")
+            raise ReferenceAssetValidationError(
+                "French example name must contain at least one letter or number."
+            )
         asset_key = f"french-example-{slug}"
         if len(asset_key) > 255:
-            raise ValueError("French example name is too long.")
+            raise ReferenceAssetValidationError("French example name is too long.")
         return normalized_name, asset_key
 
     @staticmethod

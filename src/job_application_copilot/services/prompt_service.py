@@ -12,6 +12,10 @@ from job_application_copilot.domain import (
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
 )
+from job_application_copilot.errors import (
+    ApplicationStorageError,
+    ApplicationValidationError,
+)
 from job_application_copilot.repositories import Database
 from job_application_copilot.repositories.models import PromptDefinition, ReferenceAsset
 from job_application_copilot.repositories.prompt_definition_repository import (
@@ -32,11 +36,11 @@ from job_application_copilot.services.immutable_file_storage import (
 )
 
 
-class DuplicatePromptDefinitionError(ValueError):
+class DuplicatePromptDefinitionError(ApplicationValidationError):
     """Raised when a definition key or group position is already occupied."""
 
 
-class DuplicatePromptContentError(ValueError):
+class DuplicatePromptContentError(ApplicationValidationError):
     """Raised when identical text already exists for a logical prompt."""
 
     def __init__(self, asset_key: str, existing_version: int) -> None:
@@ -47,12 +51,16 @@ class DuplicatePromptContentError(ValueError):
         )
 
 
-class PromptStorageError(RuntimeError):
+class PromptStorageError(ApplicationStorageError):
     """Raised when private prompt text cannot be stored or read safely."""
 
 
-class PromptActivationError(ValueError):
+class PromptActivationError(ApplicationValidationError):
     """Raised when a prompt version cannot become active."""
+
+
+class PromptValidationError(ApplicationValidationError):
+    """Raised when prompt text does not satisfy its local boundary rules."""
 
 
 class PromptService:
@@ -142,7 +150,7 @@ class PromptService:
         """Save nonblank UTF-8 text as a new READY and active immutable version."""
 
         if not text.strip():
-            raise ValueError("Prompt text must not be blank.")
+            raise PromptValidationError("Prompt text must not be blank.")
 
         content = text.encode("utf-8")
         file_hash = sha256_file_hash(content)

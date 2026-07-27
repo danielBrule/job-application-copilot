@@ -5,12 +5,12 @@ from typing import Protocol
 import streamlit as st
 
 from job_application_copilot.domain import DOCUMENT_A_KEY, RequiredReferenceAsset
+from job_application_copilot.errors import ApplicationStorageError, ApplicationValidationError
 from job_application_copilot.observability import get_logger
 from job_application_copilot.repositories.models import ReferenceAsset
 from job_application_copilot.services import (
     DocumentAProcessingError,
     DocumentBProcessingError,
-    ReferenceAssetStorageError,
 )
 from job_application_copilot.ui.components.reference_asset_replacement_state import (
     REPLACEMENT_ERROR_KEY,
@@ -96,7 +96,7 @@ def _replace_and_process_document(
                 filename=upload.name,
                 content=upload.getvalue(),
             )
-    except (ReferenceAssetStorageError, ValueError) as error:
+    except (ApplicationStorageError, ApplicationValidationError) as error:
         st.error(str(error))
     except (DocumentAProcessingError, DocumentBProcessingError) as error:
         st.session_state[REPLACEMENT_ERROR_KEY] = (

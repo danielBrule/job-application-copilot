@@ -4,10 +4,14 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from job_application_copilot.domain import JobFilters
+from job_application_copilot.errors import (
+    ApplicationNotFoundError,
+    ApplicationValidationError,
+)
 from job_application_copilot.repositories.models import Job
 
 
-class JobNotFoundError(LookupError):
+class JobNotFoundError(ApplicationNotFoundError):
     """Raised when a required job does not exist."""
 
     def __init__(self, job_id: int) -> None:
@@ -15,7 +19,7 @@ class JobNotFoundError(LookupError):
         super().__init__(f"Job {job_id} does not exist.")
 
 
-class DuplicateJobUrlError(ValueError):
+class DuplicateJobUrlError(ApplicationValidationError):
     """Raised when a non-null URL already belongs to another job."""
 
     def __init__(self, existing_job_id: int) -> None:

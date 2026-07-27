@@ -8,6 +8,7 @@ from job_application_copilot.domain import (
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
 )
+from job_application_copilot.errors import ApplicationValidationError, ExternalServiceError
 from job_application_copilot.llm import (
     OpenAIClientError,
     OpenAIVectorStore,
@@ -31,11 +32,11 @@ logger = get_logger(__name__)
 DOCUMENT_B_VALIDATION_QUERY = "CV generation and positioning guidance"
 
 
-class DocumentBVectorStoreError(RuntimeError):
+class DocumentBVectorStoreError(ExternalServiceError):
     """Raised when Document B vector-store processing cannot complete."""
 
 
-class DocumentBVectorStoreNotAllowedError(ValueError):
+class DocumentBVectorStoreNotAllowedError(ApplicationValidationError):
     """Raised when an asset is not eligible for Document B indexing."""
 
 

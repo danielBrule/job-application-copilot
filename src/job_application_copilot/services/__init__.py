@@ -41,6 +41,7 @@ from job_application_copilot.services.prompt_service import (
     PromptActivationError,
     PromptService,
     PromptStorageError,
+    PromptValidationError,
 )
 from job_application_copilot.services.reference_asset_overview import (
     ReferenceAssetOverviewService,
@@ -58,6 +59,7 @@ from job_application_copilot.services.reference_asset_storage import (
     DuplicateReferenceAssetError,
     ReferenceAssetStorageError,
     ReferenceAssetStorageService,
+    ReferenceAssetValidationError,
     ReferenceExampleNotFoundError,
     UnsupportedReferenceAssetError,
 )
@@ -89,6 +91,7 @@ __all__ = [
     "PromptActivationError",
     "PromptService",
     "PromptStorageError",
+    "PromptValidationError",
     "ReferenceAssetStorageError",
     "ReferenceAssetOverviewService",
     "InactiveRemoteAsset",
@@ -101,5 +104,6 @@ __all__ = [
     "ReferenceAssetIntegrityError",
     "ReferenceExampleNotFoundError",
     "ReferenceAssetStorageService",
+    "ReferenceAssetValidationError",
     "UnsupportedReferenceAssetError",
 ]

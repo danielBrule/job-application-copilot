@@ -10,6 +10,11 @@ from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 from job_application_copilot.domain import CreatePromptDefinition, PromptCompleteness
+from job_application_copilot.errors import (
+    ApplicationNotFoundError,
+    ApplicationStorageError,
+    ApplicationValidationError,
+)
 from job_application_copilot.observability import get_logger
 from job_application_copilot.repositories import (
     PromptDefinitionNotFoundError,
@@ -17,7 +22,6 @@ from job_application_copilot.repositories import (
 )
 from job_application_copilot.repositories.models import PromptDefinition
 from job_application_copilot.services import (
-    DuplicatePromptContentError,
     DuplicatePromptDefinitionError,
     PromptActivationError,
     PromptService,
@@ -232,10 +236,9 @@ def _save_prompt_text(
     try:
         asset = service.save_text(definition.asset_key, text)
     except (
-        DuplicatePromptContentError,
-        PromptDefinitionNotFoundError,
-        PromptStorageError,
-        ValueError,
+        ApplicationNotFoundError,
+        ApplicationStorageError,
+        ApplicationValidationError,
     ) as error:
         st.error(str(error))
     except (SQLAlchemyError, OSError):
