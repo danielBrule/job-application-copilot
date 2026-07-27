@@ -1,7 +1,10 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [string]$Target = "help"
+    [string]$Target = "help",
+
+    [Parameter()]
+    [switch]$Force
 )
 
 Set-StrictMode -Version Latest
@@ -21,6 +24,7 @@ Usage:
   .\dev.ps1 directories Create and validate private local directories
   .\dev.ps1 database   Migrate and validate the local SQLite database
   .\dev.ps1 database-sql Preview pending database migrations as SQL
+  .\dev.ps1 reset-reference-assets -Force Reset all development Settings assets
   .\dev.ps1 test       Run the Pytest suite
   .\dev.ps1 test-openai Run opt-in tests against real OpenAI files and vector stores
   .\dev.ps1 lint       Run Ruff lint and formatting checks
@@ -162,6 +166,22 @@ function Show-DatabaseMigrationSql {
     )
 }
 
+function Reset-ReferenceAssets {
+    if (-not $Force) {
+        throw (
+            "Reference-asset reset requires -Force. Run: " +
+            ".\dev.ps1 reset-reference-assets -Force"
+        )
+    }
+
+    $python = Resolve-VenvTool -Name "python.exe"
+    Invoke-ProjectTool -Executable $python -Arguments @(
+        "-m",
+        "job_application_copilot.services.reference_asset_reset",
+        "--force"
+    )
+}
+
 function Invoke-Lint {
     $ruff = Resolve-VenvTool -Name "ruff.exe"
     Invoke-ProjectTool -Executable $ruff -Arguments @("check", ".")
@@ -189,6 +209,9 @@ switch ($Target.ToLowerInvariant()) {
     }
     "database-sql" {
         Show-DatabaseMigrationSql
+    }
+    "reset-reference-assets" {
+        Reset-ReferenceAssets
     }
     "test" {
         Invoke-Tests

@@ -73,6 +73,7 @@ def test_explicit_help_displays_supported_targets() -> None:
         "directories",
         "database",
         "database-sql",
+        "reset-reference-assets",
         "test",
         "test-openai",
         "lint",
@@ -206,6 +207,38 @@ def test_database_sql_target_is_offline(
     assert "CREATE TABLE alembic_version" in result.stdout
     assert "0001_database_foundation" in result.stdout
     assert not data_dir.exists()
+
+
+def test_reset_reference_assets_requires_force() -> None:
+    result = run_dev_script("reset-reference-assets")
+
+    assert result.returncode != 0
+    assert "reset-reference-assets -Force" in combined_output(result)
+
+
+def test_reset_reference_assets_target_is_idempotent(
+    workspace_tmp_path: Path,
+) -> None:
+    data_dir = workspace_tmp_path / "private-data"
+    environment = os.environ.copy()
+    environment["JAC_DATA_DIR"] = str(data_dir)
+    environment.pop("OPENAI_API_KEY", None)
+
+    first_result = run_dev_script(
+        "reset-reference-assets",
+        "-Force",
+        environment=environment,
+    )
+    second_result = run_dev_script(
+        "reset-reference-assets",
+        "-Force",
+        environment=environment,
+    )
+
+    assert first_result.returncode == 0, combined_output(first_result)
+    assert second_result.returncode == 0, combined_output(second_result)
+    assert "Reference assets deleted: 0" in first_result.stdout
+    assert "Prompt definitions and jobs were preserved." in second_result.stdout
 
 
 def test_dot_sourced_activation_sets_virtual_environment(

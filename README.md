@@ -261,6 +261,16 @@ the database:
 .\dev.ps1 database-sql
 ```
 
+Reset every stored reference-asset version during development:
+
+```powershell
+.\dev.ps1 reset-reference-assets -Force
+```
+
+This removes tracked local reference files and their `reference_assets` rows. When stored
+metadata identifies OpenAI files or vector stores, those remote resources are deleted first.
+Prompt definitions, jobs and unrelated private data are preserved.
+
 Run the automated checks:
 
 ```powershell
