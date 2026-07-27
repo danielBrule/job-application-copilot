@@ -333,7 +333,9 @@ def test_settings_page_uploads_and_activates_document_a(
     def activate(
         service: DocumentAProcessingService,
         version: int,
+        operation: object,
     ) -> ReferenceAsset:
+        del operation
         with service.database.session() as session:
             repository = ReferenceAssetRepository(session)
             previous = repository.get_active("document-a")
@@ -388,8 +390,9 @@ def test_settings_page_reports_document_a_upload_failure(
     def fail_upload(
         service: DocumentAProcessingService,
         version: int,
+        operation: object,
     ) -> ReferenceAsset:
-        del service, version
+        del service, version, operation
         raise DocumentAProcessingError("OpenAI could not be reached after the configured retries.")
 
     monkeypatch.setattr(DocumentAProcessingService, "_upload", fail_upload)
@@ -429,7 +432,9 @@ def test_settings_page_uploads_processes_and_activates_document_b(
     def activate(
         service: DocumentBProcessingService,
         version: int,
+        operation: object,
     ) -> ReferenceAsset:
+        del operation
         with service.database.session() as session:
             candidate = ReferenceAssetRepository(session).require_version(
                 "document-b",

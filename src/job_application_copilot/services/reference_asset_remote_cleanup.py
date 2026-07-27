@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 
 from job_application_copilot.config import AppSettings
@@ -15,7 +14,6 @@ from job_application_copilot.domain import (
 from job_application_copilot.llm import (
     OpenAIClient,
     OpenAIClientError,
-    OpenAIConfigurationError,
 )
 from job_application_copilot.repositories import Database
 from job_application_copilot.repositories.models import ReferenceAsset
@@ -35,12 +33,12 @@ from job_application_copilot.services.openai_file_upload import (
     ReferenceAssetIntegrityError,
 )
 from job_application_copilot.services.remote_reference_operation import (
-    release_remote_reference_operation,
-    try_acquire_remote_reference_operation,
+    OpenAIClientFactory,
+    RemoteReferenceOperation,
+    remote_reference_operation,
 )
 
 REMOTE_DOCUMENT_KEYS = frozenset({DOCUMENT_A_KEY, DOCUMENT_B_KEY})
-RemoteClientFactory = Callable[[AppSettings], OpenAIClient]
 
 
 class ReferenceAssetRemoteCleanupError(RuntimeError):
@@ -91,7 +89,7 @@ class ReferenceAssetRemoteCleanupService:
         database: Database,
         settings: AppSettings,
         *,
-        client_factory: RemoteClientFactory = OpenAIClient.from_settings,
+        client_factory: OpenAIClientFactory = OpenAIClient.from_settings,
     ) -> None:
         self.database = database
         self.settings = settings
@@ -118,26 +116,21 @@ class ReferenceAssetRemoteCleanupService:
     def cleanup(self, asset_key: str, version: int) -> ReferenceAssetRemoteCleanupResult:
         """Delete one inactive version's tracked store and file, preserving local state."""
 
-        if not try_acquire_remote_reference_operation():
-            raise ReferenceAssetRemoteCleanupError(
-                "Another OpenAI reference-asset operation is already running. "
-                "Wait for it to finish."
-            )
-        try:
-            return self._cleanup_exclusively(asset_key, version)
-        finally:
-            release_remote_reference_operation()
+        with remote_reference_operation(
+            self.settings,
+            self.client_factory,
+            ReferenceAssetRemoteCleanupError,
+        ) as operation:
+            return self._cleanup_exclusively(asset_key, version, operation)
 
     def _cleanup_exclusively(
         self,
         asset_key: str,
         version: int,
+        operation: RemoteReferenceOperation,
     ) -> ReferenceAssetRemoteCleanupResult:
         candidate = self._prepare(asset_key, version)
-        try:
-            cleaner = self.client_factory(self.settings)
-        except OpenAIConfigurationError as error:
-            raise ReferenceAssetRemoteCleanupError(str(error)) from error
+        cleaner = operation.client
 
         store_deleted = False
         file_deleted = False
@@ -161,8 +154,6 @@ class ReferenceAssetRemoteCleanupService:
                 file_deleted = True
         except OpenAIClientError as error:
             raise ReferenceAssetRemoteCleanupError(str(error)) from error
-        finally:
-            cleaner.close()
 
         return ReferenceAssetRemoteCleanupResult(
             asset_key=asset_key,
@@ -174,22 +165,21 @@ class ReferenceAssetRemoteCleanupService:
     def restore(self, asset_key: str, version: int) -> ReferenceAsset:
         """Rebuild remote resources and atomically activate one retained local version."""
 
-        if not try_acquire_remote_reference_operation():
-            raise ReferenceAssetRemoteRestoreError(
-                "Another OpenAI reference-asset operation is already running. "
-                "Wait for it to finish."
-            )
-        try:
-            return self._restore_exclusively(asset_key, version)
-        finally:
-            release_remote_reference_operation()
+        with remote_reference_operation(
+            self.settings,
+            self.client_factory,
+            ReferenceAssetRemoteRestoreError,
+        ) as operation:
+            return self._restore_exclusively(asset_key, version, operation)
 
-    def _restore_exclusively(self, asset_key: str, version: int) -> ReferenceAsset:
+    def _restore_exclusively(
+        self,
+        asset_key: str,
+        version: int,
+        operation: RemoteReferenceOperation,
+    ) -> ReferenceAsset:
         self._prepare_restoration(asset_key, version)
-        try:
-            client = self.client_factory(self.settings)
-        except OpenAIConfigurationError as error:
-            raise ReferenceAssetRemoteRestoreError(str(error)) from error
+        client = operation.client
 
         try:
             uploaded = OpenAIFileUploadService(
@@ -213,8 +203,6 @@ class ReferenceAssetRemoteCleanupService:
             ReferenceAssetVersionNotFoundError,
         ) as error:
             raise ReferenceAssetRemoteRestoreError(str(error)) from error
-        finally:
-            client.close()
 
     def _prepare(self, asset_key: str, version: int) -> InactiveRemoteAsset:
         try:

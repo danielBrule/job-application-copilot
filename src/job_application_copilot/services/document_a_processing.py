@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import DOCUMENT_A_KEY, ReferenceAssetType
-from job_application_copilot.llm import OpenAIClient, OpenAIConfigurationError
+from job_application_copilot.llm import OpenAIClient
 from job_application_copilot.repositories import Database
 from job_application_copilot.repositories.models import ReferenceAsset
 from job_application_copilot.repositories.reference_asset_repository import (
@@ -22,11 +20,10 @@ from job_application_copilot.services.reference_asset_storage import (
     ReferenceAssetStorageService,
 )
 from job_application_copilot.services.remote_reference_operation import (
-    release_remote_reference_operation,
-    try_acquire_remote_reference_operation,
+    OpenAIClientFactory,
+    RemoteReferenceOperation,
+    remote_reference_operation,
 )
-
-OpenAIClientFactory = Callable[[AppSettings], OpenAIClient]
 
 
 class DocumentAProcessingError(RuntimeError):
@@ -50,12 +47,11 @@ class DocumentAProcessingService:
     def replace_and_process(self, *, filename: str, content: bytes) -> ReferenceAsset:
         """Store a new Document A version, then upload and activate it."""
 
-        if not try_acquire_remote_reference_operation():
-            raise DocumentAProcessingError(
-                "Another OpenAI reference-asset operation is already running. "
-                "Wait for it to finish."
-            )
-        try:
+        with remote_reference_operation(
+            self.settings,
+            self.client_factory,
+            DocumentAProcessingError,
+        ) as operation:
             candidate = ReferenceAssetStorageService(
                 self.database,
                 self.settings,
@@ -66,21 +62,14 @@ class DocumentAProcessingService:
                 asset_type=ReferenceAssetType.DOCUMENT,
                 name="Document A",
             )
-            return self._upload(candidate.version)
-        finally:
-            release_remote_reference_operation()
+            return self._upload(candidate.version, operation)
 
-    def _upload(self, version: int) -> ReferenceAsset:
-        try:
-            client = self.client_factory(self.settings)
-        except OpenAIConfigurationError as error:
-            raise DocumentAProcessingError(str(error)) from error
-
+    def _upload(self, version: int, operation: RemoteReferenceOperation) -> ReferenceAsset:
         try:
             return OpenAIFileUploadService(
                 self.database,
                 self.settings,
-                client,
+                operation.client,
             ).upload(DOCUMENT_A_KEY, version)
         except (
             OpenAIFileUploadError,
@@ -89,5 +78,3 @@ class DocumentAProcessingService:
             ReferenceAssetVersionNotFoundError,
         ) as error:
             raise DocumentAProcessingError(str(error)) from error
-        finally:
-            client.close()

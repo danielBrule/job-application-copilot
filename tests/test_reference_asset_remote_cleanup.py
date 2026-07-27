@@ -37,8 +37,7 @@ from job_application_copilot.services import (
 )
 from job_application_copilot.services.database_bootstrap import initialize_database
 from job_application_copilot.services.remote_reference_operation import (
-    release_remote_reference_operation,
-    try_acquire_remote_reference_operation,
+    remote_reference_operation,
 )
 
 
@@ -384,8 +383,12 @@ def test_configuration_failure_releases_operation_guard(
     with pytest.raises(ReferenceAssetRemoteCleanupError, match="OPENAI_API_KEY"):
         service.cleanup("document-a", 1)
 
-    assert try_acquire_remote_reference_operation()
-    release_remote_reference_operation()
+    with remote_reference_operation(
+        settings,
+        lambda _: cast(OpenAIClient, Mock()),
+        RuntimeError,
+    ):
+        pass
 
 
 def test_lists_retained_document_versions_without_remote_resources(

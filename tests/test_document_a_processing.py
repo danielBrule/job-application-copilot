@@ -28,8 +28,7 @@ from job_application_copilot.services import (
 )
 from job_application_copilot.services.database_bootstrap import initialize_database
 from job_application_copilot.services.remote_reference_operation import (
-    release_remote_reference_operation,
-    try_acquire_remote_reference_operation,
+    remote_reference_operation,
 )
 
 
@@ -184,14 +183,15 @@ def test_rejects_a_second_remote_operation(
     processing_context: tuple[DocumentAProcessingService, Database, Mock],
 ) -> None:
     service, _, client = processing_context
-    assert try_acquire_remote_reference_operation()
-    try:
+    with remote_reference_operation(
+        service.settings,
+        lambda _: cast(OpenAIClient, Mock()),
+        RuntimeError,
+    ):
         with pytest.raises(DocumentAProcessingError, match="already running"):
             service.replace_and_process(
                 filename="document-a.docx",
                 content=make_docx("Document A"),
             )
-    finally:
-        release_remote_reference_operation()
 
     client.upload_docx.assert_not_called()

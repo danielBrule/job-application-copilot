@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import (
     DOCUMENT_B_KEY,
     ReferenceAssetType,
 )
-from job_application_copilot.llm import (
-    OpenAIClient,
-    OpenAIConfigurationError,
-)
+from job_application_copilot.llm import OpenAIClient
 from job_application_copilot.repositories import Database
 from job_application_copilot.repositories.models import ReferenceAsset
 from job_application_copilot.repositories.reference_asset_repository import (
@@ -33,11 +28,10 @@ from job_application_copilot.services.reference_asset_storage import (
     ReferenceAssetStorageService,
 )
 from job_application_copilot.services.remote_reference_operation import (
-    release_remote_reference_operation,
-    try_acquire_remote_reference_operation,
+    OpenAIClientFactory,
+    RemoteReferenceOperation,
+    remote_reference_operation,
 )
-
-OpenAIClientFactory = Callable[[AppSettings], OpenAIClient]
 
 
 class DocumentBProcessingError(RuntimeError):
@@ -61,17 +55,21 @@ class DocumentBProcessingService:
     def process(self, version: int) -> ReferenceAsset:
         """Upload, index, validate, and activate one Document B candidate."""
 
-        self._acquire_processing_lock()
-        try:
-            return self._process(version)
-        finally:
-            release_remote_reference_operation()
+        with remote_reference_operation(
+            self.settings,
+            self.client_factory,
+            DocumentBProcessingError,
+        ) as operation:
+            return self._process(version, operation)
 
     def replace_and_process(self, *, filename: str, content: bytes) -> ReferenceAsset:
         """Store a new Document B version, then process and activate it."""
 
-        self._acquire_processing_lock()
-        try:
+        with remote_reference_operation(
+            self.settings,
+            self.client_factory,
+            DocumentBProcessingError,
+        ) as operation:
             candidate = ReferenceAssetStorageService(
                 self.database,
                 self.settings,
@@ -82,24 +80,10 @@ class DocumentBProcessingService:
                 asset_type=ReferenceAssetType.DOCUMENT,
                 name="Document B",
             )
-            return self._process(candidate.version)
-        finally:
-            release_remote_reference_operation()
+            return self._process(candidate.version, operation)
 
-    @staticmethod
-    def _acquire_processing_lock() -> None:
-        if not try_acquire_remote_reference_operation():
-            raise DocumentBProcessingError(
-                "Another OpenAI reference-asset operation is already running. "
-                "Wait for it to finish."
-            )
-
-    def _process(self, version: int) -> ReferenceAsset:
-        try:
-            client = self.client_factory(self.settings)
-        except OpenAIConfigurationError as error:
-            raise DocumentBProcessingError(str(error)) from error
-
+    def _process(self, version: int, operation: RemoteReferenceOperation) -> ReferenceAsset:
+        client = operation.client
         try:
             OpenAIFileUploadService(
                 self.database,
@@ -120,5 +104,3 @@ class DocumentBProcessingService:
             ReferenceAssetVersionNotFoundError,
         ) as error:
             raise DocumentBProcessingError(str(error)) from error
-        finally:
-            client.close()
