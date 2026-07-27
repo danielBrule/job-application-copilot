@@ -253,6 +253,37 @@ def test_deletes_vector_store() -> None:
     sdk_client.vector_stores.delete.assert_called_once_with("vs_123")
 
 
+@pytest.mark.parametrize(
+    ("operation", "resource_id"),
+    [
+        ("file", "file_missing"),
+        ("vector_store", "vs_missing"),
+    ],
+)
+def test_remote_deletion_treats_missing_resource_as_already_deleted(
+    operation: str,
+    resource_id: str,
+) -> None:
+    client, sdk_client = make_client()
+    request = httpx.Request("DELETE", f"https://api.openai.com/v1/{operation}/{resource_id}")
+    response = httpx.Response(
+        404,
+        request=request,
+        headers={"x-request-id": "req_missing"},
+    )
+    error = APIStatusError(
+        "resource missing",
+        response=response,
+        body={"error": "resource missing"},
+    )
+    if operation == "file":
+        sdk_client.files.delete.side_effect = error
+        client.delete_file(resource_id)
+    else:
+        sdk_client.vector_stores.delete.side_effect = error
+        client.delete_vector_store(resource_id)
+
+
 @pytest.mark.parametrize("api_key", [None, "", "  "])
 def test_requires_configured_api_key(api_key: str | None) -> None:
     with pytest.raises(OpenAIConfigurationError, match="OPENAI_API_KEY"):

@@ -11,6 +11,7 @@ from job_application_copilot.services import (
     JobService,
     PromptService,
     ReferenceAssetOverviewService,
+    ReferenceAssetRemoteCleanupService,
     ReferenceAssetStorageService,
 )
 
@@ -59,6 +60,17 @@ def get_reference_asset_overview_service(
         database,
         PromptService(database, settings),
         settings.minimum_french_reference_examples,
+    )
+
+
+def get_reference_asset_remote_cleanup_service(
+    settings: AppSettings,
+) -> ReferenceAssetRemoteCleanupService:
+    """Build explicit inactive OpenAI cleanup over shared local persistence."""
+
+    return ReferenceAssetRemoteCleanupService(
+        get_database(settings.database_path),
+        settings,
     )
 
 

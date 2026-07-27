@@ -141,6 +141,10 @@ class OpenAIClient:
 
         try:
             self._sdk_client.files.delete(file_id)
+        except APIStatusError as error:
+            if error.status_code == 404:
+                return
+            raise _translate_openai_error(error, operation="delete") from error
         except APIError as error:
             raise _translate_openai_error(error, operation="delete") from error
 
@@ -279,6 +283,10 @@ class OpenAIClient:
 
         try:
             self._sdk_client.vector_stores.delete(vector_store_id)
+        except APIStatusError as error:
+            if error.status_code == 404:
+                return
+            raise _translate_openai_error(error, operation="vector_store_delete") from error
         except APIError as error:
             raise _translate_openai_error(error, operation="vector_store_delete") from error
 

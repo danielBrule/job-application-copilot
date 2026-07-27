@@ -126,9 +126,20 @@ success or failure, and an existing file or vector-store ID makes retries resume
 recreating that resource. A locally `PROCESSING` version without the next remote ID is also
 retryable after an application restart.
 One process-local guard rejects a second attempt while the current application process is still
-working, without preventing recovery after that process restarts.
-Because a process can stop between a successful remote create and local ID persistence, cleanup
-must also discover application-named OpenAI resources that are not represented locally.
+working and also prevents cleanup from racing with activation, without blocking recovery after
+that process restarts.
+
+Explicit cleanup lists tracked remote identifiers on inactive, non-processing reference
+versions. It deletes a vector store before its underlying OpenAI file and persists each cleared
+association separately, while retaining the local DOCX and historical metadata. Document A
+therefore cleans only its uploaded file; Document B cleans its vector store and uploaded file.
+An explicit restore action can rebuild those resources for an inactive retained Document A or
+Document B version. It reuses the existing local version, verifies its recorded hash, and follows
+the normal upload and Document B indexing paths. Activation remains atomic, so the current active
+version is not displaced by a failed restoration.
+Because a process can stop between a successful remote create and local ID persistence,
+untracked-resource discovery remains a separate concern: resource names alone are not a safe
+ownership boundary when multiple local checkouts share an OpenAI project.
 
 ## 7. OpenAI calls
 

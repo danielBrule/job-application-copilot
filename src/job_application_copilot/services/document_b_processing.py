@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from threading import Lock
 
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import (
@@ -33,9 +32,12 @@ from job_application_copilot.services.openai_file_upload import (
 from job_application_copilot.services.reference_asset_storage import (
     ReferenceAssetStorageService,
 )
+from job_application_copilot.services.remote_reference_operation import (
+    release_remote_reference_operation,
+    try_acquire_remote_reference_operation,
+)
 
 OpenAIClientFactory = Callable[[AppSettings], OpenAIClient]
-_DOCUMENT_B_PROCESSING_LOCK = Lock()
 
 
 class DocumentBProcessingError(RuntimeError):
@@ -63,7 +65,7 @@ class DocumentBProcessingService:
         try:
             return self._process(version)
         finally:
-            _DOCUMENT_B_PROCESSING_LOCK.release()
+            release_remote_reference_operation()
 
     def replace_and_process(self, *, filename: str, content: bytes) -> ReferenceAsset:
         """Store a new Document B version, then process and activate it."""
@@ -82,13 +84,14 @@ class DocumentBProcessingService:
             )
             return self._process(candidate.version)
         finally:
-            _DOCUMENT_B_PROCESSING_LOCK.release()
+            release_remote_reference_operation()
 
     @staticmethod
     def _acquire_processing_lock() -> None:
-        if not _DOCUMENT_B_PROCESSING_LOCK.acquire(blocking=False):
+        if not try_acquire_remote_reference_operation():
             raise DocumentBProcessingError(
-                "Document B is already processing in this application. Wait for it to finish."
+                "Another OpenAI reference-asset operation is already running. "
+                "Wait for it to finish."
             )
 
     def _process(self, version: int) -> ReferenceAsset:

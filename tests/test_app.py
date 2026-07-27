@@ -26,6 +26,8 @@ from job_application_copilot.services import (
     DocumentBProcessingError,
     DocumentBProcessingService,
     JobService,
+    ReferenceAssetRemoteCleanupResult,
+    ReferenceAssetRemoteCleanupService,
 )
 from job_application_copilot.ui.app import UNEXPECTED_ERROR_MESSAGE
 from job_application_copilot.ui.components.document_b_processing import (
@@ -48,6 +50,10 @@ from job_application_copilot.ui.components.jobs_dashboard import (
 )
 from job_application_copilot.ui.components.jobs_dashboard import (
     LOAD_ERROR_MESSAGE as JOBS_LOAD_ERROR_MESSAGE,
+)
+from job_application_copilot.ui.components.reference_asset_remote_cleanup import (
+    REMOTE_CLEANUP_BUTTON_KEY,
+    REMOTE_RESTORE_BUTTON_KEY,
 )
 from job_application_copilot.ui.dependencies import get_database, get_job_service
 
@@ -164,6 +170,8 @@ def test_settings_page_displays_seeded_prompt_completeness(
         ]
         assert [subheader.value for subheader in app.subheader] == [
             "Local DOCX uploads",
+            "Inactive OpenAI resources",
+            "Retained local document versions",
             "Assessment",
             "Generation / English",
             "Generation / French",
@@ -518,6 +526,183 @@ def test_settings_page_reports_document_b_processing_failure_without_activation(
             )
             assert candidate.processing_status is ReferenceAssetProcessingStatus.PENDING
             assert not candidate.is_active
+    finally:
+        reset_logging()
+
+
+def test_settings_page_cleans_inactive_remote_resources_and_preserves_active_version(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(
+        str(APP_PATH),
+        default_timeout=SETTINGS_APP_TIMEOUT,
+    ).run()
+    database = get_database(data_dir / "database" / "job_application_copilot.db")
+    with database.session() as session:
+        session.add_all(
+            [
+                ReferenceAsset(
+                    asset_key="document-b",
+                    asset_type=ReferenceAssetType.DOCUMENT,
+                    name="Document B",
+                    version=1,
+                    file_path="document_b/document-b-v0001.docx",
+                    file_hash="hash-document-b-v1",
+                    processing_status=ReferenceAssetProcessingStatus.READY,
+                    is_active=False,
+                    openai_file_id="file_old",
+                    openai_vector_store_id="vs_old",
+                    openai_vector_store_usage_bytes=8_192,
+                ),
+                ReferenceAsset(
+                    asset_key="document-b",
+                    asset_type=ReferenceAssetType.DOCUMENT,
+                    name="Document B",
+                    version=2,
+                    file_path="document_b/document-b-v0002.docx",
+                    file_hash="hash-document-b-v2",
+                    processing_status=ReferenceAssetProcessingStatus.READY,
+                    is_active=True,
+                    openai_file_id="file_active",
+                    openai_vector_store_id="vs_active",
+                    openai_vector_store_usage_bytes=16_384,
+                ),
+            ]
+        )
+
+    def cleanup(
+        service: ReferenceAssetRemoteCleanupService,
+        asset_key: str,
+        version: int,
+    ) -> ReferenceAssetRemoteCleanupResult:
+        with service.database.session() as session:
+            candidate = ReferenceAssetRepository(session).require_version(
+                asset_key,
+                version,
+            )
+            candidate.openai_vector_store_id = None
+            candidate.openai_vector_store_usage_bytes = None
+            candidate.openai_file_id = None
+        return ReferenceAssetRemoteCleanupResult(
+            asset_key=asset_key,
+            version=version,
+            vector_store_deleted=True,
+            file_deleted=True,
+        )
+
+    monkeypatch.setattr(ReferenceAssetRemoteCleanupService, "cleanup", cleanup)
+
+    try:
+        app.switch_page("pages/settings.py").run()
+
+        assert app.button(key=REMOTE_CLEANUP_BUTTON_KEY).disabled
+        cleanup_table = app.dataframe[1].value
+        assert cleanup_table["Asset"].tolist() == ["Document B"]
+        assert cleanup_table["Vector store"].tolist() == ["vs_old"]
+        assert cleanup_table["OpenAI file"].tolist() == ["file_old"]
+
+        app.checkbox(key="confirm_remote_cleanup_document-b_1").check().run()
+        app.button(key=REMOTE_CLEANUP_BUTTON_KEY).click().run()
+
+        assert not app.exception
+        assert app.success[0].value == (
+            "Deleted vector store and OpenAI file for Document B v1. "
+            "The local DOCX and metadata were retained."
+        )
+        with database.session() as session:
+            repository = ReferenceAssetRepository(session)
+            cleaned = repository.require_version("document-b", 1)
+            active = repository.require_version("document-b", 2)
+            assert cleaned.openai_file_id is None
+            assert cleaned.openai_vector_store_id is None
+            assert not cleaned.is_active
+            assert active.openai_file_id == "file_active"
+            assert active.openai_vector_store_id == "vs_active"
+            assert active.is_active
+    finally:
+        reset_logging()
+
+
+def test_settings_page_restores_retained_version_without_creating_duplicate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(
+        str(APP_PATH),
+        default_timeout=SETTINGS_APP_TIMEOUT,
+    ).run()
+    database = get_database(data_dir / "database" / "job_application_copilot.db")
+    with database.session() as session:
+        session.add_all(
+            [
+                ReferenceAsset(
+                    asset_key="document-b",
+                    asset_type=ReferenceAssetType.DOCUMENT,
+                    name="Document B",
+                    version=1,
+                    file_path="document_b/document-b-v0001.docx",
+                    file_hash="hash-document-b-v1",
+                    processing_status=ReferenceAssetProcessingStatus.READY,
+                    is_active=False,
+                ),
+                ReferenceAsset(
+                    asset_key="document-b",
+                    asset_type=ReferenceAssetType.DOCUMENT,
+                    name="Document B",
+                    version=2,
+                    file_path="document_b/document-b-v0002.docx",
+                    file_hash="hash-document-b-v2",
+                    processing_status=ReferenceAssetProcessingStatus.READY,
+                    is_active=True,
+                    openai_file_id="file_current",
+                    openai_vector_store_id="vs_current",
+                ),
+            ]
+        )
+
+    def restore(
+        service: ReferenceAssetRemoteCleanupService,
+        asset_key: str,
+        version: int,
+    ) -> ReferenceAsset:
+        with service.database.session() as session:
+            repository = ReferenceAssetRepository(session)
+            current = repository.get_active(asset_key)
+            assert current is not None
+            current.is_active = False
+            session.flush()
+            candidate = repository.require_version(asset_key, version)
+            candidate.openai_file_id = "file_restored"
+            candidate.openai_vector_store_id = "vs_restored"
+            candidate.processing_status = ReferenceAssetProcessingStatus.READY
+            candidate.is_active = True
+            session.flush()
+            return candidate
+
+    monkeypatch.setattr(ReferenceAssetRemoteCleanupService, "restore", restore)
+
+    try:
+        app.switch_page("pages/settings.py").run()
+        app.button(key=REMOTE_RESTORE_BUTTON_KEY).click().run()
+
+        assert not app.exception
+        assert app.success[0].value == ("Restored Document B v1; it is active and READY.")
+        with database.session() as session:
+            versions = ReferenceAssetRepository(session).list_versions("document-b")
+            assert len(versions) == 2
+            restored = next(version for version in versions if version.version == 1)
+            previous = next(version for version in versions if version.version == 2)
+            assert restored.is_active
+            assert restored.openai_vector_store_id == "vs_restored"
+            assert not previous.is_active
+            assert previous.openai_vector_store_id == "vs_current"
     finally:
         reset_logging()
 
