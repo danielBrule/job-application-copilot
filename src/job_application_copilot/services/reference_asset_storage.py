@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import re
 import unicodedata
 from pathlib import Path
@@ -19,6 +18,15 @@ from job_application_copilot.repositories import Database
 from job_application_copilot.repositories.models import ReferenceAsset
 from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
+)
+from job_application_copilot.services.immutable_file_storage import (
+    ImmutableFileExistsError,
+    ImmutableFilePathError,
+    ImmutableFileWriteError,
+    relative_path_within,
+    remove_created_file,
+    sha256_file_hash,
+    write_bytes_exclusively,
 )
 
 ASSET_KEY_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -238,7 +246,7 @@ class ReferenceAssetStorageService:
 
         destination = self._destination_folder(asset_type, normalized_key)
         validate_docx(filename, content)
-        file_hash = f"sha256:{hashlib.sha256(content).hexdigest()}"
+        file_hash = sha256_file_hash(content)
         stored_path: Path | None = None
         file_created = False
 
@@ -261,7 +269,7 @@ class ReferenceAssetStorageService:
                 version = repository.next_version(normalized_key)
                 destination.mkdir(parents=True, exist_ok=True)
                 stored_path = destination / f"{normalized_key}-v{version:04d}.docx"
-                self._write_exclusively(stored_path, content)
+                self._store_reference_asset_file(stored_path, content)
                 file_created = True
 
                 if activate_after_validation:
@@ -288,8 +296,7 @@ class ReferenceAssetStorageService:
                     )
                 )
         except Exception:
-            if stored_path is not None and file_created:
-                stored_path.unlink(missing_ok=True)
+            remove_created_file(stored_path, created=file_created)
             raise
 
     def _destination_folder(
@@ -315,8 +322,8 @@ class ReferenceAssetStorageService:
 
     def _relative_file_path(self, stored_path: Path) -> str:
         try:
-            return stored_path.relative_to(self.settings.reference_folder).as_posix()
-        except ValueError as error:
+            return relative_path_within(self.settings.reference_folder, stored_path)
+        except ImmutableFilePathError as error:
             raise ReferenceAssetStorageError(
                 "Reference-asset folders must be located under the configured reference folder."
             ) from error
@@ -362,16 +369,14 @@ class ReferenceAssetStorageService:
         )
 
     @staticmethod
-    def _write_exclusively(path: Path, content: bytes) -> None:
+    def _store_reference_asset_file(path: Path, content: bytes) -> None:
         try:
-            with path.open("xb") as target:
-                target.write(content)
-        except FileExistsError as error:
+            write_bytes_exclusively(path, content)
+        except ImmutableFileExistsError as error:
             raise ReferenceAssetStorageError(
                 f"Reference asset path already exists and will not be overwritten: {path}"
             ) from error
-        except OSError as error:
-            path.unlink(missing_ok=True)
+        except ImmutableFileWriteError as error:
             raise ReferenceAssetStorageError(
-                f"Could not store the reference asset at {path}: {error}"
+                f"Could not store the reference asset at {path}: {error.__cause__}"
             ) from error

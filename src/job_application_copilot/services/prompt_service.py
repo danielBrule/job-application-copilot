@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 from collections import OrderedDict
 from pathlib import Path
 
@@ -20,6 +19,16 @@ from job_application_copilot.repositories.prompt_definition_repository import (
 )
 from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
+)
+from job_application_copilot.services.immutable_file_storage import (
+    ImmutableFileExistsError,
+    ImmutableFilePathError,
+    ImmutableFileWriteError,
+    relative_path_within,
+    remove_created_file,
+    resolve_path_within,
+    sha256_file_hash,
+    write_bytes_exclusively,
 )
 
 
@@ -136,7 +145,7 @@ class PromptService:
             raise ValueError("Prompt text must not be blank.")
 
         content = text.encode("utf-8")
-        file_hash = f"sha256:{hashlib.sha256(content).hexdigest()}"
+        file_hash = sha256_file_hash(content)
         stored_path: Path | None = None
         file_created = False
 
@@ -152,7 +161,7 @@ class PromptService:
                 destination = self._prompt_folder(definition.pipeline_group)
                 destination.mkdir(parents=True, exist_ok=True)
                 stored_path = destination / f"{asset_key}-v{version:04d}.txt"
-                self._write_exclusively(stored_path, content)
+                self._store_prompt_file(stored_path, content)
                 file_created = True
 
                 current = repository.get_active(asset_key)
@@ -174,8 +183,7 @@ class PromptService:
                     )
                 )
         except Exception:
-            if stored_path is not None and file_created:
-                stored_path.unlink(missing_ok=True)
+            remove_created_file(stored_path, created=file_created)
             raise
 
     def get_active_version(self, asset_key: str) -> ReferenceAsset | None:
@@ -236,8 +244,8 @@ class PromptService:
 
     def _relative_file_path(self, stored_path: Path) -> str:
         try:
-            return stored_path.relative_to(self.settings.reference_folder).as_posix()
-        except ValueError as error:
+            return relative_path_within(self.settings.reference_folder, stored_path)
+        except ImmutableFilePathError as error:
             raise PromptStorageError(
                 "Prompt folders must be located under the configured reference folder."
             ) from error
@@ -253,20 +261,22 @@ class PromptService:
             ) from error
 
     def _ensure_within_prompts_folder(self, path: Path) -> None:
-        root = self.settings.prompts_folder.resolve()
-        candidate = path.resolve()
-        if candidate != root and root not in candidate.parents:
-            raise PromptStorageError(f"Prompt path is outside the configured prompt folder: {path}")
+        try:
+            resolve_path_within(self.settings.prompts_folder, path)
+        except ImmutableFilePathError as error:
+            raise PromptStorageError(
+                f"Prompt path is outside the configured prompt folder: {path}"
+            ) from error
 
     @staticmethod
-    def _write_exclusively(path: Path, content: bytes) -> None:
+    def _store_prompt_file(path: Path, content: bytes) -> None:
         try:
-            with path.open("xb") as target:
-                target.write(content)
-        except FileExistsError as error:
+            write_bytes_exclusively(path, content)
+        except ImmutableFileExistsError as error:
             raise PromptStorageError(
                 f"Prompt version path already exists and will not be overwritten: {path}"
             ) from error
-        except OSError as error:
-            path.unlink(missing_ok=True)
-            raise PromptStorageError(f"Could not store prompt text at {path}: {error}") from error
+        except ImmutableFileWriteError as error:
+            raise PromptStorageError(
+                f"Could not store prompt text at {path}: {error.__cause__}"
+            ) from error
