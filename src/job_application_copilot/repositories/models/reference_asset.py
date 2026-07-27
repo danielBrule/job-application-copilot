@@ -68,6 +68,10 @@ class ReferenceAsset(Base):
             name="ck_reference_assets_vector_store_id_not_blank",
         ),
         CheckConstraint(
+            "openai_vector_store_usage_bytes IS NULL OR openai_vector_store_usage_bytes >= 0",
+            name="ck_reference_assets_vector_store_usage_bytes_non_negative",
+        ),
+        CheckConstraint(
             "is_active = 0 OR processing_status = 'READY'",
             name="ck_reference_assets_active_ready",
         ),
@@ -118,6 +122,7 @@ class ReferenceAsset(Base):
     )
     openai_file_id: Mapped[str | None] = mapped_column(String(255))
     openai_vector_store_id: Mapped[str | None] = mapped_column(String(255))
+    openai_vector_store_usage_bytes: Mapped[int | None] = mapped_column(Integer)
     processing_error: Mapped[str | None] = mapped_column(String(2048))
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime,

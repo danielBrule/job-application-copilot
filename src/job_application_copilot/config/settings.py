@@ -38,6 +38,7 @@ class AppSettings(BaseSettings):
     log_level: LogLevelName = "INFO"
     log_max_size_mb: int = Field(default=5, ge=1, le=100)
     log_backup_count: int = Field(default=5, ge=1, le=20)
+    openai_vector_store_timeout_seconds: int = Field(default=300, ge=30, le=1_800)
     default_source: str = "LinkedIn"
     default_location: Location = Location.UK
     default_language: Language = Language.EN

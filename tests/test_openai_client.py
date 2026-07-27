@@ -10,9 +10,11 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
 from job_application_copilot.config import AppSettings
 from job_application_copilot.llm import (
+    OpenAIClient,
+    OpenAIClientError,
     OpenAIConfigurationError,
-    OpenAIFileClient,
-    OpenAIFileClientError,
+    OpenAIVectorStoreFileStatus,
+    openai_client,
 )
 from job_application_copilot.llm.openai_client import (
     DOCX_MEDIA_TYPE,
@@ -20,9 +22,9 @@ from job_application_copilot.llm.openai_client import (
 )
 
 
-def make_client() -> tuple[OpenAIFileClient, Mock]:
+def make_client() -> tuple[OpenAIClient, Mock]:
     sdk_client = Mock()
-    return OpenAIFileClient(cast(OpenAI, sdk_client)), sdk_client
+    return OpenAIClient(cast(OpenAI, sdk_client)), sdk_client
 
 
 def test_uploads_exact_docx_content_as_user_data() -> None:
@@ -52,17 +54,166 @@ def test_uploads_exact_docx_content_as_user_data() -> None:
 def test_deletes_file_and_closes_sdk_client() -> None:
     client, sdk_client = make_client()
 
-    client.delete("file_123")
+    client.delete_file("file_123")
     client.close()
 
     sdk_client.files.delete.assert_called_once_with("file_123")
     sdk_client.close.assert_called_once_with()
 
 
+def test_creates_vector_store_with_existing_file() -> None:
+    client, sdk_client = make_client()
+    sdk_client.vector_stores.create.return_value = SimpleNamespace(
+        id="vs_123",
+        status="in_progress",
+        usage_bytes=0,
+        _request_id="req_create",
+    )
+
+    result = client.create_vector_store(name="document-b-v0001", file_id="file_b")
+
+    sdk_client.vector_stores.create.assert_called_once_with(
+        name="document-b-v0001",
+        file_ids=["file_b"],
+    )
+    assert result.vector_store_id == "vs_123"
+    assert result.status == "in_progress"
+    assert result.usage_bytes == 0
+    assert result.request_id == "req_create"
+
+
+def test_polls_vector_store_file_until_completed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, sdk_client = make_client()
+    sdk_client.vector_stores.files.retrieve.side_effect = [
+        SimpleNamespace(
+            id="file_b",
+            vector_store_id="vs_123",
+            status="in_progress",
+            usage_bytes=0,
+            last_error=None,
+            _request_id="req_poll_1",
+        ),
+        SimpleNamespace(
+            id="file_b",
+            vector_store_id="vs_123",
+            status="completed",
+            usage_bytes=4_096,
+            last_error=None,
+            _request_id="req_poll_2",
+        ),
+    ]
+    monkeypatch.setattr(openai_client.time, "monotonic", Mock(side_effect=[0.0, 1.0]))
+    sleep = Mock()
+    monkeypatch.setattr(openai_client.time, "sleep", sleep)
+
+    result = client.wait_for_vector_store_file(
+        vector_store_id="vs_123",
+        file_id="file_b",
+        timeout_seconds=30,
+    )
+
+    assert result.status is OpenAIVectorStoreFileStatus.COMPLETED
+    assert result.usage_bytes == 4_096
+    assert result.request_id == "req_poll_2"
+    assert sdk_client.vector_stores.files.retrieve.call_count == 2
+    sleep.assert_called_once_with(openai_client.OPENAI_VECTOR_STORE_POLL_INTERVAL_SECONDS)
+
+
+def test_vector_store_poll_times_out_at_overall_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, sdk_client = make_client()
+    sdk_client.vector_stores.files.retrieve.return_value = SimpleNamespace(
+        id="file_b",
+        vector_store_id="vs_123",
+        status="in_progress",
+        usage_bytes=0,
+        last_error=None,
+        _request_id="req_poll",
+    )
+    monkeypatch.setattr(openai_client.time, "monotonic", Mock(side_effect=[0.0, 30.0]))
+    monkeypatch.setattr(openai_client.time, "sleep", Mock())
+
+    with pytest.raises(OpenAIClientError, match="within 30 seconds") as raised:
+        client.wait_for_vector_store_file(
+            vector_store_id="vs_123",
+            file_id="file_b",
+            timeout_seconds=30,
+        )
+
+    assert raised.value.operation == "vector_store_poll"
+    assert raised.value.retryable
+    assert raised.value.request_id == "req_poll"
+
+
+def test_returns_safe_terminal_vector_store_failure() -> None:
+    client, sdk_client = make_client()
+    sdk_client.vector_stores.files.retrieve.return_value = SimpleNamespace(
+        id="file_b",
+        vector_store_id="vs_123",
+        status="failed",
+        usage_bytes=12,
+        last_error=SimpleNamespace(code="invalid_file", message="provider detail"),
+        _request_id="req_failed",
+    )
+
+    result = client.wait_for_vector_store_file(
+        vector_store_id="vs_123",
+        file_id="file_b",
+        timeout_seconds=30,
+    )
+
+    assert result.status is OpenAIVectorStoreFileStatus.FAILED
+    assert result.error_code == "invalid_file"
+    assert "provider detail" not in repr(result)
+
+
+def test_searches_vector_store_and_returns_typed_chunks() -> None:
+    client, sdk_client = make_client()
+    sdk_client.vector_stores.search.return_value = SimpleNamespace(
+        data=[
+            SimpleNamespace(
+                file_id="file_b",
+                filename="document-b.docx",
+                score=0.91,
+                content=[
+                    SimpleNamespace(type="text", text="First chunk"),
+                    SimpleNamespace(type="text", text="Second chunk"),
+                ],
+            )
+        ]
+    )
+
+    results = client.search_vector_store(
+        vector_store_id="vs_123",
+        query="positioning guidance",
+    )
+
+    sdk_client.vector_stores.search.assert_called_once_with(
+        "vs_123",
+        query="positioning guidance",
+        max_num_results=1,
+        rewrite_query=False,
+    )
+    assert len(results) == 1
+    assert results[0].file_id == "file_b"
+    assert results[0].text == "First chunk\nSecond chunk"
+
+
+def test_deletes_vector_store() -> None:
+    client, sdk_client = make_client()
+
+    client.delete_vector_store("vs_123")
+
+    sdk_client.vector_stores.delete.assert_called_once_with("vs_123")
+
+
 @pytest.mark.parametrize("api_key", [None, "", "  "])
 def test_requires_configured_api_key(api_key: str | None) -> None:
     with pytest.raises(OpenAIConfigurationError, match="OPENAI_API_KEY"):
-        OpenAIFileClient.from_settings(AppSettings(_env_file=None, openai_api_key=api_key))
+        OpenAIClient.from_settings(AppSettings(_env_file=None, openai_api_key=api_key))
 
 
 @pytest.mark.parametrize(
@@ -88,7 +239,7 @@ def test_translates_transport_errors_without_sdk_details(
     client, sdk_client = make_client()
     sdk_client.files.create.side_effect = error
 
-    with pytest.raises(OpenAIFileClientError, match=expected_message) as raised:
+    with pytest.raises(OpenAIClientError, match=expected_message) as raised:
         client.upload_docx(filename="document.docx", content=b"content")
 
     assert raised.value.retryable is retryable
@@ -123,7 +274,7 @@ def test_translates_status_errors(
         body={"error": "sensitive provider response"},
     )
 
-    with pytest.raises(OpenAIFileClientError, match=expected_message) as raised:
+    with pytest.raises(OpenAIClientError, match=expected_message) as raised:
         client.upload_docx(filename="document.docx", content=b"content")
 
     assert raised.value.retryable is retryable

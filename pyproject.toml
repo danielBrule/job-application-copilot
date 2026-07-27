@@ -25,7 +25,7 @@ packages = [{ include = "job_application_copilot", from = "src" }]
 testpaths = ["tests"]
 addopts = ["-p", "no:cacheprovider"]
 markers = [
-    "openai_integration: opt-in test that creates and deletes a real OpenAI file"
+    "openai_integration: opt-in tests that create and delete real OpenAI resources"
 ]
 
 [tool.ruff]

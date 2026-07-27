@@ -18,6 +18,7 @@ SETTING_ENVIRONMENT_VARIABLES = (
     "JAC_LOG_LEVEL",
     "JAC_LOG_MAX_SIZE_MB",
     "JAC_LOG_BACKUP_COUNT",
+    "JAC_OPENAI_VECTOR_STORE_TIMEOUT_SECONDS",
     "JAC_DEFAULT_SOURCE",
     "JAC_DEFAULT_LOCATION",
     "JAC_DEFAULT_LANGUAGE",
@@ -61,6 +62,7 @@ def test_defaults_are_safe_and_typed() -> None:
     assert settings.log_level == "INFO"
     assert settings.log_max_size_mb == 5
     assert settings.log_backup_count == 5
+    assert settings.openai_vector_store_timeout_seconds == 300
     assert settings.default_source == "LinkedIn"
     assert settings.default_location is Location.UK
     assert settings.default_language is Language.EN
@@ -92,6 +94,7 @@ def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("JAC_LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("JAC_LOG_MAX_SIZE_MB", "12")
     monkeypatch.setenv("JAC_LOG_BACKUP_COUNT", "7")
+    monkeypatch.setenv("JAC_OPENAI_VECTOR_STORE_TIMEOUT_SECONDS", "600")
     monkeypatch.setenv("JAC_DEFAULT_SOURCE", "Company website")
     monkeypatch.setenv("JAC_DEFAULT_LOCATION", "CH")
     monkeypatch.setenv("JAC_DEFAULT_LANGUAGE", "FR")
@@ -110,6 +113,7 @@ def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None
     assert settings.log_level == "DEBUG"
     assert settings.log_max_size_mb == 12
     assert settings.log_backup_count == 7
+    assert settings.openai_vector_store_timeout_seconds == 600
     assert settings.default_source == "Company website"
     assert settings.default_location is Location.CH
     assert settings.default_language is Language.FR
@@ -164,6 +168,17 @@ def test_rejects_invalid_log_retention(
     monkeypatch.setenv(variable, value)
 
     with pytest.raises(ValidationError):
+        AppSettings(_env_file=None)
+
+
+@pytest.mark.parametrize("value", ["29", "1801", "not-an-integer"])
+def test_rejects_invalid_vector_store_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+) -> None:
+    monkeypatch.setenv("JAC_OPENAI_VECTOR_STORE_TIMEOUT_SECONDS", value)
+
+    with pytest.raises(ValidationError, match="openai_vector_store_timeout_seconds"):
         AppSettings(_env_file=None)
 
 

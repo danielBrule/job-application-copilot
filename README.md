@@ -71,6 +71,7 @@ The `.env` file and all private data remain excluded from Git.
 | `JAC_LOG_LEVEL` | `INFO` |
 | `JAC_LOG_MAX_SIZE_MB` | `5` |
 | `JAC_LOG_BACKUP_COUNT` | `5` |
+| `JAC_OPENAI_VECTOR_STORE_TIMEOUT_SECONDS` | `300` |
 | `JAC_DEFAULT_SOURCE` | `LinkedIn` |
 | `JAC_DEFAULT_LOCATION` | `UK` |
 | `JAC_DEFAULT_LANGUAGE` | `EN` |
@@ -146,6 +147,14 @@ OpenAI file ID and atomically activates that version. A successful Document B up
 file ID but leaves the candidate pending for its later vector-store lifecycle. Failed attempts
 retain the current active version, record a sanitised processing error and may be retried.
 
+For Document B, the vector-store lifecycle creates one store for the uploaded file, waits up to
+`JAC_OPENAI_VECTOR_STORE_TIMEOUT_SECONDS` for indexing, and runs a direct validation search.
+The candidate becomes active only when indexing is complete and its content is retrievable.
+Deactivation of the prior version and activation of the candidate are one database transaction;
+failure leaves the prior version active. Inactive and failed stores retain their identifiers and
+processed usage bytes for later explicit cleanup. Vector-store indexing does not report model
+tokens.
+
 ## Private logs
 
 The UI writes UTF-8 structured text to `data/logs/ui.log`. The future background worker uses
@@ -199,8 +208,8 @@ GitHub Actions. The Streamlit application supports manual job entry and editing 
 sortable, selectable and filterable Jobs dashboard. Prompt definitions, editing, completeness
 and version activation are available on Settings alongside a complete local asset readiness
 overview and validated DOCX replacement controls. OpenAI reference processing and background-run
-controls are delivered incrementally: file upload and identifier persistence are available,
-while Document B vector-store processing and background-run controls are delivered by later
+controls are delivered incrementally: file upload, identifier persistence and Document B
+vector-store processing are available, while background-run controls are delivered by later
 tickets.
 
 ## Development
@@ -259,9 +268,9 @@ Run the automated checks:
 .\dev.ps1 lint
 ```
 
-The real OpenAI file-upload integration test is intentionally excluded unless explicitly
-enabled. It creates a temporary DOCX, persists the returned file ID in a temporary database and
-deletes the remote file during cleanup:
+The real OpenAI integration tests are intentionally excluded unless explicitly enabled. They
+upload temporary DOCX files; the vector-store test also indexes, searches and activates a
+temporary Document B version. All created remote files and stores are deleted during cleanup:
 
 ```powershell
 .\dev.ps1 test-openai

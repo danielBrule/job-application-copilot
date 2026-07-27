@@ -164,6 +164,7 @@ This table is the source for token and processing-time KPIs.
 - `processing_error`, the latest sanitised failure or null
 - `openai_file_id`
 - `openai_vector_store_id`
+- `openai_vector_store_usage_bytes`, the processed remote storage size where applicable
 - `uploaded_at`
 - `updated_at`
 
@@ -183,6 +184,12 @@ Processing status is `PENDING`, `PROCESSING`, `READY` or `FAILED`. Only a `READY
 active. Prior valid versions remain `READY` when made inactive. Starting or successfully
 completing remote processing clears `processing_error`; a failed attempt records its latest
 actionable, secret-safe explanation.
+
+For Document B, the vector-store ID is recorded as soon as the remote store is created.
+Activation requires the attached file to reach OpenAI status `completed` and a direct validation
+search to return non-empty content from that file. The processed usage bytes are retained for
+inactive stores so later cleanup can show their storage impact. Indexing does not report model
+token usage.
 
 ## Prompt definition
 
