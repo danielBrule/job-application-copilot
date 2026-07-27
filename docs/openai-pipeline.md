@@ -12,6 +12,9 @@ Assessment prompt
 ```
 
 Document A is the sole career-strategy and evidence source for assessment. Document B is prohibited at this stage.
+The prepared Document A input is the complete uploaded DOCX referenced by its OpenAI file ID;
+its exact local version and hash accompany the request metadata. Document A is never split,
+semantically filtered or replaced by locally extracted fallback text.
 
 The result includes both user-visible assessment fields and an internal handover:
 

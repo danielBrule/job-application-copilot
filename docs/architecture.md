@@ -72,6 +72,11 @@ No Redis, Celery, cloud queue or microservice is required.
 ### Document A
 
 The complete active Document A is supplied to every assessment call. It is not split or semantically filtered for the MVP.
+Input preparation resolves only the canonical active `READY` Document A and requires its
+persisted OpenAI file ID. It returns a complete Responses API file reference together with the
+reference-asset ID, version, hash, stored filename and upload timestamp for traceability.
+There is no local-text fallback: a missing active version or file ID stops assessment with an
+actionable error so the document can be activated again.
 
 ### Document B
 

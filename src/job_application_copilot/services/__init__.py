@@ -4,6 +4,12 @@ from job_application_copilot.repositories import (
     DuplicateJobUrlError,
     JobNotFoundError,
 )
+from job_application_copilot.services.document_a_input import (
+    DocumentAInput,
+    DocumentAInputService,
+    DocumentAInputUnavailableError,
+    OpenAIInputFile,
+)
 from job_application_copilot.services.document_b_processing import (
     DocumentBProcessingError,
     DocumentBProcessingService,
@@ -53,6 +59,9 @@ from job_application_copilot.services.reference_asset_storage import (
 )
 
 __all__ = [
+    "DocumentAInput",
+    "DocumentAInputService",
+    "DocumentAInputUnavailableError",
     "DuplicateJobUrlError",
     "DuplicatePromptContentError",
     "DuplicatePromptDefinitionError",
@@ -70,6 +79,7 @@ __all__ = [
     "OpenAIFileUploadError",
     "OpenAIFileUploadNotAllowedError",
     "OpenAIFileUploadService",
+    "OpenAIInputFile",
     "PromptActivationError",
     "PromptService",
     "PromptStorageError",
