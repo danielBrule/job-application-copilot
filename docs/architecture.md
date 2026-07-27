@@ -79,6 +79,15 @@ Document B is maintained as one DOCX. The application extracts headings locally 
 
 Optional semantic retrieval may add relevant passages. It must never replace the fixed rules or lane sections.
 
+Local extraction preserves the document preamble, Word heading levels, ordered paragraph and
+table text, and uses a conservative bold-numbered fallback when a Word heading style is absent.
+Each non-overlapping section has a deterministic ID derived from its heading number or
+hierarchical title path and is stored against the exact Document B reference-asset version.
+Document B cannot be activated unless this local extraction succeeds. Versions activated before
+the section schema existed are extracted on their first section read. A section-tree query
+returns a selected heading followed by its ordered descendants until the next peer or ancestor,
+allowing deterministic routing to consume complete blocks without duplicating stored text.
+
 ### French references
 
 Previous French CVs are style references only. They cannot establish factual evidence.

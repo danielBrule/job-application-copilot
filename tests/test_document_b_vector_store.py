@@ -28,6 +28,7 @@ from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
 )
 from job_application_copilot.services import (
+    DocumentBSectionService,
     DocumentBVectorStoreError,
     DocumentBVectorStoreNotAllowedError,
     DocumentBVectorStoreService,
@@ -37,6 +38,15 @@ from job_application_copilot.services.database_bootstrap import initialize_datab
 
 
 def make_docx(text: str) -> bytes:
+    buffer = BytesIO()
+    document = Document()
+    document.add_heading("CV generation and positioning guidance", level=1)
+    document.add_paragraph(text)
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+def make_docx_without_heading(text: str) -> bytes:
     buffer = BytesIO()
     document = Document()
     document.add_paragraph(text)
@@ -191,6 +201,10 @@ def test_indexes_validates_and_atomically_activates_candidate(
             (2, True, "vs_candidate", 8_192),
             (1, False, "vs_previous", 4_096),
         ]
+    sections = DocumentBSectionService(database, service.settings).list_sections(candidate.version)
+    assert [section.section_id for section in sections] == [
+        "cv-generation-and-positioning-guidance"
+    ]
 
 
 def test_completed_lifecycle_is_idempotent(
@@ -465,4 +479,49 @@ def test_rejects_non_canonical_document(
     with pytest.raises(DocumentBVectorStoreNotAllowedError, match="canonical Document B"):
         service.process(candidate.asset_key, candidate.version)
 
+    client.create_vector_store.assert_not_called()
+
+
+def test_extraction_failure_preserves_previous_active_version(
+    vector_store_context: tuple[
+        DocumentBVectorStoreService,
+        ReferenceAssetStorageService,
+        Database,
+        Mock,
+    ],
+) -> None:
+    service, storage, database, client = vector_store_context
+    previous = stored_candidate(storage, database, with_previous=False)
+    with database.session() as session:
+        active = ReferenceAssetRepository(session).require_version(
+            previous.asset_key,
+            previous.version,
+        )
+        active.processing_status = ReferenceAssetProcessingStatus.READY
+        active.is_active = True
+
+    candidate = storage.replace(
+        filename="candidate-without-headings.docx",
+        content=make_docx_without_heading("No usable heading structure."),
+        asset_key="document-b",
+        asset_type=ReferenceAssetType.DOCUMENT,
+        name="Document B",
+    )
+    with database.session() as session:
+        stored = ReferenceAssetRepository(session).require_version(
+            candidate.asset_key,
+            candidate.version,
+        )
+        stored.openai_file_id = "file_without_headings"
+
+    with pytest.raises(DocumentBVectorStoreError, match="no recognised headings"):
+        service.process(candidate.asset_key, candidate.version)
+
+    with database.session() as session:
+        repository = ReferenceAssetRepository(session)
+        assert repository.require_version("document-b", previous.version).is_active
+        failed = repository.require_version("document-b", candidate.version)
+        assert not failed.is_active
+        assert failed.processing_status is ReferenceAssetProcessingStatus.FAILED
+        assert "no recognised headings" in (failed.processing_error or "")
     client.create_vector_store.assert_not_called()

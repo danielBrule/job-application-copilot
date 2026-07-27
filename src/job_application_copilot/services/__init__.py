@@ -8,6 +8,11 @@ from job_application_copilot.services.document_b_processing import (
     DocumentBProcessingError,
     DocumentBProcessingService,
 )
+from job_application_copilot.services.document_b_sections import (
+    DocumentBSectionError,
+    DocumentBSectionRecord,
+    DocumentBSectionService,
+)
 from job_application_copilot.services.document_b_vector_store import (
     DocumentBVectorStoreError,
     DocumentBVectorStoreNotAllowedError,
@@ -57,6 +62,9 @@ __all__ = [
     "DocumentBVectorStoreService",
     "DocumentBProcessingError",
     "DocumentBProcessingService",
+    "DocumentBSectionError",
+    "DocumentBSectionRecord",
+    "DocumentBSectionService",
     "JobNotFoundError",
     "JobService",
     "OpenAIFileUploadError",

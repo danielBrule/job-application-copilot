@@ -1,11 +1,13 @@
 """Tests for explicit cleanup of inactive tracked OpenAI resources."""
 
 import hashlib
+from io import BytesIO
 from pathlib import Path
 from typing import cast
 from unittest.mock import Mock
 
 import pytest
+from docx import Document
 
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import (
@@ -75,7 +77,12 @@ def add_asset(
     relative_path = f"document_b/{asset_key}-v{version:04d}.docx"
     local_path = settings.reference_folder / relative_path
     local_path.parent.mkdir(parents=True, exist_ok=True)
-    content = f"{asset_key}-{version}".encode()
+    document = Document()
+    document.add_heading("CV generation and positioning guidance", level=1)
+    document.add_paragraph(f"{asset_key}-{version}")
+    buffer = BytesIO()
+    document.save(buffer)
+    content = buffer.getvalue()
     local_path.write_bytes(content)
     with database.session() as session:
         session.add(
