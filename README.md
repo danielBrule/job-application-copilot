@@ -40,6 +40,7 @@ The project is intentionally **not an automated mass-application tool**. It does
 - python-docx
 - pytest
 - Ruff
+- mypy
 - Local Windows execution and Microsoft Word
 
 ## Processing model
@@ -72,6 +73,7 @@ The `.env` file and all private data remain excluded from Git.
 | `JAC_LOG_MAX_SIZE_MB` | `5` |
 | `JAC_LOG_BACKUP_COUNT` | `5` |
 | `JAC_OPENAI_VECTOR_STORE_TIMEOUT_SECONDS` | `300` |
+| `JAC_MINIMUM_FRENCH_REFERENCE_EXAMPLES` | `2` |
 | `JAC_DEFAULT_SOURCE` | `LinkedIn` |
 | `JAC_DEFAULT_LOCATION` | `UK` |
 | `JAC_DEFAULT_LANGUAGE` | `EN` |
@@ -301,6 +303,15 @@ Run the automated checks:
 establishes visibility without enforcing a percentage threshold. `type` checks the production
 package with mypy. CI runs both checks in addition to the normal test, lint and format checks.
 
+| Target | Scope | External side effects | Required in CI |
+| --- | --- | --- | --- |
+| `test` | Complete automated pytest suite except opt-in integrations | Local temporary files and SQLite databases only | Yes |
+| `coverage` | Same suite with branch coverage and missing-line reporting | Local temporary files and SQLite databases only | Yes |
+| `lint` | Ruff lint and format checks for the repository | None | Yes |
+| `type` | mypy analysis of `src/job_application_copilot` | None | Yes |
+| `test-openai` | Real OpenAI file and vector-store integration tests | Creates and then deletes billable remote resources | No; explicit opt-in |
+| `ui` | Interactive Streamlit application for manual verification | Reads and writes configured private data; may call OpenAI after an explicit user action | No; run for UI changes |
+
 The real OpenAI integration tests are intentionally excluded unless explicitly enabled. They
 upload temporary DOCX files; the vector-store test also indexes, searches and activates a
 temporary Document B version. All created remote files and stores are deleted during cleanup:
@@ -339,6 +350,10 @@ project-local base directory:
 ```powershell
 .\.venv\Scripts\python.exe -m pytest --basetemp=.pytest-tmp/local
 ```
+
+This avoids failures when the host denies access to the user-profile temporary directory.
+When invoking `dev.ps1` from another working directory, pass its absolute path; the script
+resolves project commands and check paths from its own repository location.
 
 ## Importing the backlog into GitHub Issues
 

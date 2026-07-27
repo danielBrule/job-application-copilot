@@ -5,31 +5,57 @@
 The MVP is a local modular monolith.
 
 ```text
-Streamlit UI
-    ↓
+Streamlit entry points and components
+    |
+    v
 Application services
-    ↓
-SQLite repositories
-    ↓
-Local task queue and worker
-    ↓
-OpenAI client / DOCX renderer / file services
+    |---------------|------------------|
+    v               v                  v
+SQLAlchemy       Private local      OpenAI adapter
+repositories     files / DOCX       (explicit workflows)
+    |
+    v
+SQLite / Alembic
 ```
+
+The local task queue and worker described below are planned execution paths for assessment and
+CV generation. They are not part of the currently implemented Settings reference-asset flows,
+which run synchronously after an explicit user action.
 
 ## 2. Technology choices
 
 - Python 3.12+
 - Streamlit
 - SQLite
-- SQLAlchemy or SQLModel
+- SQLAlchemy 2.x and Alembic
 - Pydantic
 - OpenAI Responses API
 - OpenAI Files and vector stores where required
 - python-docx
-- pytest and Ruff
+- pytest, Ruff and mypy
 - Local Windows execution
 
-## 3. Suggested package layout
+## 3. Package responsibilities
+
+| Package or module | Responsibility | Must not own |
+| --- | --- | --- |
+| `ui/app.py`, `ui/pages` | Startup, Streamlit navigation and thin page composition | Transactions or business rules |
+| `ui/components` | Widget state, presentation and safe user-facing errors | Direct database or OpenAI access |
+| `services` | Use-case orchestration, transaction boundaries and compensation | Streamlit rendering |
+| `repositories` | SQLAlchemy queries and persistence operations | Workflow policy or remote calls |
+| `domain` | Validated application values, enums and presentation-neutral read models | Filesystem, database or network side effects |
+| `llm` | Capability protocols and the production OpenAI adapter | Reference-asset activation policy |
+| `documents` | DOCX validation and deterministic Document B extraction | Persistence or UI behavior |
+| `config` | Typed environment and `.env` settings | Filesystem creation while merely loading settings |
+| `observability` | Private structured logging and secret redaction | User-visible error translation |
+| `errors.py` | Stable semantic categories for expected boundary failures | Workflow-specific error messages |
+
+Public workflow exception names remain specific to their service. Their semantic base classes
+allow callers to distinguish invalid input, missing data, storage, integrity and external-service
+failures without catching broad built-in exceptions. Existing `ValueError`, `LookupError` and
+`RuntimeError` compatibility is retained.
+
+### Package layout
 
 ```text
 src/job_application_copilot/
@@ -40,7 +66,6 @@ src/job_application_copilot/
 ├── services/
 ├── repositories/
 ├── llm/
-├── tasks/
 ├── documents/
 ├── config/
 └── observability/
@@ -60,7 +85,8 @@ at `ui/app.py` and `ui/dependencies.py`.
 
 ## 4. Background processing
 
-A separate local worker polls a SQLite-backed task table.
+The planned background-processing implementation uses a separate local worker polling a
+SQLite-backed task table.
 
 - Default concurrency is one.
 - Assessment and CV generation may have separate configured worker counts.
@@ -119,6 +145,11 @@ processing: local storage first creates an inactive `PENDING` candidate, and the
 workflow activates it only after its remote processing succeeds. The candidate never displaces the
 current active document on failure.
 
+Prompt and DOCX storage share small immutable-file primitives for path containment, SHA-256
+calculation, exclusive creation and compensating deletion. The asset services retain ownership
+of validation, version naming, activation and repository rules. Compensation removes only a file
+created by the current operation; an existing destination is never overwritten or deleted.
+
 French reference-example identity is derived deterministically from its normalized user-facing
 name; the internal asset key is not user input. Content hashes are unique across the whole
 reference-example category so the same CV cannot be added under another name. Removal is a
@@ -149,6 +180,13 @@ One process-local guard rejects a second attempt while the current application p
 working and also prevents cleanup from racing with activation, without blocking recovery after
 that process restarts.
 
+Document A processing, Document B processing, cleanup and restoration share one remote-operation
+lifecycle. It acquires the non-blocking process guard, creates at most one workflow-owned client,
+translates configuration failures into the workflow's existing safe exception and releases the
+client and guard on every exit path. Domain, persistence, integrity and compensation failures are
+not absorbed by this lifecycle boundary. Client close failures propagate after the guard has
+been released.
+
 Explicit cleanup lists tracked remote identifiers on inactive, non-processing reference
 versions. It deletes a vector store before its underlying OpenAI file and persists each cleared
 association separately, while retaining the local DOCX and historical metadata. Document A
@@ -161,7 +199,20 @@ Because a process can stop between a successful remote create and local ID persi
 untracked-resource discovery remains a separate concern: resource names alone are not a safe
 ownership boundary when multiple local checkouts share an OpenAI project.
 
-## 7. OpenAI calls
+## 7. External integration boundaries
+
+Services depend on capability-specific protocols rather than the concrete OpenAI client:
+file operations, vector-store operations, cleanup operations and a closable composite reference
+client. `OpenAIClient` remains the single production implementation. This keeps file upload,
+indexing and cleanup contracts independently testable without changing the public adapter.
+
+Remote reference operations have user-visible local side effects before they contact OpenAI:
+candidate versions and processing states are persisted so recovery can resume from recorded file
+or vector-store identifiers. A retry reuses each successfully persisted identifier. It does not
+repeat a completed remote create or deletion step. The unavoidable create-before-ID-persistence
+crash window is documented in the reference-versioning section above.
+
+### OpenAI calls
 
 - Use the Responses API.
 - Use structured outputs for assessment and final CV data.
