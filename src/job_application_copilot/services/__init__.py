@@ -10,6 +10,10 @@ from job_application_copilot.services.document_a_input import (
     DocumentAInputUnavailableError,
     OpenAIInputFile,
 )
+from job_application_copilot.services.document_a_processing import (
+    DocumentAProcessingError,
+    DocumentAProcessingService,
+)
 from job_application_copilot.services.document_b_processing import (
     DocumentBProcessingError,
     DocumentBProcessingService,
@@ -62,6 +66,8 @@ __all__ = [
     "DocumentAInput",
     "DocumentAInputService",
     "DocumentAInputUnavailableError",
+    "DocumentAProcessingError",
+    "DocumentAProcessingService",
     "DuplicateJobUrlError",
     "DuplicatePromptContentError",
     "DuplicatePromptDefinitionError",

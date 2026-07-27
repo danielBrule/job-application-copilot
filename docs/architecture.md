@@ -110,9 +110,10 @@ The old local DOCX and metadata remain inactive. Old remote stores are retained 
 Local replacement is one logical operation across immutable file creation and database metadata.
 If metadata storage or activation fails, the new file is removed and the database transaction
 restores the previous active version. Templates and French reference examples require only local
-DOCX validation, so they become `READY` and active immediately. Documents A and B require later
-OpenAI processing: local replacement stores them as inactive `PENDING` candidates and does not
-displace the current active document.
+DOCX validation, so they become `READY` and active immediately. Documents A and B require OpenAI
+processing: local storage first creates an inactive `PENDING` candidate, and the combined Settings
+workflow activates it only after its remote processing succeeds. The candidate never displaces the
+current active document on failure.
 
 French reference-example identity is derived deterministically from its normalized user-facing
 name; the internal asset key is not user input. Content hashes are unique across the whole
@@ -123,7 +124,8 @@ restoration and do not count toward configured readiness while inactive.
 Only canonical Document A and Document B versions are authorised for OpenAI file upload. The
 service verifies the retained local file against its recorded hash and uploads the exact bytes
 with the Files API `user_data` purpose. A successful Document A upload is sufficient to make that
-version `READY` and active. A successful Document B upload stores its file ID but leaves the
+version `READY` and active. Settings performs Document A storage, upload and activation through
+one explicit upload-or-replace-and-activate action. A successful Document B upload stores its file ID but leaves the
 version inactive and `PENDING` for vector-store processing. Upload failures preserve the prior
 active version and store one sanitised, retryable processing error.
 

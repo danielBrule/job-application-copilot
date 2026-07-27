@@ -23,6 +23,8 @@ from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
 )
 from job_application_copilot.services import (
+    DocumentAProcessingError,
+    DocumentAProcessingService,
     DocumentBProcessingError,
     DocumentBProcessingService,
     JobService,
@@ -288,7 +290,7 @@ def test_settings_page_requires_a_docx_before_replacement(
     try:
         app.switch_page("pages/settings.py").run()
         app.button(
-            key=("FormSubmitter:replace_reference_asset_document-a-Validate and store")
+            key=("FormSubmitter:replace_reference_asset_document-a-Upload and activate with OpenAI")
         ).click().run()
 
         assert not app.exception
@@ -297,7 +299,7 @@ def test_settings_page_requires_a_docx_before_replacement(
         reset_logging()
 
 
-def test_settings_page_keeps_document_replacement_pending(
+def test_settings_page_uploads_and_activates_document_a(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -327,32 +329,86 @@ def test_settings_page_keeps_document_replacement_pending(
             )
         )
 
+    def activate(
+        service: DocumentAProcessingService,
+        version: int,
+    ) -> ReferenceAsset:
+        with service.database.session() as session:
+            repository = ReferenceAssetRepository(session)
+            previous = repository.get_active("document-a")
+            candidate = repository.require_version("document-a", version)
+            if previous is not None:
+                previous.is_active = False
+            candidate.openai_file_id = "file_a_2"
+            candidate.processing_status = ReferenceAssetProcessingStatus.READY
+            candidate.is_active = True
+            session.flush()
+            return candidate
+
+    monkeypatch.setattr(DocumentAProcessingService, "_upload", activate)
+
     try:
         app.switch_page("pages/settings.py").run()
         app.file_uploader[0].upload(
             "document-a-replacement.docx",
-            make_docx("Pending Document A"),
+            make_docx("Replacement Document A"),
         )
         app.button(
-            key=("FormSubmitter:replace_reference_asset_document-a-Validate and store")
+            key=(
+                "FormSubmitter:replace_reference_asset_document-a-Replace and activate with OpenAI"
+            )
         ).click().run()
 
         assert not app.exception
-        assert app.success[0].value == (
-            "'document-a' version 2 is stored as PENDING. "
-            "Any existing active version remains in use."
-        )
+        assert app.success[0].value == "'document-a' version 2 is active and READY."
         overview_table = app.dataframe[0].value
         document_rows = overview_table.loc[overview_table["Asset key"] == "document-a"]
-        assert document_rows["Role"].tolist() == [
-            "Active input",
-            "Latest candidate",
-        ]
-        assert document_rows["Status"].tolist() == [
-            "READY",
-            "PENDING — not active",
-        ]
+        assert document_rows["Role"].tolist() == ["Active input"]
+        assert document_rows["Version / count"].tolist() == ["v2"]
+        assert document_rows["Status"].tolist() == ["READY"]
+        assert document_rows["Active"].tolist() == ["Yes"]
         assert active_path.read_bytes() == active_content
+    finally:
+        reset_logging()
+
+
+def test_settings_page_reports_document_a_upload_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(
+        str(APP_PATH),
+        default_timeout=SETTINGS_APP_TIMEOUT,
+    ).run()
+
+    def fail_upload(
+        service: DocumentAProcessingService,
+        version: int,
+    ) -> ReferenceAsset:
+        del service, version
+        raise DocumentAProcessingError("OpenAI could not be reached after the configured retries.")
+
+    monkeypatch.setattr(DocumentAProcessingService, "_upload", fail_upload)
+
+    try:
+        app.switch_page("pages/settings.py").run()
+        app.file_uploader[0].upload(
+            "document-a.docx",
+            make_docx("Document A"),
+        )
+        app.button(
+            key=("FormSubmitter:replace_reference_asset_document-a-Upload and activate with OpenAI")
+        ).click().run()
+
+        assert not app.exception
+        assert app.error[0].value == (
+            "Document A could not be activated: "
+            "OpenAI could not be reached after the configured retries. "
+            "Any existing active version remains in use."
+        )
     finally:
         reset_logging()
 

@@ -231,13 +231,13 @@ from the active table without deleting its retained versions or files. Removed e
 available through a Restore action.
 
 After local validation, templates and French examples become active and `READY`. Documents A
-and B appear as inactive `PENDING` candidates until their later OpenAI processing succeeds.
-The prior active document remains visible and usable. Invalid or duplicate uploads do not alter
-the active version.
+and B remain inactive until their OpenAI processing succeeds. The prior active document remains
+visible and usable. Invalid or duplicate uploads do not alter the active version.
 
-The Document B form uses **Upload and activate with OpenAI** for its first version and
-**Replace and activate with OpenAI** afterward. It validates and stores the DOCX, uploads it,
-waits for vector-store indexing, validates retrieval and refreshes the overview after activation.
+The Document A and Document B forms use **Upload and activate with OpenAI** for their first
+version and **Replace and activate with OpenAI** afterward. Document A validates and stores the
+complete DOCX, uploads it and activates it in that single workflow. Document B additionally waits
+for vector-store indexing and validates retrieval before refreshing the overview after activation.
 When the latest Document B remains pending, processing or failed, Settings additionally shows
 **Process and activate** as a recovery action. While processing, the page shows a spinner. A safe
 actionable error is shown on failure and the prior active version remains in use. After an
