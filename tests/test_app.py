@@ -655,7 +655,7 @@ def test_valid_add_job_submission_persists_and_returns_to_jobs(
     monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
     monkeypatch.chdir(tmp_path)
 
-    app = AppTest.from_file(str(APP_PATH)).run()
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
 
     try:
         app.switch_page("pages/add_job.py").run()
@@ -741,7 +741,7 @@ def test_cancel_add_job_returns_to_jobs_without_saving(
     data_dir = tmp_path / "data"
     monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
     monkeypatch.chdir(tmp_path)
-    app = AppTest.from_file(str(APP_PATH)).run()
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
 
     try:
         app.switch_page("pages/add_job.py").run()

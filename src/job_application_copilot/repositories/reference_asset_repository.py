@@ -1,6 +1,6 @@
 """Session-scoped persistence operations for reference assets."""
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from job_application_copilot.domain import (
@@ -31,6 +31,24 @@ class ReferenceAssetRepository:
         self.session.add(asset)
         self.session.flush()
         return asset
+
+    def list_all(self) -> list[ReferenceAsset]:
+        """Return every retained reference-asset version in stable order."""
+
+        return list(
+            self.session.scalars(
+                select(ReferenceAsset).order_by(
+                    ReferenceAsset.asset_key,
+                    ReferenceAsset.version,
+                )
+            )
+        )
+
+    def delete_all(self) -> int:
+        """Delete every reference-asset version and return the affected row count."""
+
+        result = self.session.execute(delete(ReferenceAsset))
+        return result.rowcount
 
     def find_by_hash(self, asset_key: str, file_hash: str) -> ReferenceAsset | None:
         """Return a matching version for the same logical asset, if one exists."""
