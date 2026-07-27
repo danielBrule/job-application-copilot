@@ -22,6 +22,7 @@ Usage:
   .\dev.ps1 database   Migrate and validate the local SQLite database
   .\dev.ps1 database-sql Preview pending database migrations as SQL
   .\dev.ps1 test       Run the Pytest suite
+  .\dev.ps1 test-openai Run the opt-in test against the real OpenAI Files API
   .\dev.ps1 lint       Run Ruff lint and formatting checks
   .\dev.ps1 ui         Start the Streamlit application
   .\dev.ps1 help       Show this help
@@ -106,6 +107,34 @@ function Invoke-Tests {
     Invoke-ProjectTool -Executable $python -Arguments @("-m", "pytest")
 }
 
+function Invoke-OpenAIIntegrationTests {
+    $python = Resolve-VenvTool -Name "python.exe"
+    $flagName = "JAC_RUN_OPENAI_INTEGRATION"
+    $existingFlag = Get-Item -LiteralPath "Env:$flagName" -ErrorAction SilentlyContinue
+
+    Write-Output (
+        "This target contacts OpenAI, uploads a temporary DOCX, and deletes the remote file " +
+        "during test cleanup."
+    )
+    try {
+        Set-Item -LiteralPath "Env:$flagName" -Value "1"
+        Invoke-ProjectTool -Executable $python -Arguments @(
+            "-m",
+            "pytest",
+            "-m",
+            "openai_integration"
+        )
+    }
+    finally {
+        if ($null -eq $existingFlag) {
+            Remove-Item -LiteralPath "Env:$flagName" -ErrorAction SilentlyContinue
+        }
+        else {
+            Set-Item -LiteralPath "Env:$flagName" -Value $existingFlag.Value
+        }
+    }
+}
+
 function Initialize-Directories {
     $python = Resolve-VenvTool -Name "python.exe"
     Invoke-ProjectTool -Executable $python -Arguments @(
@@ -163,6 +192,9 @@ switch ($Target.ToLowerInvariant()) {
     }
     "test" {
         Invoke-Tests
+    }
+    "test-openai" {
+        Invoke-OpenAIIntegrationTests
     }
     "lint" {
         Invoke-Lint

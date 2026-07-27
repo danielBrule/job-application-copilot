@@ -16,10 +16,9 @@ from job_application_copilot.services.database_bootstrap import (
     DatabaseHealthError,
     DatabaseMigrationError,
     _validate_revision_compatibility,
+    get_migration_head,
     initialize_database,
 )
-
-HEAD_REVISION = "0004_create_prompt_definitions"
 
 
 def test_creates_and_repeatedly_migrates_foundation_database(
@@ -40,16 +39,17 @@ def test_creates_and_repeatedly_migrates_foundation_database(
 
     first_status = initialize_database(database_path)
     second_status = initialize_database(database_path)
+    head_revision = get_migration_head()
 
     assert upgrade_calls == 1
     assert database_path.exists()
     assert first_status.previous_revision is None
     assert first_status.migration_was_applied
-    assert first_status.current_revision == HEAD_REVISION
-    assert first_status.target_revision == HEAD_REVISION
-    assert second_status.previous_revision == HEAD_REVISION
+    assert first_status.current_revision == head_revision
+    assert first_status.target_revision == head_revision
+    assert second_status.previous_revision == head_revision
     assert not second_status.migration_was_applied
-    assert second_status.current_revision == HEAD_REVISION
+    assert second_status.current_revision == head_revision
     assert second_status.health.journal_mode.lower() == "wal"
     assert second_status.health.foreign_keys_enabled
     assert second_status.health.busy_timeout_ms == 5_000

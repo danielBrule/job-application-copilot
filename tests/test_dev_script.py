@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from job_application_copilot.services.database_bootstrap import get_migration_head
+
 PROJECT_ROOT = Path(__file__).parents[1]
 DEV_SCRIPT = PROJECT_ROOT / "dev.ps1"
 POWERSHELL = shutil.which("powershell.exe")
@@ -72,6 +74,7 @@ def test_explicit_help_displays_supported_targets() -> None:
         "database",
         "database-sql",
         "test",
+        "test-openai",
         "lint",
         "ui",
     ):
@@ -174,14 +177,15 @@ def test_database_target_is_idempotent(
 
     first_result = run_dev_script("database", environment=environment)
     second_result = run_dev_script("database", environment=environment)
+    head_revision = get_migration_head()
 
     assert first_result.returncode == 0, combined_output(first_result)
     assert second_result.returncode == 0, combined_output(second_result)
     assert "Previous revision: none" in first_result.stdout
     assert "Migration status: upgraded" in first_result.stdout
     assert "Migration status: up to date" in second_result.stdout
-    assert "Current revision: 0004_create_prompt_definitions" in second_result.stdout
-    assert "Target revision: 0004_create_prompt_definitions" in second_result.stdout
+    assert f"Current revision: {head_revision}" in second_result.stdout
+    assert f"Target revision: {head_revision}" in second_result.stdout
     assert "Health check: passed" in second_result.stdout
     assert "Journal mode: WAL" in second_result.stdout
     assert "Foreign keys: enabled" in second_result.stdout
@@ -236,3 +240,32 @@ def test_lint_target_runs_from_outside_project(
 
     assert result.returncode == 0, combined_output(result)
     assert "All checks passed!" in result.stdout
+
+
+def test_openai_target_warns_and_restores_existing_opt_in_flag() -> None:
+    escaped_script = str(DEV_SCRIPT).replace("'", "''")
+    command = (
+        "$env:JAC_RUN_OPENAI_INTEGRATION = 'existing'; "
+        "$env:OPENAI_API_KEY = ' '; "
+        f"try {{ . '{escaped_script}' test-openai }} catch {{ }}; "
+        'Write-Output "RESTORED_FLAG=$env:JAC_RUN_OPENAI_INTEGRATION"'
+    )
+
+    result = subprocess.run(
+        [
+            POWERSHELL or "powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            command,
+        ],
+        cwd=PROJECT_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, combined_output(result)
+    assert "This target contacts OpenAI" in result.stdout
+    assert "RESTORED_FLAG=existing" in result.stdout

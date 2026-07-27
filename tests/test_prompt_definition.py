@@ -16,6 +16,7 @@ from job_application_copilot.repositories.prompt_definition_repository import (
 )
 from job_application_copilot.services.database_bootstrap import (
     MIGRATIONS_DIRECTORY,
+    get_migration_head,
     initialize_database,
 )
 
@@ -181,7 +182,7 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
             for constraint in inspector.get_unique_constraints("prompt_definitions")
         }
 
-        assert status.current_revision == PROMPT_DEFINITION_REVISION
+        assert status.current_revision == get_migration_head()
         assert set(columns) == {
             "asset_key",
             "name",
@@ -217,4 +218,4 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
 
     upgraded = initialize_database(database_path)
     assert upgraded.previous_revision == REFERENCE_ASSET_REVISION
-    assert upgraded.current_revision == PROMPT_DEFINITION_REVISION
+    assert upgraded.current_revision == get_migration_head()
