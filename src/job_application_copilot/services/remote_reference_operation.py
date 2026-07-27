@@ -7,13 +7,16 @@ from contextlib import contextmanager
 from threading import Lock
 
 from job_application_copilot.config import AppSettings
-from job_application_copilot.llm import OpenAIClient, OpenAIConfigurationError
+from job_application_copilot.llm import (
+    OpenAIConfigurationError,
+    OpenAIReferenceClient,
+)
 
 REMOTE_OPERATION_BUSY_MESSAGE = (
     "Another OpenAI reference-asset operation is already running. Wait for it to finish."
 )
 
-OpenAIClientFactory = Callable[[AppSettings], OpenAIClient]
+OpenAIClientFactory = Callable[[AppSettings], OpenAIReferenceClient]
 WorkflowErrorFactory = Callable[[str], RuntimeError]
 
 _REMOTE_REFERENCE_OPERATION_LOCK = Lock()
@@ -31,10 +34,10 @@ class RemoteReferenceOperation:
         self._settings = settings
         self._client_factory = client_factory
         self._error_factory = error_factory
-        self._client: OpenAIClient | None = None
+        self._client: OpenAIReferenceClient | None = None
 
     @property
-    def client(self) -> OpenAIClient:
+    def client(self) -> OpenAIReferenceClient:
         """Create the workflow client on first use and translate configuration failures."""
 
         if self._client is None:

@@ -13,8 +13,8 @@ from job_application_copilot.domain import (
     ReferenceAssetType,
 )
 from job_application_copilot.llm import (
-    OpenAIClient,
     OpenAIClientError,
+    OpenAIFileOperations,
     UploadedOpenAIFile,
 )
 from job_application_copilot.observability import get_logger
@@ -47,7 +47,7 @@ class OpenAIFileUploadService:
         self,
         database: Database,
         settings: AppSettings,
-        client: OpenAIClient,
+        client: OpenAIFileOperations,
     ) -> None:
         self.database = database
         self.settings = settings

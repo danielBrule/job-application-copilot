@@ -9,11 +9,11 @@ from job_application_copilot.domain import (
     ReferenceAssetType,
 )
 from job_application_copilot.llm import (
-    OpenAIClient,
     OpenAIClientError,
     OpenAIVectorStore,
     OpenAIVectorStoreFile,
     OpenAIVectorStoreFileStatus,
+    OpenAIVectorStoreOperations,
     OpenAIVectorStoreSearchResult,
 )
 from job_application_copilot.observability import get_logger
@@ -46,7 +46,7 @@ class DocumentBVectorStoreService:
         self,
         database: Database,
         settings: AppSettings,
-        client: OpenAIClient,
+        client: OpenAIVectorStoreOperations,
     ) -> None:
         self.database = database
         self.settings = settings

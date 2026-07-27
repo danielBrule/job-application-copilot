@@ -6,10 +6,9 @@ import argparse
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
 
 from job_application_copilot.config import AppSettings, load_settings
-from job_application_copilot.llm import OpenAIClient
+from job_application_copilot.llm import OpenAIClient, OpenAIRemoteCleanupOperations
 from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.repositories.models import ReferenceAsset
 from job_application_copilot.repositories.reference_asset_repository import (
@@ -18,18 +17,7 @@ from job_application_copilot.repositories.reference_asset_repository import (
 from job_application_copilot.services.database_bootstrap import initialize_database
 from job_application_copilot.services.local_directories import ensure_local_directories
 
-
-class ReferenceAssetRemoteCleaner(Protocol):
-    """Remote deletion operations needed by the development reset."""
-
-    def delete_vector_store(self, vector_store_id: str) -> None: ...
-
-    def delete_file(self, file_id: str) -> None: ...
-
-    def close(self) -> None: ...
-
-
-RemoteCleanerFactory = Callable[[], ReferenceAssetRemoteCleaner]
+RemoteCleanerFactory = Callable[[], OpenAIRemoteCleanupOperations]
 
 
 class ReferenceAssetResetError(RuntimeError):
