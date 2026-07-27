@@ -13,8 +13,8 @@ from job_application_copilot.domain import (
     ReferenceAssetType,
 )
 from job_application_copilot.llm import (
-    OpenAIFileClient,
-    OpenAIFileClientError,
+    OpenAIClient,
+    OpenAIClientError,
     UploadedOpenAIFile,
 )
 from job_application_copilot.observability import get_logger
@@ -47,7 +47,7 @@ class OpenAIFileUploadService:
         self,
         database: Database,
         settings: AppSettings,
-        client: OpenAIFileClient,
+        client: OpenAIClient,
     ) -> None:
         self.database = database
         self.settings = settings
@@ -66,7 +66,7 @@ class OpenAIFileUploadService:
 
         try:
             uploaded = self.client.upload_docx(filename=filename, content=content)
-        except OpenAIFileClientError as error:
+        except OpenAIClientError as error:
             self._record_failure(asset_key, version, str(error))
             raise OpenAIFileUploadError(str(error)) from error
 
@@ -190,8 +190,8 @@ class OpenAIFileUploadService:
 
     def _compensate_uploaded_file(self, file_id: str) -> None:
         try:
-            self.client.delete(file_id)
-        except OpenAIFileClientError:
+            self.client.delete_file(file_id)
+        except OpenAIClientError:
             logger.exception(
                 "openai_file_compensation_failed file_id=%s",
                 file_id,

@@ -113,6 +113,13 @@ version `READY` and active. A successful Document B upload stores its file ID bu
 version inactive and `PENDING` for vector-store processing. Upload failures preserve the prior
 active version and store one sanitised, retryable processing error.
 
+Each uploaded Document B version receives one vector store. The application persists the store
+ID, polls the attached file with a bounded wait, and runs one direct validation search. Only a
+`completed` file with retrievable content can make the candidate `READY` and active. Deactivating
+the prior version and activating the candidate occur in one database transaction, so failure
+restores the prior active version. Failed and inactive stores retain their IDs and processed
+usage bytes for the explicit cleanup workflow; indexing itself has no reported model-token usage.
+
 ## 7. OpenAI calls
 
 - Use the Responses API.

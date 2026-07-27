@@ -4,6 +4,11 @@ from job_application_copilot.repositories import (
     DuplicateJobUrlError,
     JobNotFoundError,
 )
+from job_application_copilot.services.document_b_vector_store import (
+    DocumentBVectorStoreError,
+    DocumentBVectorStoreNotAllowedError,
+    DocumentBVectorStoreService,
+)
 from job_application_copilot.services.job_service import JobService
 from job_application_copilot.services.openai_file_upload import (
     OpenAIFileUploadError,
@@ -34,6 +39,9 @@ __all__ = [
     "DuplicatePromptContentError",
     "DuplicatePromptDefinitionError",
     "DuplicateReferenceAssetError",
+    "DocumentBVectorStoreError",
+    "DocumentBVectorStoreNotAllowedError",
+    "DocumentBVectorStoreService",
     "JobNotFoundError",
     "JobService",
     "OpenAIFileUploadError",

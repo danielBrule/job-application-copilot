@@ -74,6 +74,7 @@ def test_round_trips_metadata_and_internal_defaults(
         processing_error="Previous upload failed.",
         openai_file_id="file_123",
         openai_vector_store_id="vs_123",
+        openai_vector_store_usage_bytes=8_192,
     )
 
     with migrated_database.session() as session:
@@ -91,6 +92,7 @@ def test_round_trips_metadata_and_internal_defaults(
         assert not stored.is_active
         assert stored.openai_file_id == "file_123"
         assert stored.openai_vector_store_id == "vs_123"
+        assert stored.openai_vector_store_usage_bytes == 8_192
         assert stored.processing_error == "Previous upload failed."
         assert stored.uploaded_at.microsecond == 0
         assert stored.updated_at.microsecond == 0
@@ -267,6 +269,7 @@ def test_only_ready_version_can_be_active(
         ("file_hash", " "),
         ("openai_file_id", ""),
         ("openai_vector_store_id", " "),
+        ("openai_vector_store_usage_bytes", -1),
     ],
 )
 def test_rejects_invalid_constrained_values(
@@ -313,6 +316,7 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
             "processing_status",
             "openai_file_id",
             "openai_vector_store_id",
+            "openai_vector_store_usage_bytes",
             "processing_error",
             "uploaded_at",
             "updated_at",
@@ -341,6 +345,7 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
             "ck_reference_assets_hash_not_blank",
             "ck_reference_assets_openai_file_id_not_blank",
             "ck_reference_assets_vector_store_id_not_blank",
+            "ck_reference_assets_vector_store_usage_bytes_non_negative",
             "ck_reference_assets_active_ready",
         } <= checks
         assert "uq_reference_assets_key_version" in unique_constraints

@@ -14,8 +14,8 @@ from job_application_copilot.domain import (
     ReferenceAssetType,
 )
 from job_application_copilot.llm import (
-    OpenAIFileClient,
-    OpenAIFileClientError,
+    OpenAIClient,
+    OpenAIClientError,
     UploadedOpenAIFile,
 )
 from job_application_copilot.repositories import Database, create_database
@@ -55,11 +55,11 @@ def upload_context(
     settings.database_path.parent.mkdir(parents=True)
     initialize_database(settings.database_path)
     database = create_database(settings.database_path)
-    client = Mock(spec=OpenAIFileClient)
+    client = Mock(spec=OpenAIClient)
     service = OpenAIFileUploadService(
         database,
         settings,
-        cast(OpenAIFileClient, client),
+        cast(OpenAIClient, client),
     )
     try:
         yield (
@@ -176,7 +176,7 @@ def test_failed_upload_records_safe_error_and_can_be_retried(
         name="Document A",
     )
     client.upload_docx.side_effect = [
-        OpenAIFileClientError(
+        OpenAIClientError(
             "OpenAI could not be reached after the configured retries.",
             operation="upload",
             retryable=True,
@@ -317,7 +317,7 @@ def test_persistence_failure_deletes_new_remote_file(
     with pytest.raises(OpenAIFileUploadError, match="could not be saved"):
         service.upload(candidate.asset_key, candidate.version)
 
-    client.delete.assert_called_once_with("file_orphan")
+    client.delete_file.assert_called_once_with("file_orphan")
     with database.session() as session:
         failed = ReferenceAssetRepository(session).require_version(
             candidate.asset_key, candidate.version

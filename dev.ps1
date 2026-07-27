@@ -22,7 +22,7 @@ Usage:
   .\dev.ps1 database   Migrate and validate the local SQLite database
   .\dev.ps1 database-sql Preview pending database migrations as SQL
   .\dev.ps1 test       Run the Pytest suite
-  .\dev.ps1 test-openai Run the opt-in test against the real OpenAI Files API
+  .\dev.ps1 test-openai Run opt-in tests against real OpenAI files and vector stores
   .\dev.ps1 lint       Run Ruff lint and formatting checks
   .\dev.ps1 ui         Start the Streamlit application
   .\dev.ps1 help       Show this help
@@ -113,8 +113,8 @@ function Invoke-OpenAIIntegrationTests {
     $existingFlag = Get-Item -LiteralPath "Env:$flagName" -ErrorAction SilentlyContinue
 
     Write-Output (
-        "This target contacts OpenAI, uploads a temporary DOCX, and deletes the remote file " +
-        "during test cleanup."
+        "This target contacts OpenAI, uploads temporary DOCX files, creates and searches a " +
+        "temporary vector store, and deletes the remote resources during test cleanup."
     )
     try {
         Set-Item -LiteralPath "Env:$flagName" -Value "1"
