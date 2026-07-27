@@ -121,6 +121,49 @@ def test_polls_vector_store_file_until_completed(
     sleep.assert_called_once_with(openai_client.OPENAI_VECTOR_STORE_POLL_INTERVAL_SECONDS)
 
 
+def test_retries_transient_missing_vector_store_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, sdk_client = make_client()
+    request = httpx.Request(
+        "GET",
+        "https://api.openai.com/v1/vector_stores/vs_123/files/file_b",
+    )
+    response = httpx.Response(
+        404,
+        request=request,
+        headers={"x-request-id": "req_missing"},
+    )
+    sdk_client.vector_stores.files.retrieve.side_effect = [
+        APIStatusError(
+            "attachment not propagated",
+            response=response,
+            body={"error": "attachment not propagated"},
+        ),
+        SimpleNamespace(
+            id="file_b",
+            vector_store_id="vs_123",
+            status="completed",
+            usage_bytes=4_096,
+            last_error=None,
+            _request_id="req_completed",
+        ),
+    ]
+    monkeypatch.setattr(openai_client.time, "monotonic", Mock(side_effect=[0.0, 1.0]))
+    sleep = Mock()
+    monkeypatch.setattr(openai_client.time, "sleep", sleep)
+
+    result = client.wait_for_vector_store_file(
+        vector_store_id="vs_123",
+        file_id="file_b",
+        timeout_seconds=30,
+    )
+
+    assert result.status is OpenAIVectorStoreFileStatus.COMPLETED
+    assert sdk_client.vector_stores.files.retrieve.call_count == 2
+    sleep.assert_called_once_with(openai_client.OPENAI_VECTOR_STORE_POLL_INTERVAL_SECONDS)
+
+
 def test_vector_store_poll_times_out_at_overall_deadline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

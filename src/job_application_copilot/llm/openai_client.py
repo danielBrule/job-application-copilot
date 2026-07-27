@@ -178,10 +178,26 @@ class OpenAIClient:
 
         deadline = time.monotonic() + timeout_seconds
         while True:
-            indexed_file = self._retrieve_vector_store_file(
-                vector_store_id=vector_store_id,
-                file_id=file_id,
-            )
+            try:
+                indexed_file = self._retrieve_vector_store_file(
+                    vector_store_id=vector_store_id,
+                    file_id=file_id,
+                )
+            except OpenAIClientError as error:
+                if not error.retryable:
+                    raise
+                if time.monotonic() >= deadline:
+                    raise OpenAIClientError(
+                        (
+                            "OpenAI did not make Document B available for indexing "
+                            f"within {timeout_seconds} seconds."
+                        ),
+                        operation="vector_store_poll",
+                        retryable=True,
+                        request_id=error.request_id,
+                    ) from error
+                time.sleep(OPENAI_VECTOR_STORE_POLL_INTERVAL_SECONDS)
+                continue
             if indexed_file.status is not OpenAIVectorStoreFileStatus.IN_PROGRESS:
                 return indexed_file
             if time.monotonic() >= deadline:
@@ -292,7 +308,11 @@ def _translate_openai_error(
     if isinstance(error, APIStatusError):
         status_code = error.status_code
         request_id = error.request_id
-        retryable = status_code in {408, 409, 429} or status_code >= 500
+        retryable = (
+            status_code in {408, 409, 429}
+            or status_code >= 500
+            or (operation == "vector_store_poll" and status_code == 404)
+        )
         if status_code == 401:
             message = "OpenAI rejected the API key. Check OPENAI_API_KEY."
         elif status_code == 403:

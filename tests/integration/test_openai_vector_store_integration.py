@@ -18,8 +18,7 @@ from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
 )
 from job_application_copilot.services import (
-    DocumentBVectorStoreService,
-    OpenAIFileUploadService,
+    DocumentBProcessingService,
     ReferenceAssetStorageService,
 )
 from job_application_copilot.services.database_bootstrap import initialize_database
@@ -57,7 +56,6 @@ def test_indexes_searches_activates_and_cleans_up_real_vector_store(
     settings.database_path.parent.mkdir(parents=True)
     initialize_database(settings.database_path)
     database = create_database(settings.database_path)
-    client = OpenAIClient.from_settings(settings)
     remote_file_id: str | None = None
     vector_store_id: str | None = None
     candidate_key: str | None = None
@@ -73,16 +71,10 @@ def test_indexes_searches_activates_and_cleans_up_real_vector_store(
         )
         candidate_key = candidate.asset_key
         candidate_version = candidate.version
-        uploaded = OpenAIFileUploadService(database, settings, client).upload(
-            candidate.asset_key,
+        activated = DocumentBProcessingService(database, settings).process(
             candidate.version,
         )
-        remote_file_id = uploaded.openai_file_id
-
-        activated = DocumentBVectorStoreService(database, settings, client).process(
-            candidate.asset_key,
-            candidate.version,
-        )
+        remote_file_id = activated.openai_file_id
         vector_store_id = activated.openai_vector_store_id
 
         assert remote_file_id is not None
@@ -100,9 +92,13 @@ def test_indexes_searches_activates_and_cleans_up_real_vector_store(
                 )
                 remote_file_id = remote_file_id or stored.openai_file_id
                 vector_store_id = vector_store_id or stored.openai_vector_store_id
-        if vector_store_id is not None:
-            client.delete_vector_store(vector_store_id)
-        if remote_file_id is not None:
-            client.delete_file(remote_file_id)
-        client.close()
+        if vector_store_id is not None or remote_file_id is not None:
+            cleanup_client = OpenAIClient.from_settings(settings)
+            try:
+                if vector_store_id is not None:
+                    cleanup_client.delete_vector_store(vector_store_id)
+                if remote_file_id is not None:
+                    cleanup_client.delete_file(remote_file_id)
+            finally:
+                cleanup_client.close()
         database.dispose()

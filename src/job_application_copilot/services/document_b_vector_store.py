@@ -106,14 +106,9 @@ class DocumentBVectorStoreService:
                 raise DocumentBVectorStoreNotAllowedError(
                     f"Document B version {version} must be uploaded to OpenAI before indexing."
                 )
-            if (
-                asset.processing_status is ReferenceAssetProcessingStatus.PROCESSING
-                and asset.openai_vector_store_id is None
-            ):
-                raise DocumentBVectorStoreNotAllowedError(
-                    f"Document B version {version} is already processing."
-                )
 
+            # A persisted store ID resumes polling that store. PROCESSING without one
+            # resumes store creation after an interrupted local application process.
             asset.processing_status = ReferenceAssetProcessingStatus.PROCESSING
             asset.processing_error = None
             asset.is_active = False

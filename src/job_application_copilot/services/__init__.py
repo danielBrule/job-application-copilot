@@ -4,6 +4,10 @@ from job_application_copilot.repositories import (
     DuplicateJobUrlError,
     JobNotFoundError,
 )
+from job_application_copilot.services.document_b_processing import (
+    DocumentBProcessingError,
+    DocumentBProcessingService,
+)
 from job_application_copilot.services.document_b_vector_store import (
     DocumentBVectorStoreError,
     DocumentBVectorStoreNotAllowedError,
@@ -42,6 +46,8 @@ __all__ = [
     "DocumentBVectorStoreError",
     "DocumentBVectorStoreNotAllowedError",
     "DocumentBVectorStoreService",
+    "DocumentBProcessingError",
+    "DocumentBProcessingService",
     "JobNotFoundError",
     "JobService",
     "OpenAIFileUploadError",

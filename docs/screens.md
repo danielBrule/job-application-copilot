@@ -235,6 +235,15 @@ and B appear as inactive `PENDING` candidates until their later OpenAI processin
 The prior active document remains visible and usable. Invalid or duplicate uploads do not alter
 the active version.
 
+The Document B form uses **Upload and activate with OpenAI** for its first version and
+**Replace and activate with OpenAI** afterward. It validates and stores the DOCX, uploads it,
+waits for vector-store indexing, validates retrieval and refreshes the overview after activation.
+When the latest Document B remains pending, processing or failed, Settings additionally shows
+**Process and activate** as a recovery action. While processing, the page shows a spinner. A safe
+actionable error is shown on failure and the prior active version remains in use. After an
+application restart, `PROCESSING` candidates remain eligible for recovery and resume from the
+last OpenAI identifier saved locally.
+
 ### Assessment
 
 - Active Document A DOCX

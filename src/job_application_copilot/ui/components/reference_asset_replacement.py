@@ -5,6 +5,7 @@ from typing import Protocol
 import streamlit as st
 
 from job_application_copilot.domain import (
+    DOCUMENT_B_KEY,
     REQUIRED_REFERENCE_ASSETS,
     FrenchReferenceExamplesOverview,
     ReferenceAssetProcessingStatus,
@@ -15,6 +16,7 @@ from job_application_copilot.domain import (
 from job_application_copilot.observability import get_logger
 from job_application_copilot.repositories.models import ReferenceAsset
 from job_application_copilot.services import (
+    DocumentBProcessingError,
     ReferenceAssetStorageError,
     ReferenceAssetStorageService,
     ReferenceExampleNotFoundError,
@@ -22,6 +24,7 @@ from job_application_copilot.services import (
 
 logger = get_logger(__name__)
 REPLACEMENT_SUCCESS_KEY = "reference_asset_replacement_success"
+REPLACEMENT_ERROR_KEY = "reference_asset_replacement_error"
 REPLACEMENT_ERROR_MESSAGE = "The reference asset could not be stored. See the private UI log."
 
 
@@ -34,29 +37,50 @@ class UploadedDocx(Protocol):
         """Return the complete uploaded content."""
 
 
+class DocumentBReplacementProcessor(Protocol):
+    """Boundary for the combined Document B replacement workflow."""
+
+    def replace_and_process(self, *, filename: str, content: bytes) -> ReferenceAsset:
+        """Store, process, validate, and activate a Document B replacement."""
+
+
 def render_reference_asset_replacements(
     service: ReferenceAssetStorageService,
     french_examples: FrenchReferenceExamplesOverview | None,
+    document_b_processor: DocumentBReplacementProcessor,
+    *,
+    document_b_exists: bool,
 ) -> None:
     """Render canonical replacement controls and dynamic French-example input."""
 
     st.subheader("Local DOCX uploads")
     st.caption(
         "Templates and French examples become active after local validation. "
-        "Documents A and B remain pending until their later OpenAI processing succeeds. "
+        "Document A remains pending until its later OpenAI processing succeeds. "
+        "Document B is stored, processed with OpenAI and activated in one explicit workflow. "
         "Earlier local versions are retained."
     )
     if message := st.session_state.pop(REPLACEMENT_SUCCESS_KEY, None):
         st.success(message)
+    if message := st.session_state.pop(REPLACEMENT_ERROR_KEY, None):
+        st.error(message)
 
     for requirement in REQUIRED_REFERENCE_ASSETS:
-        _render_required_asset_form(service, requirement)
+        _render_required_asset_form(
+            service,
+            requirement,
+            document_b_processor,
+            document_b_exists=document_b_exists,
+        )
     _render_french_example_form(service, french_examples)
 
 
 def _render_required_asset_form(
     service: ReferenceAssetStorageService,
     requirement: RequiredReferenceAsset,
+    document_b_processor: DocumentBReplacementProcessor,
+    *,
+    document_b_exists: bool,
 ) -> None:
     with st.expander(f"Upload or replace {requirement.label}"):
         with st.form(
@@ -68,17 +92,48 @@ def _render_required_asset_form(
                 type=["docx"],
                 key=f"reference_asset_file_{requirement.asset_key}",
             )
-            submitted = st.form_submit_button("Validate and store")
+            if requirement.asset_key == DOCUMENT_B_KEY:
+                st.caption(
+                    "Validates and stores the file locally, uploads it to OpenAI, verifies its "
+                    "vector store, then activates it. The current version remains active if "
+                    "processing fails."
+                )
+            submitted = st.form_submit_button(
+                _required_asset_submit_label(
+                    requirement,
+                    document_b_exists=document_b_exists,
+                )
+            )
 
         if submitted:
-            _replace_uploaded_asset(
-                service,
-                upload=upload,
-                asset_key=requirement.asset_key,
-                asset_type=requirement.asset_type,
-                name=requirement.label,
-                language_code=requirement.language_code,
-            )
+            if requirement.asset_key == DOCUMENT_B_KEY:
+                _replace_and_process_document_b(
+                    document_b_processor,
+                    upload=upload,
+                )
+            else:
+                _replace_uploaded_asset(
+                    service,
+                    upload=upload,
+                    asset_key=requirement.asset_key,
+                    asset_type=requirement.asset_type,
+                    name=requirement.label,
+                    language_code=requirement.language_code,
+                )
+
+
+def _required_asset_submit_label(
+    requirement: RequiredReferenceAsset,
+    *,
+    document_b_exists: bool,
+) -> str:
+    if requirement.asset_key != DOCUMENT_B_KEY:
+        return "Validate and store"
+    return (
+        "Replace and activate with OpenAI"
+        if document_b_exists
+        else "Upload and activate with OpenAI"
+    )
 
 
 def _render_french_example_form(
@@ -254,6 +309,41 @@ def _replace_uploaded_asset(
             asset_type.value,
         )
         st.error(REPLACEMENT_ERROR_MESSAGE)
+    else:
+        st.session_state[REPLACEMENT_SUCCESS_KEY] = _success_message(asset)
+        st.rerun()
+
+
+def _replace_and_process_document_b(
+    service: DocumentBReplacementProcessor,
+    *,
+    upload: UploadedDocx | None,
+) -> None:
+    if upload is None:
+        st.error("Choose a DOCX file.")
+        return
+
+    try:
+        with st.spinner("Validating, uploading and activating Document B with OpenAI..."):
+            asset = service.replace_and_process(
+                filename=upload.name,
+                content=upload.getvalue(),
+            )
+    except (ReferenceAssetStorageError, ValueError) as error:
+        st.error(str(error))
+    except DocumentBProcessingError as error:
+        st.session_state[REPLACEMENT_ERROR_KEY] = (
+            f"Document B could not be activated: {error} "
+            "Any existing active version remains in use."
+        )
+        st.rerun()
+    except Exception:
+        logger.exception("document_b_replacement_processing_failed")
+        st.session_state[REPLACEMENT_ERROR_KEY] = (
+            "Document B could not be activated. See the private UI log. "
+            "Any existing active version remains in use."
+        )
+        st.rerun()
     else:
         st.session_state[REPLACEMENT_SUCCESS_KEY] = _success_message(asset)
         st.rerun()

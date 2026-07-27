@@ -239,6 +239,32 @@ def test_reuses_persisted_store_when_retrying_validation(
     client.wait_for_vector_store_file.assert_called_once()
 
 
+def test_processing_without_store_id_resumes_interrupted_creation(
+    vector_store_context: tuple[
+        DocumentBVectorStoreService,
+        ReferenceAssetStorageService,
+        Database,
+        Mock,
+    ],
+) -> None:
+    service, storage, database, client = vector_store_context
+    candidate = stored_candidate(storage, database, with_previous=False)
+    with database.session() as session:
+        interrupted = ReferenceAssetRepository(session).require_version(
+            candidate.asset_key,
+            candidate.version,
+        )
+        interrupted.processing_status = ReferenceAssetProcessingStatus.PROCESSING
+        interrupted.openai_vector_store_id = None
+
+    result = service.process(candidate.asset_key, candidate.version)
+
+    assert result.processing_status is ReferenceAssetProcessingStatus.READY
+    assert result.is_active
+    client.create_vector_store.assert_called_once()
+    client.wait_for_vector_store_file.assert_called_once()
+
+
 @pytest.mark.parametrize(
     ("status", "error_code"),
     [

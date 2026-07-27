@@ -228,6 +228,38 @@ def test_existing_file_id_makes_upload_idempotent(
     client.upload_docx.assert_called_once()
 
 
+def test_processing_without_file_id_resumes_interrupted_upload(
+    upload_context: tuple[
+        OpenAIFileUploadService,
+        ReferenceAssetStorageService,
+        Database,
+        AppSettings,
+        Mock,
+    ],
+) -> None:
+    service, storage, database, _, client = upload_context
+    candidate = storage.replace(
+        filename="document-b.docx",
+        content=make_docx("Document B"),
+        asset_key="document-b",
+        asset_type=ReferenceAssetType.DOCUMENT,
+        name="Document B",
+    )
+    with database.session() as session:
+        interrupted = ReferenceAssetRepository(session).require_version(
+            candidate.asset_key,
+            candidate.version,
+        )
+        interrupted.processing_status = ReferenceAssetProcessingStatus.PROCESSING
+    client.upload_docx.return_value = uploaded_file("file_resumed")
+
+    result = service.upload(candidate.asset_key, candidate.version)
+
+    assert result.openai_file_id == "file_resumed"
+    assert result.processing_status is ReferenceAssetProcessingStatus.PENDING
+    client.upload_docx.assert_called_once()
+
+
 def test_rejects_non_document_asset(
     upload_context: tuple[
         OpenAIFileUploadService,
