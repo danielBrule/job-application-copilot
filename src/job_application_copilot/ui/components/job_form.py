@@ -9,7 +9,13 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 from sqlalchemy.exc import SQLAlchemyError
 
 from job_application_copilot.config import AppSettings
-from job_application_copilot.domain import CreateJob, Language, Location, UpdateJob
+from job_application_copilot.domain import (
+    CreateJob,
+    Language,
+    Location,
+    Relevance,
+    UpdateJob,
+)
 from job_application_copilot.observability import get_logger, log_event
 from job_application_copilot.repositories.models import Job
 from job_application_copilot.services import (
@@ -48,6 +54,7 @@ class JobFormInitialValues:
     job_description: str
     date_added: date
     general_notes: str
+    relevance_override: Relevance | None
 
     @classmethod
     def for_add(cls, settings: AppSettings) -> "JobFormInitialValues":
@@ -63,6 +70,7 @@ class JobFormInitialValues:
             job_description="",
             date_added=date.today(),
             general_notes="",
+            relevance_override=None,
         )
 
     @classmethod
@@ -79,6 +87,7 @@ class JobFormInitialValues:
             job_description=job.job_description,
             date_added=job.date_added,
             general_notes=job.general_notes or "",
+            relevance_override=job.relevance_override,
         )
 
 
@@ -94,6 +103,7 @@ class JobFormData(BaseModel):
     job_description: str
     date_added: date
     general_notes: str | None = None
+    relevance_override: Relevance | None = None
 
     @field_validator("company", "job_title", "source", mode="before")
     @classmethod
@@ -139,6 +149,7 @@ class JobFormData(BaseModel):
             job_description=self.job_description,
             date_added=self.date_added,
             general_notes=self.general_notes,
+            relevance_override=self.relevance_override,
         )
 
     def to_update_command(self, current_job: Job) -> UpdateJob:
@@ -154,6 +165,7 @@ class JobFormData(BaseModel):
             job_description=self.job_description,
             date_added=self.date_added,
             general_notes=self.general_notes,
+            relevance_override=self.relevance_override,
             user_decision=current_job.user_decision,
             application_status=current_job.application_status,
             application_date=current_job.application_date,
@@ -270,6 +282,17 @@ def _render_form(
                 index=list(Language).index(initial.language),
                 key=f"{key_prefix}_language",
             ),
+            "relevance_override": st.selectbox(
+                "Relevance override",
+                options=[None, *Relevance],
+                index=[None, *Relevance].index(initial.relevance_override),
+                format_func=_relevance_override_label,
+                help=(
+                    "Your value takes precedence over assessment relevance. "
+                    "Choose 'Use assessment relevance' to clear the override."
+                ),
+                key=f"{key_prefix}_relevance_override",
+            ),
             "source": st.text_input(
                 "Source",
                 value=initial.source,
@@ -311,6 +334,14 @@ def _render_form(
             cancel = st.form_submit_button("Cancel")
 
     return values, save, save_and_add_another, cancel
+
+
+def _relevance_override_label(value: object) -> str:
+    if value is None:
+        return "Use assessment relevance"
+    if isinstance(value, Relevance):
+        return value.value.title()
+    return str(value)
 
 
 def _validate_form(values: dict[str, object]) -> JobFormData | None:

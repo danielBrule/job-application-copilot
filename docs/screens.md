@@ -83,6 +83,7 @@ Fields:
 - Full JD
 - Date added, auto-filled with current date and editable
 - Notes
+- Relevance override: Use assessment relevance / High / Medium / Low
 
 Actions:
 
@@ -110,6 +111,7 @@ Display:
 - Summary
 - Role family
 - Recommendation
+- Model relevance and effective relevance
 - Fit score
 - Interview probability
 - Strong signals
@@ -124,6 +126,7 @@ Display:
 Editable user controls:
 
 - User decision: Undecided / Pursue / Do not pursue
+- Relevance override: Use assessment relevance / High / Medium / Low
 - Selected CV lane
 - Assessment notes
 - Select for CV generation

@@ -27,6 +27,7 @@ Key fields:
 - `job_description`
 - `date_added`, current date by default and editable
 - `general_notes`
+- `relevance_override`: optional High / Medium / Low human override
 - `user_decision`: Undecided / Pursue / Do not pursue
 - `application_status`, free text
 - `application_date`
@@ -45,6 +46,7 @@ Key fields:
 
 - `job_id`
 - `status`: pending / running / assessed / failed
+- `model_relevance`: High / Medium / Low
 - `summary`
 - `primary_role_family`
 - `secondary_role_family`
@@ -72,6 +74,9 @@ Key fields:
 - `error_message`
 
 A failed reassessment must not delete the last valid result.
+Effective relevance is `Job.relevance_override` when present, otherwise the current
+`Assessment.model_relevance`. Keeping both values preserves the model output when the user
+overrides it.
 
 ## CV
 

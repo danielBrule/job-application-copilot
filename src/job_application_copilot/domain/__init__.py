@@ -5,6 +5,7 @@ from job_application_copilot.domain.job import (
     JobFilters,
     Language,
     Location,
+    Relevance,
     UpdateJob,
     UserDecision,
 )
@@ -40,6 +41,7 @@ __all__ = [
     "JobFilters",
     "Language",
     "Location",
+    "Relevance",
     "PromptCompleteness",
     "REQUIRED_REFERENCE_ASSETS",
     "ReferenceAssetProcessingStatus",

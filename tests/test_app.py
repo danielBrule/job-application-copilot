@@ -14,6 +14,7 @@ from job_application_copilot.domain import (
     Location,
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
+    Relevance,
     UserDecision,
 )
 from job_application_copilot.observability import reset_logging
@@ -1068,6 +1069,7 @@ def test_add_job_form_uses_configured_defaults(
         assert app.text_input(key="add_job_0_source").value == "Company website"
         assert app.selectbox(key="add_job_0_location").value == "FR"
         assert app.selectbox(key="add_job_0_language").value == "FR"
+        assert app.selectbox(key="add_job_0_relevance_override").value is None
         assert app.date_input(key="add_job_0_date_added").value == date.today()
     finally:
         reset_logging()
@@ -1090,6 +1092,7 @@ def test_valid_add_job_submission_persists_and_returns_to_jobs(
         app.text_input(key="add_job_0_job_url").input("https://example.com/job")
         app.text_area(key="add_job_0_job_description").input("Build and operate reliable systems.")
         app.text_area(key="add_job_0_general_notes").input("Initial note")
+        app.selectbox(key="add_job_0_relevance_override").select(Relevance.HIGH)
         app.button(key="FormSubmitter:add_job_0_form-Save").click().run()
 
         assert not app.exception
@@ -1103,6 +1106,7 @@ def test_valid_add_job_submission_persists_and_returns_to_jobs(
         assert jobs[0].job_title == "Platform Engineer"
         assert jobs[0].source == "LinkedIn"
         assert jobs[0].date_added == date.today()
+        assert jobs[0].relevance_override is Relevance.HIGH
     finally:
         reset_logging()
 
@@ -1242,6 +1246,7 @@ def test_job_details_form_loads_existing_values_and_persists_edits(
         assert app.text_input(key=f"edit_job_{job.id}_job_title").value == "Original title"
         assert app.selectbox(key=f"edit_job_{job.id}_location").value == "UK"
         assert app.selectbox(key=f"edit_job_{job.id}_language").value == "EN"
+        assert app.selectbox(key=f"edit_job_{job.id}_relevance_override").value is None
         assert app.text_input(key=f"edit_job_{job.id}_source").value == "LinkedIn"
         assert (
             app.text_input(key=f"edit_job_{job.id}_job_url").value == "https://example.com/original"
@@ -1256,6 +1261,7 @@ def test_job_details_form_loads_existing_values_and_persists_edits(
         app.text_input(key=f"edit_job_{job.id}_job_title").input("Updated title")
         app.selectbox(key=f"edit_job_{job.id}_location").select("FR")
         app.selectbox(key=f"edit_job_{job.id}_language").select("FR")
+        app.selectbox(key=f"edit_job_{job.id}_relevance_override").select(Relevance.MEDIUM)
         app.text_input(key=f"edit_job_{job.id}_source").input("Company website")
         app.text_input(key=f"edit_job_{job.id}_job_url").input("https://example.com/updated")
         app.text_area(key=f"edit_job_{job.id}_job_description").input("Updated description")
@@ -1272,6 +1278,7 @@ def test_job_details_form_loads_existing_values_and_persists_edits(
         assert updated.job_title == "Updated title"
         assert updated.location is Location.FR
         assert updated.language is Language.FR
+        assert updated.relevance_override is Relevance.MEDIUM
         assert updated.source == "Company website"
         assert updated.job_url == "https://example.com/updated"
         assert updated.job_description == "Updated description"

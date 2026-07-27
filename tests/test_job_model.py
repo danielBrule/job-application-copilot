@@ -9,7 +9,7 @@ from alembic.config import Config
 from sqlalchemy import inspect, select, text
 from sqlalchemy.exc import IntegrityError
 
-from job_application_copilot.domain import Language, Location, UserDecision
+from job_application_copilot.domain import Language, Location, Relevance, UserDecision
 from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.repositories.models import Job
 from job_application_copilot.services.database_bootstrap import (
@@ -19,6 +19,7 @@ from job_application_copilot.services.database_bootstrap import (
 )
 
 FOUNDATION_REVISION = "0001_database_foundation"
+PRE_RELEVANCE_REVISION = "0007_create_document_b_sections"
 
 
 @pytest.fixture
@@ -52,6 +53,7 @@ def test_creates_job_with_internal_defaults(migrated_database: Database) -> None
     assert job.language is Language.EN
     assert job.source == "LinkedIn"
     assert job.date_added == date.today()
+    assert job.relevance_override is None
     assert job.user_decision is UserDecision.UNDECIDED
     assert job.created_at.microsecond == 0
     assert job.updated_at.microsecond == 0
@@ -96,6 +98,7 @@ def test_direct_insert_uses_internal_database_defaults(
         assert stored.language is Language.EN
         assert stored.source == "LinkedIn"
         assert stored.date_added == date(2026, 7, 24)
+        assert stored.relevance_override is None
         assert stored.user_decision is UserDecision.UNDECIDED
         assert stored.created_at.microsecond == 0
         assert stored.updated_at.microsecond == 0
@@ -114,6 +117,7 @@ def test_round_trips_optional_and_application_fields(
         job_description="Direction technique et transformation.",
         date_added=date(2026, 7, 1),
         general_notes="Introduced by a former colleague.",
+        relevance_override=Relevance.HIGH,
         user_decision=UserDecision.PURSUE,
         application_status="Second interview",
         application_date=date(2026, 7, 5),
@@ -134,6 +138,7 @@ def test_round_trips_optional_and_application_fields(
         assert stored is not None
         assert stored.location is Location.FR
         assert stored.language is Language.FR
+        assert stored.relevance_override is Relevance.HIGH
         assert stored.user_decision is UserDecision.PURSUE
         assert stored.job_url == "https://example.com/jobs/42"
         assert stored.general_notes == "Introduced by a former colleague."
@@ -184,6 +189,7 @@ def test_updates_timestamp_to_current_whole_second(
     [
         ("location", "DE"),
         ("language", "DE"),
+        ("relevance_override", "URGENT"),
         ("user_decision", "MAYBE"),
         ("company", "   "),
         ("job_title", ""),
@@ -204,6 +210,7 @@ def test_database_rejects_invalid_constrained_values(
         "source": "LinkedIn",
         "job_description": "Build systems.",
         "date_added": "2026-07-24",
+        "relevance_override": None,
         "user_decision": "UNDECIDED",
     }
     values[column] = invalid_value
@@ -221,6 +228,7 @@ def test_database_rejects_invalid_constrained_values(
                         source,
                         job_description,
                         date_added,
+                        relevance_override,
                         user_decision
                     )
                     VALUES (
@@ -231,6 +239,7 @@ def test_database_rejects_invalid_constrained_values(
                         :source,
                         :job_description,
                         :date_added,
+                        :relevance_override,
                         :user_decision
                     )
                     """
@@ -293,6 +302,7 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
             "job_description",
             "date_added",
             "general_notes",
+            "relevance_override",
             "user_decision",
             "application_status",
             "application_date",
@@ -310,11 +320,13 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
             assert not columns[field]["nullable"]
             assert columns[field]["default"] is None
         assert columns["user_decision"]["default"] is not None
+        assert columns["relevance_override"]["nullable"]
         assert columns["created_at"]["default"] is not None
         assert columns["updated_at"]["default"] is not None
         assert {
             "job_location",
             "job_language",
+            "job_relevance_override",
             "job_user_decision",
             "ck_jobs_company_not_blank",
             "ck_jobs_title_not_blank",
@@ -335,3 +347,52 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
     upgraded = initialize_database(database_path)
     assert upgraded.previous_revision == FOUNDATION_REVISION
     assert upgraded.current_revision == get_migration_head()
+
+
+def test_relevance_migration_preserves_existing_jobs(tmp_path: Path) -> None:
+    database_path = tmp_path / "pre-relevance.db"
+    database = create_database(database_path)
+    config = Config()
+    config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
+
+    try:
+        with database.engine.begin() as connection:
+            config.attributes["connection"] = connection
+            command.upgrade(config, PRE_RELEVANCE_REVISION)
+        with database.session() as session:
+            job_id = session.scalar(
+                text(
+                    """
+                    INSERT INTO jobs (
+                        company,
+                        job_title,
+                        location,
+                        language,
+                        source,
+                        job_description,
+                        date_added
+                    )
+                    VALUES (
+                        'Existing Ltd',
+                        'Existing role',
+                        'UK',
+                        'EN',
+                        'LinkedIn',
+                        'Existing description.',
+                        '2026-07-24'
+                    )
+                    RETURNING id
+                    """
+                )
+            )
+        with database.engine.begin() as connection:
+            config.attributes["connection"] = connection
+            command.upgrade(config, "head")
+
+        with database.session() as session:
+            stored = session.get(Job, job_id)
+            assert stored is not None
+            assert stored.company == "Existing Ltd"
+            assert stored.relevance_override is None
+    finally:
+        database.dispose()

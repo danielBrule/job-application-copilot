@@ -28,6 +28,14 @@ class UserDecision(StrEnum):
     DO_NOT_PURSUE = "DO_NOT_PURSUE"
 
 
+class Relevance(StrEnum):
+    """Assessment relevance classification shared by model and user values."""
+
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
+
+
 @dataclass(frozen=True, slots=True)
 class CreateJob:
     """Complete values used to create a persisted job."""
@@ -41,6 +49,7 @@ class CreateJob:
     date_added: date
     job_url: str | None = None
     general_notes: str | None = None
+    relevance_override: Relevance | None = None
     user_decision: UserDecision = UserDecision.UNDECIDED
     application_status: str | None = None
     application_date: date | None = None
@@ -63,6 +72,7 @@ class UpdateJob:
     date_added: date
     job_url: str | None
     general_notes: str | None
+    relevance_override: Relevance | None
     user_decision: UserDecision
     application_status: str | None
     application_date: date | None

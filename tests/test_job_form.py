@@ -5,7 +5,7 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from job_application_copilot.domain import Language, Location, UserDecision
+from job_application_copilot.domain import Language, Location, Relevance, UserDecision
 from job_application_copilot.repositories.models import Job
 from job_application_copilot.ui.components.job_form import (
     JobFormData,
@@ -24,6 +24,7 @@ def valid_form_data() -> dict[str, object]:
         "job_description": "  Build and operate reliable systems.\n",
         "date_added": date(2026, 7, 24),
         "general_notes": "Keep the original formatting.\n",
+        "relevance_override": Relevance.MEDIUM,
     }
 
 
@@ -63,6 +64,7 @@ def test_valid_form_data_normalizes_short_fields_and_maps_to_command() -> None:
     assert command.job_description == "  Build and operate reliable systems.\n"
     assert command.date_added == date(2026, 7, 24)
     assert command.general_notes == "Keep the original formatting.\n"
+    assert command.relevance_override is Relevance.MEDIUM
 
 
 def test_blank_optional_values_become_none() -> None:
@@ -88,6 +90,7 @@ def test_update_command_replaces_form_fields_and_preserves_other_job_state() -> 
         job_description="Old description",
         date_added=date(2026, 7, 1),
         general_notes=None,
+        relevance_override=Relevance.HIGH,
         user_decision=UserDecision.PURSUE,
         application_status="Interview",
         application_date=date(2026, 7, 2),
@@ -102,6 +105,7 @@ def test_update_command_replaces_form_fields_and_preserves_other_job_state() -> 
     assert command.company == "Example Ltd"
     assert command.job_title == "Platform Engineer"
     assert command.job_url == "https://example.com/job"
+    assert command.relevance_override is Relevance.MEDIUM
     assert command.user_decision is UserDecision.PURSUE
     assert command.application_status == "Interview"
     assert command.application_date == date(2026, 7, 2)

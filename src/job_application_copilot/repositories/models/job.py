@@ -5,7 +5,7 @@ from datetime import date, datetime
 from sqlalchemy import CheckConstraint, Date, DateTime, Enum, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from job_application_copilot.domain import Language, Location, UserDecision
+from job_application_copilot.domain import Language, Location, Relevance, UserDecision
 from job_application_copilot.repositories.base import Base
 from job_application_copilot.repositories.models.common import enum_values, utc_now
 
@@ -54,6 +54,16 @@ class Job(Base):
     job_description: Mapped[str] = mapped_column(Text, nullable=False)
     date_added: Mapped[date] = mapped_column(Date, nullable=False)
     general_notes: Mapped[str | None] = mapped_column(Text)
+    relevance_override: Mapped[Relevance | None] = mapped_column(
+        Enum(
+            Relevance,
+            name="job_relevance_override",
+            native_enum=False,
+            create_constraint=True,
+            validate_strings=True,
+            values_callable=enum_values,
+        )
+    )
     user_decision: Mapped[UserDecision] = mapped_column(
         Enum(
             UserDecision,

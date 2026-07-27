@@ -32,6 +32,7 @@ class JobService:
                     job_description=command.job_description,
                     date_added=command.date_added,
                     general_notes=command.general_notes,
+                    relevance_override=command.relevance_override,
                     user_decision=command.user_decision,
                     application_status=command.application_status,
                     application_date=command.application_date,
@@ -64,6 +65,7 @@ class JobService:
             job.job_description = command.job_description
             job.date_added = command.date_added
             job.general_notes = command.general_notes
+            job.relevance_override = command.relevance_override
             job.user_decision = command.user_decision
             job.application_status = command.application_status
             job.application_date = command.application_date

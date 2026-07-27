@@ -59,6 +59,7 @@ Requirements:
 
 Stored assessment output:
 
+- Relevance: High / Medium / Low
 - Short summary
 - Primary and optional secondary role family
 - Go / Caution / Stretch / No-Go recommendation
@@ -84,6 +85,9 @@ The user can record a decision independent of the model:
 - Do not pursue
 
 The model recommendation remains visible.
+
+The user can optionally override the model-produced relevance. The original model relevance
+remains visible, and clearing the override restores the model value as the effective relevance.
 
 The user can confirm or change the recommended CV lane before generation.
 

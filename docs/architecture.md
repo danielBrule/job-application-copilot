@@ -48,6 +48,10 @@ src/job_application_copilot/
 
 Business logic must not live directly in Streamlit pages.
 
+Model-produced assessment relevance and the optional human relevance override remain separate.
+The current assessment owns the model value; the job owns the nullable override. Presentation
+uses the override when present and otherwise falls back to the model value.
+
 `ui/pages` contains only the thin entry points registered with Streamlit navigation. They
 load dependencies and compose a page. Forms, tables, filters and rendered page sections live
 under `ui/components`; these components call application services and contain presentation

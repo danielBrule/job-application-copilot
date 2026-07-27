@@ -12,6 +12,7 @@ from job_application_copilot.domain import (
     JobFilters,
     Language,
     Location,
+    Relevance,
     UpdateJob,
     UserDecision,
 )
@@ -64,6 +65,7 @@ def update_command() -> UpdateJob:
         date_added=date(2026, 7, 20),
         job_url=None,
         general_notes=None,
+        relevance_override=Relevance.HIGH,
         user_decision=UserDecision.PURSUE,
         application_status="Applied",
         application_date=date(2026, 7, 21),
@@ -87,6 +89,7 @@ def test_create_and_get_return_readable_job_after_transaction(
     assert stored is not None
     assert stored.id == created.id
     assert stored.job_url == "https://example.com/job"
+    assert stored.relevance_override is None
     assert stored.user_decision is UserDecision.UNDECIDED
 
 
@@ -113,9 +116,29 @@ def test_update_replaces_fields_clears_nullable_values_and_preserves_identity(
     assert updated.language is Language.FR
     assert updated.job_url is None
     assert updated.general_notes is None
+    assert updated.relevance_override is Relevance.HIGH
     assert updated.user_decision is UserDecision.PURSUE
     assert updated.application_status == "Applied"
     assert updated.next_action == "Prepare interview"
+
+
+def test_update_can_change_and_clear_relevance_override(
+    database_and_service: tuple[Database, JobService],
+) -> None:
+    _, service = database_and_service
+    created = service.create(create_command())
+
+    high = service.update(
+        created.id,
+        replace(update_command(), relevance_override=Relevance.HIGH),
+    )
+    cleared = service.update(
+        created.id,
+        replace(update_command(), relevance_override=None),
+    )
+
+    assert high.relevance_override is Relevance.HIGH
+    assert cleared.relevance_override is None
 
 
 def test_list_delegates_filters(database_and_service: tuple[Database, JobService]) -> None:
