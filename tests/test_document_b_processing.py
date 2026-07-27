@@ -44,6 +44,7 @@ from job_application_copilot.services.remote_reference_operation import (
 def make_docx(text: str) -> bytes:
     buffer = BytesIO()
     document = Document()
+    document.add_heading("CV generation and positioning guidance", level=1)
     document.add_paragraph(text)
     document.save(buffer)
     return buffer.getvalue()

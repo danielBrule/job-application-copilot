@@ -216,13 +216,18 @@ pipeline groups and language codes are therefore data-driven rather than schema 
 
 Locally extracted for deterministic routing:
 
-- `document_b_version`
+- `reference_asset_id`, linking the exact Document B version
 - `section_id`
 - `heading_number`
 - `heading_title`
 - `heading_level`
 - `sequence`
 - `section_text`
+
+The document preamble is retained as level `0`. Heading sections use positive Word heading
+levels. Section IDs are deterministic within a version: an explicit heading number is preferred,
+otherwise the normalized hierarchy of heading titles is used. Sequence and section ID are each
+unique within one Document B version.
 
 ## Application settings
 

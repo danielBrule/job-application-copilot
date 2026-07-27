@@ -22,6 +22,10 @@ from job_application_copilot.repositories.models import ReferenceAsset
 from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
 )
+from job_application_copilot.services.document_b_sections import (
+    DocumentBSectionError,
+    DocumentBSectionService,
+)
 
 logger = get_logger(__name__)
 DOCUMENT_B_VALIDATION_QUERY = "CV generation and positioning guidance"
@@ -50,6 +54,19 @@ class DocumentBVectorStoreService:
 
     def process(self, asset_key: str, version: int) -> ReferenceAsset:
         """Index and activate one uploaded Document B candidate."""
+
+        if asset_key != DOCUMENT_B_KEY:
+            raise DocumentBVectorStoreNotAllowedError(
+                "Only canonical Document B versions may be indexed in this vector store."
+            )
+        try:
+            DocumentBSectionService(
+                self.database,
+                self.settings,
+            ).extract_and_store(version)
+        except DocumentBSectionError as error:
+            self._record_failure(asset_key, version, str(error))
+            raise DocumentBVectorStoreError(str(error)) from error
 
         prepared = self._prepare(asset_key, version)
         if prepared.is_active:
