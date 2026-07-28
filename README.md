@@ -8,6 +8,13 @@ The project is intentionally **not an automated mass-application tool**. It does
 
 ## What it does
 
+The workflow uses two controlled career documents:
+
+- **Document A** assesses the job and determines fit, role family, positioning and whether to
+  pursue it.
+- **Document B** contains approved CV content, evidence, the bullet library and rules used to
+  generate a tailored CV.
+
 1. Stores job descriptions and basic job information locally.
 2. Assesses selected jobs using Document A.
 3. Displays structured assessments for human review.
@@ -18,16 +25,15 @@ The project is intentionally **not an automated mass-application tool**. It does
 8. Tracks application status, contacts, interviews, notes and next actions.
 9. Reports simple workflow, token and processing-time KPIs.
 
-## What Documents A and B are
+### How Documents A and B work
 
 - **Document A — Career Strategy, Evidence & Job Assessment Guide:** the authority for job-fit
   decisions and factual career evidence. It defines evidence confidence, gaps and overclaiming
-  constraints. The complete active Document A is supplied to every assessment; Document B is
-  never used during assessment.
-- **Document B — CV Generation & Positioning Guide:** instructions for selecting and positioning
-  already validated evidence when generating a CV. Required sections are selected
-  deterministically for the chosen CV lane. Document B cannot create evidence, strengthen a
-  claim beyond Document A, or override Document A.
+  constraints. Every assessment receives the complete active Document A and never Document B.
+- **Document B — CV Generation & Positioning Guide:** the source of approved CV content and
+  instructions for selecting and positioning validated evidence. Required sections are selected
+  deterministically for the chosen CV lane. Document B cannot create evidence, strengthen a claim
+  beyond Document A or override Document A.
 
 ## Core principles
 
@@ -39,7 +45,7 @@ The project is intentionally **not an automated mass-application tool**. It does
 - **Local-first operation:** SQLite, generated documents and application tracking remain local.
 - **No automatic submission:** application submission is explicitly out of scope.
 
-## Agreed stack
+## Technology stack
 
 - Python 3.12+
 - Streamlit
@@ -66,6 +72,8 @@ Assessment and CV generation run through a local background worker.
 Worker counts are validated in the range `1` through `5`.
 
 ## Application configuration
+
+### Environment variables
 
 Configuration is loaded from process environment variables and an optional `.env` file in the
 directory where the application is started. Copy `.env.example` to `.env` for local overrides.
@@ -95,6 +103,8 @@ paths are resolved from the application's working directory. Set `JAC_DATA_DIR` 
 private application data together. The three specific path variables are optional overrides
 for installations that need to store one category elsewhere.
 
+### Private file layout
+
 Private files use the following untracked layout:
 
 ```text
@@ -106,27 +116,23 @@ data/
     ├── document_a/
     ├── document_b/
     ├── templates/
-    └── examples/
-        ├── french_resume_example_01.docx
-        ├── french_resume_example_02.docx
-        └── french_resume_example_03.docx
+    ├── examples/
+    │   ├── french_resume_example_01.docx
+    │   ├── french_resume_example_02.docx
+    │   └── french_resume_example_03.docx
+    └── prompts/
+        ├── assessment/
+        └── generation/
+            ├── english/
+            └── french/
 ```
 
 The application creates missing directories when it starts. Loading configuration alone does
 not modify the filesystem. The example filenames illustrate private local files only; the
-application does not create or commit them.
+application does not create or commit them. Prompt versions are also private runtime assets and
+are not committed.
 
-Prompt versions are also private runtime assets:
-
-```text
-data/reference/prompts/
-├── assessment/
-└── generation/
-    ├── english/
-    └── french/
-```
-
-Prompt files are not committed.
+### Settings and asset readiness
 
 The Settings page manages data-driven prompt definitions and private UTF-8 text versions. The
 initial configuration contains one assessment prompt, four English-generation stages and two
@@ -141,6 +147,8 @@ upload time and processing status. At least two active ready French examples are
 additional examples and prompt groups are discovered from stored data rather than capped
 in the UI. Set `JAC_MINIMUM_FRENCH_REFERENCE_EXAMPLES` to change that minimum.
 
+### Local asset versioning
+
 Reference DOCX uploads are limited to 5 MiB and are validated as readable DOCX packages before
 storage. Each logical asset uses an immutable versioned filename such as
 `document-a-v0001.docx`; an existing file is never overwritten. Stored files and their database
@@ -152,6 +160,8 @@ active document remains usable. French examples are identified by their user-fac
 application derives the internal key and treats the same normalized name as the same versioned
 example. Duplicate content is rejected across all French examples. Removing an example excludes
 it from readiness but retains its files and metadata so it can be restored.
+
+### OpenAI processing and activation
 
 Canonical Document A and Document B candidates can be uploaded through the OpenAI file-upload
 service using the Files API `user_data` purpose. Before upload, the service checks that the
@@ -175,6 +185,8 @@ tokens. A hard process stop in the short interval after OpenAI creates a resourc
 ID is stored locally can leave an untracked remote resource; safe discovery of those untracked
 resources requires a separate ownership-tagging workflow.
 
+### Remote cleanup and restoration
+
 Settings lists tracked OpenAI resources for inactive, non-processing reference versions.
 Cleanup requires explicit per-version confirmation, deletes a Document B vector store before
 its uploaded file, and deletes only the uploaded file for Document A. Local DOCX files, hashes,
@@ -187,11 +199,15 @@ workflow succeeds; the current active version remains unchanged if restoration f
 
 ## Private logs
 
-The UI writes UTF-8 structured text to `data/logs/ui.log`. The future background worker uses
-the same format in `data/logs/worker.log` so the processes do not compete while rotating one
-file. Each active file rotates at 5 MiB and retains five backups. Log timestamps use UTC to
-whole seconds. Set `JAC_LOG_LEVEL` to `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL`.
-Use `JAC_LOG_MAX_SIZE_MB` and `JAC_LOG_BACKUP_COUNT` to adjust retention.
+The application uses rotating UTF-8 structured-text log files. The UI writes to
+`data/logs/ui.log`, while the future background worker writes to `data/logs/worker.log` so the
+two processes do not compete for the same file. By default, each active log rotates when it
+reaches 5 MiB: the current file is archived, a new active file is started, and the five most
+recent backups are retained.
+
+Log timestamps use UTC to whole seconds. Set `JAC_LOG_LEVEL` to `DEBUG`, `INFO`, `WARNING`,
+`ERROR` or `CRITICAL`. Use `JAC_LOG_MAX_SIZE_MB` to change the rotation threshold and
+`JAC_LOG_BACKUP_COUNT` to change the number of retained backups.
 
 Logs are private application data. They may contain job descriptions, CV content, prompts,
 Documents A and B, model inputs and outputs, personal information, local paths, identifiers,
@@ -244,6 +260,8 @@ controls are delivered by later tickets.
 
 ## Development
 
+### Prerequisites
+
 Requirements:
 
 - Python 3.12 or later
@@ -254,6 +272,8 @@ If the current shell blocks local PowerShell scripts, allow them for that shell 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 ```
+
+### Environment setup
 
 Create or update the project environment:
 
@@ -266,6 +286,8 @@ Activate it in the current PowerShell session when an interactive environment is
 ```powershell
 . .\dev.ps1 activate
 ```
+
+### Local data and database
 
 Create missing private directories and validate existing paths without starting the UI:
 
@@ -301,6 +323,8 @@ This removes tracked local reference files and their `reference_assets` rows. Wh
 metadata identifies OpenAI files or vector stores, those remote resources are deleted first.
 Prompt definitions, jobs and unrelated private data are preserved.
 
+### Automated checks
+
 Run the automated checks:
 
 ```powershell
@@ -335,11 +359,15 @@ temporary Document B version. All created remote files and stores are deleted du
 runs skip this external test and never contact OpenAI. The explicit target temporarily enables
 the integration marker for its child test process and restores the previous environment afterward.
 
+### Run the application
+
 Start the Streamlit application:
 
 ```powershell
 .\dev.ps1 ui
 ```
+
+### Troubleshooting commands
 
 Run `.\dev.ps1 help` to list all supported targets. The underlying Poetry commands remain
 available for troubleshooting:

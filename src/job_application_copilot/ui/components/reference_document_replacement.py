@@ -4,6 +4,7 @@ from typing import Protocol
 
 import streamlit as st
 
+from job_application_copilot.documents.docx_validation import MAX_DOCX_UPLOAD_SIZE_MB
 from job_application_copilot.domain import DOCUMENT_A_KEY, RequiredReferenceAsset
 from job_application_copilot.errors import ApplicationStorageError, ApplicationValidationError
 from job_application_copilot.observability import get_logger
@@ -53,6 +54,7 @@ def render_reference_document_form(
                 f"{requirement.label} DOCX",
                 type=["docx"],
                 key=f"reference_asset_file_{requirement.asset_key}",
+                max_upload_size=MAX_DOCX_UPLOAD_SIZE_MB,
             )
             if requirement.asset_key == DOCUMENT_A_KEY:
                 st.caption(

@@ -56,6 +56,7 @@ At completion report:
 3. tests run and results;
 4. limitations;
 5. manual verification steps.
+6. recommended file order for review
 
 ## Coding standards
 
@@ -72,18 +73,22 @@ At completion report:
 
 ## Required checks
 
-Use the repository commands documented in `README.md`:
+Use the repository commands documented in `README.md`. Run focused tests directly with `pytest`
+when practical, then use the developer script for the complete repository checks.
 
 ```powershell
-.\dev.ps1 help
-.\dev.ps1 env
-. .\dev.ps1 activate
-.\dev.ps1 directories
-.\dev.ps1 database
 .\dev.ps1 test
 .\dev.ps1 lint
+.\dev.ps1 type
 .\dev.ps1 ui
 ```
 
-At minimum, run `test` and `lint` before completing a ticket. Run focused checks first, then
-the broader suite. Use `ui` for manual verification when the interface is affected.
+At minimum, run `test` and `lint` before completing a ticket. Also:
+
+- run focused tests first when practical;
+- run `type` when production Python code changes;
+- use `ui` for manual verification when the interface is affected.
+
+Commands such as `help`, `env`, `activate`, `directories` and `database` support setup and local
+operation. Run them when the ticket or environment requires them; they are not completion checks
+for every ticket.
