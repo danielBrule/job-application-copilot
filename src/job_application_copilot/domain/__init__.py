@@ -1,5 +1,13 @@
 """Application domain types."""
 
+from job_application_copilot.domain.document_b_routing import (
+    CvLane,
+    DocumentBRouteRole,
+    DocumentBRoutingSetStatus,
+    RouteDeliveryMode,
+    RouteInclusion,
+    SecondaryLaneDisposition,
+)
 from job_application_copilot.domain.job import (
     CreateJob,
     JobFilters,
@@ -31,10 +39,13 @@ from job_application_copilot.domain.reference_asset_overview import (
 )
 
 __all__ = [
+    "CvLane",
     "CreateJob",
     "CreatePromptDefinition",
     "DOCUMENT_A_KEY",
     "DOCUMENT_B_KEY",
+    "DocumentBRouteRole",
+    "DocumentBRoutingSetStatus",
     "ENGLISH_CV_TEMPLATE_KEY",
     "FRENCH_CV_TEMPLATE_KEY",
     "FrenchReferenceExamplesOverview",
@@ -47,9 +58,12 @@ __all__ = [
     "ReferenceAssetProcessingStatus",
     "ReferenceAssetType",
     "ReferenceAssetVersionSummary",
+    "RouteInclusion",
+    "RouteDeliveryMode",
     "RequiredReferenceAsset",
     "RequiredReferenceAssetOverview",
     "SettingsAssetOverview",
+    "SecondaryLaneDisposition",
     "UpdateJob",
     "UserDecision",
 ]

@@ -4,7 +4,13 @@ param(
     [string]$Target = "help",
 
     [Parameter()]
-    [switch]$Force
+    [switch]$Force,
+
+    [Parameter()]
+    [int]$DocumentBVersion,
+
+    [Parameter()]
+    [string]$Lane
 )
 
 Set-StrictMode -Version Latest
@@ -25,6 +31,7 @@ Usage:
   .\dev.ps1 database   Migrate and validate the local SQLite database
   .\dev.ps1 database-sql Preview pending database migrations as SQL
   .\dev.ps1 reset-reference-assets -Force Reset all development Settings assets
+  .\dev.ps1 document-b-routing [-DocumentBVersion N] [-Lane LANE] Inspect routing
   .\dev.ps1 test       Run the Pytest suite
   .\dev.ps1 coverage   Run Pytest with branch coverage reporting
   .\dev.ps1 test-openai Run opt-in tests against real OpenAI files and vector stores
@@ -230,6 +237,18 @@ function Invoke-Lint {
     Invoke-ProjectTool -Executable $ruff -Arguments @("format", "--check", ".")
 }
 
+function Show-DocumentBRouting {
+    $python = Resolve-VenvTool -Name "python.exe"
+    $arguments = @("-m", "job_application_copilot.services.document_b_routing_cli")
+    if ($DocumentBVersion -gt 0) {
+        $arguments += @("--document-b-version", $DocumentBVersion.ToString())
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Lane)) {
+        $arguments += @("--lane", $Lane)
+    }
+    Invoke-ProjectTool -Executable $python -Arguments $arguments
+}
+
 function Invoke-TypeChecks {
     $python = Resolve-VenvTool -Name "python.exe"
     Invoke-ProjectTool -Executable $python -Arguments @("-m", "mypy")
@@ -259,6 +278,9 @@ switch ($Target.ToLowerInvariant()) {
     }
     "reset-reference-assets" {
         Reset-ReferenceAssets
+    }
+    "document-b-routing" {
+        Show-DocumentBRouting
     }
     "test" {
         Invoke-Tests

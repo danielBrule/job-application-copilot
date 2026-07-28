@@ -6,6 +6,9 @@ from job_application_copilot.repositories.database import (
     create_database,
     create_database_url,
 )
+from job_application_copilot.repositories.document_b_routing_repository import (
+    DocumentBRoutingRepository,
+)
 from job_application_copilot.repositories.document_b_section_repository import (
     DocumentBSectionNotFoundError,
     DocumentBSectionRepository,
@@ -29,6 +32,7 @@ __all__ = [
     "DatabaseHealth",
     "DocumentBSectionNotFoundError",
     "DocumentBSectionRepository",
+    "DocumentBRoutingRepository",
     "DuplicateJobUrlError",
     "JobNotFoundError",
     "JobRepository",

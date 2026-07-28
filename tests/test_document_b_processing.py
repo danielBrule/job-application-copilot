@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from io import BytesIO
 from pathlib import Path
 from typing import cast
 from unittest.mock import Mock
 
 import pytest
-from docx import Document
+from conftest import make_routable_document_b
 
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import (
@@ -41,12 +40,7 @@ from job_application_copilot.services.remote_reference_operation import (
 
 
 def make_docx(text: str) -> bytes:
-    buffer = BytesIO()
-    document = Document()
-    document.add_heading("CV generation and positioning guidance", level=1)
-    document.add_paragraph(text)
-    document.save(buffer)
-    return buffer.getvalue()
+    return make_routable_document_b(text)
 
 
 @pytest.fixture

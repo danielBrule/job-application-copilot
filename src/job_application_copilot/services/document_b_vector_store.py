@@ -5,6 +5,7 @@ from __future__ import annotations
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import (
     DOCUMENT_B_KEY,
+    CvLane,
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
 )
@@ -22,6 +23,10 @@ from job_application_copilot.repositories import Database
 from job_application_copilot.repositories.models import ReferenceAsset
 from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
+)
+from job_application_copilot.services.document_b_routing import (
+    DocumentBRoutingError,
+    DocumentBRoutingManifestService,
 )
 from job_application_copilot.services.document_b_sections import (
     DocumentBSectionError,
@@ -61,11 +66,16 @@ class DocumentBVectorStoreService:
                 "Only canonical Document B versions may be indexed in this vector store."
             )
         try:
-            DocumentBSectionService(
+            section_service = DocumentBSectionService(
                 self.database,
                 self.settings,
-            ).extract_and_store(version)
-        except DocumentBSectionError as error:
+            )
+            section_service.extract_and_store(version)
+            DocumentBRoutingManifestService(
+                self.database,
+                section_service,
+            ).generate(version)
+        except (DocumentBSectionError, DocumentBRoutingError) as error:
             self._record_failure(asset_key, version, str(error))
             raise DocumentBVectorStoreError(str(error)) from error
 
@@ -225,6 +235,12 @@ class DocumentBVectorStoreService:
                 raise DocumentBVectorStoreError(
                     f"Document B version {version} no longer references the validated vector store."
                 )
+
+            # Resolution is deliberately checked again at the activation boundary.
+            DocumentBRoutingManifestService(
+                self.database,
+                DocumentBSectionService(self.database, self.settings),
+            ).resolve(version, next(iter(CvLane)))
 
             previous = repository.get_active(DOCUMENT_B_KEY)
             if previous is not None and previous.id != candidate.id:

@@ -315,6 +315,18 @@ the database:
 .\dev.ps1 database-sql
 ```
 
+Inspect the current validated Document B routing manifest without changing data or making model
+calls:
+
+```powershell
+.\dev.ps1 document-b-routing
+.\dev.ps1 document-b-routing -DocumentBVersion 3
+.\dev.ps1 document-b-routing -DocumentBVersion 3 -Lane HEAD_OF_SOLUTIONS_ARCHITECTURE
+```
+
+See [Document B lane-routing manifest](docs/document-b-routing-manifest.md) for the YAML structure,
+review process and the distinction between direct context and vector-search scopes.
+
 Reset every stored reference-asset version during development:
 
 ```powershell
