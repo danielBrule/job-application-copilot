@@ -1,5 +1,9 @@
 """Application domain types."""
 
+from job_application_copilot.domain.document_b_retrieval import (
+    DocumentBRetrievalRequest,
+    DocumentBRetrievedPassage,
+)
 from job_application_copilot.domain.document_b_routing import (
     CvLane,
     DocumentBRouteRole,
@@ -46,6 +50,8 @@ __all__ = [
     "DOCUMENT_B_KEY",
     "DocumentBRouteRole",
     "DocumentBRoutingSetStatus",
+    "DocumentBRetrievalRequest",
+    "DocumentBRetrievedPassage",
     "ENGLISH_CV_TEMPLATE_KEY",
     "FRENCH_CV_TEMPLATE_KEY",
     "FrenchReferenceExamplesOverview",

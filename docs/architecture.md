@@ -119,6 +119,14 @@ Optional semantic retrieval may add relevant CV material only from section-deriv
 authorised by that routing set. It must never replace the fixed rules or lane sections, determine
 the primary lane, or establish factual evidence.
 
+Section-aware retrieval receives an already resolved routing packet; it does not select a lane.
+It queries only `VECTOR_SCOPE_REQUIRED` and `VECTOR_SCOPE_OPTIONAL` section IDs, applies the
+Document B version and section-ID filter at the vector-store boundary, then verifies the returned
+metadata against locally registered section-derived source records. Results without matching
+version, section ID and source record are discarded. Retrieval traces are private local data and
+record the query, routing-set version and returned deterministic passage IDs; they are not written
+to application logs. Vector-store failure leaves the direct routing packet available.
+
 Local extraction preserves the document preamble, Word heading levels, ordered paragraph and
 table text, and uses a conservative bold-numbered fallback when a Word heading style is absent.
 Each non-overlapping section has a deterministic ID derived from its heading number or
@@ -128,12 +136,10 @@ the section schema existed are extracted on their first section read. A section-
 returns a selected heading followed by its ordered descendants until the next peer or ancestor,
 allowing deterministic routing to consume complete blocks without duplicating stored text.
 
-The current reference-asset flow validates a vector store built from the complete Document B DOCX.
-The planned CV-generation retrieval flow requires a section-scoped index: section-derived records
-are indexed with the exact Document B version and local section ID as metadata, and every retrieval
-applies the authorised section-ID filter. This target design is necessary to enforce scoped
-retrieval; a whole-document search alone cannot prove that a returned chunk belongs to an
-authorised local section.
+Document B vector stores contain only section-derived text sources, never the complete DOCX.
+Each source carries the exact Document B version and local section ID as metadata, and every
+retrieval applies the authorised section-ID filter. This is necessary to enforce scoped retrieval;
+a whole-document search cannot prove that a returned chunk belongs to an authorised local section.
 
 ### French references
 

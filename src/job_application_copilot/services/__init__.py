@@ -18,6 +18,11 @@ from job_application_copilot.services.document_b_processing import (
     DocumentBProcessingError,
     DocumentBProcessingService,
 )
+from job_application_copilot.services.document_b_retrieval import (
+    DocumentBRetrievalError,
+    DocumentBRetrievalPacket,
+    DocumentBRetrievalService,
+)
 from job_application_copilot.services.document_b_routing import (
     DocumentBRoutingError,
     DocumentBRoutingManifestService,
@@ -90,6 +95,9 @@ __all__ = [
     "DocumentBSectionError",
     "DocumentBSectionRecord",
     "DocumentBSectionService",
+    "DocumentBRetrievalError",
+    "DocumentBRetrievalPacket",
+    "DocumentBRetrievalService",
     "DocumentBRoutingError",
     "DocumentBRoutingManifestService",
     "ResolvedLanePacket",

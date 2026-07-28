@@ -1,5 +1,10 @@
 """Registered SQLAlchemy persistence models."""
 
+from job_application_copilot.repositories.models.document_b_retrieval import (
+    DocumentBRetrievalTrace,
+    DocumentBRetrievalTraceResult,
+    DocumentBVectorRecord,
+)
 from job_application_copilot.repositories.models.document_b_routing import (
     DocumentBLaneRoute,
     DocumentBRoutingSet,
@@ -15,6 +20,9 @@ __all__ = [
     "DocumentBLaneRoute",
     "DocumentBRoutingSet",
     "DocumentBSection",
+    "DocumentBRetrievalTrace",
+    "DocumentBRetrievalTraceResult",
+    "DocumentBVectorRecord",
     "Job",
     "PromptDefinition",
     "ReferenceAsset",

@@ -18,6 +18,8 @@ class OpenAIFileOperations(Protocol):
 
     def upload_docx(self, *, filename: str, content: bytes) -> UploadedOpenAIFile: ...
 
+    def upload_text(self, *, filename: str, content: bytes) -> UploadedOpenAIFile: ...
+
     def delete_file(self, file_id: str) -> None: ...
 
 
@@ -25,7 +27,15 @@ class OpenAIFileOperations(Protocol):
 class OpenAIVectorStoreOperations(Protocol):
     """Vector-store capabilities required by Document B processing."""
 
-    def create_vector_store(self, *, name: str, file_id: str) -> OpenAIVectorStore: ...
+    def create_vector_store(self, *, name: str) -> OpenAIVectorStore: ...
+
+    def attach_vector_store_file(
+        self,
+        *,
+        vector_store_id: str,
+        file_id: str,
+        attributes: dict[str, str],
+    ) -> None: ...
 
     def wait_for_vector_store_file(
         self,
@@ -40,6 +50,8 @@ class OpenAIVectorStoreOperations(Protocol):
         *,
         vector_store_id: str,
         query: str,
+        max_num_results: int = 1,
+        filters: dict[str, object] | None = None,
     ) -> tuple[OpenAIVectorStoreSearchResult, ...]: ...
 
     def delete_vector_store(self, vector_store_id: str) -> None: ...

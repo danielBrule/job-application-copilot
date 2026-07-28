@@ -280,6 +280,10 @@ Section-derived vector-index records and Phase 2 selections retain:
 Every vector query applies the section IDs authorised by the active routing set. Vector results are
 supplementary material, not a substitute for the local mandatory section tree.
 
+The local retrieval trace records the private query text, routing-set identity and configuration
+version, followed by the returned passage IDs, scores, verified source-record IDs and metadata.
+It is retained for reproducibility, not application logging.
+
 ## Application settings
 
 - database path
