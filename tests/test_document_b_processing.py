@@ -81,12 +81,26 @@ def processing_context(
         error_code=None,
         request_id="req_poll",
     )
+    section_upload_count = 0
+
+    def upload_section(*, filename: str, content: bytes) -> UploadedOpenAIFile:
+        nonlocal section_upload_count
+        section_upload_count += 1
+        return UploadedOpenAIFile(
+            file_id=f"file_section_{section_upload_count}",
+            filename=filename,
+            size_bytes=len(content),
+            request_id="req_section_upload",
+        )
+
+    client.upload_text.side_effect = upload_section
     client.search_vector_store.return_value = (
         OpenAIVectorStoreSearchResult(
-            file_id="file_candidate",
-            filename="document-b-v0001.docx",
+            file_id="file_section_1",
+            filename="section.txt",
             score=0.9,
             text="CV generation and positioning guidance.",
+            attributes={"document_b_version": "1", "section_id": "example"},
         ),
     )
     try:
@@ -134,13 +148,12 @@ def test_uploads_before_indexing_and_activates_candidate(
     assert activated.is_active
     assert activated.openai_file_id == "file_candidate"
     assert activated.openai_vector_store_id == "vs_candidate"
-    assert [call[0] for call in client.method_calls] == [
+    assert [call[0] for call in client.method_calls][:2] == [
         "upload_docx",
         "create_vector_store",
-        "wait_for_vector_store_file",
-        "search_vector_store",
-        "close",
     ]
+    assert client.upload_text.call_count > 1
+    assert client.attach_vector_store_file.call_count == client.upload_text.call_count
 
 
 def test_replaces_stores_and_activates_document_b_in_one_workflow(

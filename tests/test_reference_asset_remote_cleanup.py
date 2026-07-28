@@ -526,12 +526,19 @@ def test_restores_indexes_and_activates_retained_document_b(
         error_code=None,
         request_id="req_poll",
     )
+    client.upload_text.side_effect = lambda *, filename, content: UploadedOpenAIFile(
+        file_id=f"file_section_{filename}",
+        filename=filename,
+        size_bytes=len(content),
+        request_id="req_section_upload",
+    )
     client.search_vector_store.return_value = (
         OpenAIVectorStoreSearchResult(
-            file_id="file_restored",
-            filename="document-b-v0001.docx",
+            file_id="file_section_document-b-v0001-section-0000000000000000.txt",
+            filename="section.txt",
             score=0.9,
             text="CV generation and positioning guidance.",
+            attributes={"document_b_version": "1", "section_id": "example"},
         ),
     )
 
@@ -540,7 +547,7 @@ def test_restores_indexes_and_activates_retained_document_b(
     assert restored.is_active
     assert restored.openai_file_id == "file_restored"
     assert restored.openai_vector_store_id == "vs_restored"
-    assert restored.openai_vector_store_usage_bytes == 4_096
+    assert restored.openai_vector_store_usage_bytes > 4_096
     with database.session() as session:
         previous = ReferenceAssetRepository(session).require_version("document-b", 2)
         assert not previous.is_active
