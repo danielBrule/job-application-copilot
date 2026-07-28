@@ -61,7 +61,7 @@ def test_deletes_file_and_closes_sdk_client() -> None:
     sdk_client.close.assert_called_once_with()
 
 
-def test_creates_vector_store_with_existing_file() -> None:
+def test_creates_empty_vector_store_for_section_sources() -> None:
     client, sdk_client = make_client()
     sdk_client.vector_stores.create.return_value = SimpleNamespace(
         id="vs_123",
@@ -70,12 +70,9 @@ def test_creates_vector_store_with_existing_file() -> None:
         _request_id="req_create",
     )
 
-    result = client.create_vector_store(name="document-b-v0001", file_id="file_b")
+    result = client.create_vector_store(name="document-b-v0001")
 
-    sdk_client.vector_stores.create.assert_called_once_with(
-        name="document-b-v0001",
-        file_ids=["file_b"],
-    )
+    sdk_client.vector_stores.create.assert_called_once_with(name="document-b-v0001")
     assert result.vector_store_id == "vs_123"
     assert result.status == "in_progress"
     assert result.usage_bytes == 0

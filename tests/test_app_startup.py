@@ -41,8 +41,11 @@ def test_streamlit_app_starts_and_creates_private_directories(
             assert inspect(database.engine).get_table_names() == [
                 "alembic_version",
                 "document_b_lane_routes",
+                "document_b_retrieval_trace_results",
+                "document_b_retrieval_traces",
                 "document_b_routing_sets",
                 "document_b_sections",
+                "document_b_vector_records",
                 "jobs",
                 "prompt_definitions",
                 "reference_assets",

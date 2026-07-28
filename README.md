@@ -245,6 +245,7 @@ Invalid Windows filename characters are sanitised. A numeric suffix prevents acc
 - [Data model](docs/data-model.md)
 - [Architecture](docs/architecture.md)
 - [OpenAI pipeline](docs/openai-pipeline.md)
+- [Document B section-aware retrieval](docs/document-b-retrieval.md)
 - [Codex workflow](docs/codex-workflow.md)
 - [Roadmap and issue workflow](docs/backlog.md)
 - [Architecture decisions](docs/decisions/)

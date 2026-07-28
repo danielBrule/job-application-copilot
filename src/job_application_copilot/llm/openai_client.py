@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal, cast
 
 from openai import (
     APIConnectionError,
@@ -22,6 +22,7 @@ OPENAI_FILE_UPLOAD_MAX_RETRIES = 2
 OPENAI_FILE_UPLOAD_TIMEOUT_SECONDS = 120.0
 OPENAI_VECTOR_STORE_POLL_INTERVAL_SECONDS = 1.0
 DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+TEXT_MEDIA_TYPE = "text/plain"
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +74,7 @@ class OpenAIVectorStoreSearchResult:
     filename: str
     score: float
     text: str
+    attributes: dict[str, str | int | float | bool] = field(default_factory=dict)
 
 
 class OpenAIConfigurationError(RuntimeError):
@@ -137,6 +139,23 @@ class OpenAIClient:
             request_id=uploaded._request_id,
         )
 
+    def upload_text(self, *, filename: str, content: bytes) -> UploadedOpenAIFile:
+        """Upload one derived private Document B section for vector indexing."""
+
+        try:
+            uploaded = self._sdk_client.files.create(
+                file=(filename, content, TEXT_MEDIA_TYPE),
+                purpose=OPENAI_FILE_PURPOSE,
+            )
+        except APIError as error:
+            raise _translate_openai_error(error, operation="upload") from error
+        return UploadedOpenAIFile(
+            file_id=uploaded.id,
+            filename=uploaded.filename,
+            size_bytes=uploaded.bytes,
+            request_id=uploaded._request_id,
+        )
+
     def delete_file(self, file_id: str) -> None:
         """Delete one OpenAI file, primarily for failed-operation compensation."""
 
@@ -153,14 +172,12 @@ class OpenAIClient:
         self,
         *,
         name: str,
-        file_id: str,
     ) -> OpenAIVectorStore:
-        """Create one vector store with an existing OpenAI file attached."""
+        """Create an empty vector store for section-derived Document B sources."""
 
         try:
             store = self._sdk_client.vector_stores.create(
                 name=name,
-                file_ids=[file_id],
             )
         except APIError as error:
             raise _translate_openai_error(error, operation="vector_store_create") from error
@@ -171,6 +188,24 @@ class OpenAIClient:
             usage_bytes=store.usage_bytes,
             request_id=store._request_id,
         )
+
+    def attach_vector_store_file(
+        self,
+        *,
+        vector_store_id: str,
+        file_id: str,
+        attributes: dict[str, str],
+    ) -> None:
+        """Attach one section source with filterable provenance metadata."""
+
+        try:
+            self._sdk_client.vector_stores.files.create(
+                vector_store_id=vector_store_id,
+                file_id=file_id,
+                attributes=cast(Any, attributes),
+            )
+        except APIError as error:
+            raise _translate_openai_error(error, operation="vector_store_attach") from error
 
     def wait_for_vector_store_file(
         self,
@@ -254,16 +289,20 @@ class OpenAIClient:
         *,
         vector_store_id: str,
         query: str,
+        max_num_results: int = 1,
+        filters: dict[str, object] | None = None,
     ) -> tuple[OpenAIVectorStoreSearchResult, ...]:
         """Run one direct validation search without making a model call."""
 
+        arguments: dict[str, Any] = {
+            "query": query,
+            "max_num_results": max_num_results,
+            "rewrite_query": False,
+        }
+        if filters is not None:
+            arguments["filters"] = cast(Any, filters)
         try:
-            page = self._sdk_client.vector_stores.search(
-                vector_store_id,
-                query=query,
-                max_num_results=1,
-                rewrite_query=False,
-            )
+            page = self._sdk_client.vector_stores.search(vector_store_id, **arguments)
         except APIError as error:
             raise _translate_openai_error(error, operation="vector_store_search") from error
 
@@ -275,6 +314,7 @@ class OpenAIClient:
                 text="\n".join(
                     item.text for item in result.content if item.type == "text" and item.text
                 ),
+                attributes=dict(getattr(result, "attributes", None) or {}),
             )
             for result in page.data
         )

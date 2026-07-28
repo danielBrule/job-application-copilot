@@ -28,6 +28,9 @@ class FileOnlyClient:
             request_id=None,
         )
 
+    def upload_text(self, *, filename: str, content: bytes) -> UploadedOpenAIFile:
+        return self.upload_docx(filename=filename, content=content)
+
     def delete_file(self, file_id: str) -> None:
         del file_id
 
@@ -35,14 +38,23 @@ class FileOnlyClient:
 class VectorStoreOnlyClient:
     """Minimal fake implementing only Document B vector-store operations."""
 
-    def create_vector_store(self, *, name: str, file_id: str) -> OpenAIVectorStore:
-        del name, file_id
+    def create_vector_store(self, *, name: str) -> OpenAIVectorStore:
+        del name
         return OpenAIVectorStore(
             vector_store_id="vs_test",
             status="completed",
             usage_bytes=0,
             request_id=None,
         )
+
+    def attach_vector_store_file(
+        self,
+        *,
+        vector_store_id: str,
+        file_id: str,
+        attributes: dict[str, str],
+    ) -> None:
+        del vector_store_id, file_id, attributes
 
     def wait_for_vector_store_file(
         self,

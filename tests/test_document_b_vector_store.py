@@ -22,6 +22,7 @@ from job_application_copilot.llm import (
     OpenAIVectorStoreFile,
     OpenAIVectorStoreFileStatus,
     OpenAIVectorStoreSearchResult,
+    UploadedOpenAIFile,
 )
 from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.repositories.models import ReferenceAsset
@@ -75,12 +76,26 @@ def vector_store_context(
         request_id="req_create",
     )
     client.wait_for_vector_store_file.return_value = completed_file()
+    upload_count = 0
+
+    def upload_section(*, filename: str, content: bytes) -> UploadedOpenAIFile:
+        nonlocal upload_count
+        upload_count += 1
+        return UploadedOpenAIFile(
+            file_id=f"file_section_{upload_count}",
+            filename=filename,
+            size_bytes=len(content),
+            request_id="req_upload",
+        )
+
+    client.upload_text.side_effect = upload_section
     client.search_vector_store.return_value = (
         OpenAIVectorStoreSearchResult(
-            file_id="file_candidate",
+            file_id="file_section_1",
             filename="document-b.docx",
             score=0.9,
             text="CV generation positioning guidance.",
+            attributes={"document_b_version": "2", "section_id": "example"},
         ),
     )
     try:
@@ -171,17 +186,14 @@ def test_indexes_validates_and_atomically_activates_candidate(
     assert result.processing_status is ReferenceAssetProcessingStatus.READY
     assert result.is_active
     assert result.openai_vector_store_id == "vs_candidate"
-    assert result.openai_vector_store_usage_bytes == 8_192
+    assert result.openai_vector_store_usage_bytes > 8_192
     assert result.processing_error is None
     client.create_vector_store.assert_called_once_with(
         name=f"job-application-copilot-document-b-v{candidate.version:04d}",
-        file_id="file_candidate",
     )
-    client.wait_for_vector_store_file.assert_called_once_with(
-        vector_store_id="vs_candidate",
-        file_id="file_candidate",
-        timeout_seconds=30,
-    )
+    assert client.upload_text.call_count > 1
+    assert client.attach_vector_store_file.call_count == client.upload_text.call_count
+    assert client.wait_for_vector_store_file.call_count == client.upload_text.call_count
 
     with database.session() as session:
         versions = ReferenceAssetRepository(session).list_versions("document-b")
@@ -194,7 +206,7 @@ def test_indexes_validates_and_atomically_activates_candidate(
             )
             for version in versions
         ] == [
-            (2, True, "vs_candidate", 8_192),
+            (2, True, "vs_candidate", result.openai_vector_store_usage_bytes),
             (1, False, "vs_previous", 4_096),
         ]
     sections = DocumentBSectionService(database, service.settings).list_sections(candidate.version)
@@ -222,7 +234,7 @@ def test_completed_lifecycle_is_idempotent(
 
     assert first.id == second.id
     client.create_vector_store.assert_called_once()
-    client.wait_for_vector_store_file.assert_called_once()
+    assert client.wait_for_vector_store_file.call_count > 1
     client.search_vector_store.assert_called_once()
 
 
@@ -236,6 +248,15 @@ def test_reuses_persisted_store_when_retrying_validation(
 ) -> None:
     service, storage, database, client = vector_store_context
     candidate = stored_candidate(storage, database, with_previous=False)
+    client.search_vector_store.return_value = (
+        OpenAIVectorStoreSearchResult(
+            file_id="file_section_1",
+            filename="section.txt",
+            score=0.9,
+            text="CV generation positioning guidance.",
+            attributes={"document_b_version": str(candidate.version), "section_id": "example"},
+        ),
+    )
     with database.session() as session:
         failed = ReferenceAssetRepository(session).require_version(
             candidate.asset_key,
@@ -249,7 +270,7 @@ def test_reuses_persisted_store_when_retrying_validation(
 
     assert result.is_active
     client.create_vector_store.assert_not_called()
-    client.wait_for_vector_store_file.assert_called_once()
+    assert client.wait_for_vector_store_file.call_count > 1
 
 
 def test_processing_without_store_id_resumes_interrupted_creation(
@@ -262,6 +283,15 @@ def test_processing_without_store_id_resumes_interrupted_creation(
 ) -> None:
     service, storage, database, client = vector_store_context
     candidate = stored_candidate(storage, database, with_previous=False)
+    client.search_vector_store.return_value = (
+        OpenAIVectorStoreSearchResult(
+            file_id="file_section_1",
+            filename="section.txt",
+            score=0.9,
+            text="CV generation positioning guidance.",
+            attributes={"document_b_version": str(candidate.version), "section_id": "example"},
+        ),
+    )
     with database.session() as session:
         interrupted = ReferenceAssetRepository(session).require_version(
             candidate.asset_key,
@@ -275,7 +305,7 @@ def test_processing_without_store_id_resumes_interrupted_creation(
     assert result.processing_status is ReferenceAssetProcessingStatus.READY
     assert result.is_active
     client.create_vector_store.assert_called_once()
-    client.wait_for_vector_store_file.assert_called_once()
+    assert client.wait_for_vector_store_file.call_count > 1
 
 
 @pytest.mark.parametrize(

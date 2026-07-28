@@ -9,6 +9,9 @@ not contain career evidence, generate CV wording, assess job fit, or choose a la
 The application combines this YAML with headings extracted from one exact Document B DOCX to make
 an immutable routing manifest for that document version.
 
+See [Document B section-aware retrieval](document-b-retrieval.md) for the simple end-to-end flow
+and how this manifest limits optional vector search.
+
 ```text
 Document B DOCX
   -> Python extracts headings and stable local section IDs
