@@ -277,6 +277,23 @@ def test_lint_target_runs_from_outside_project(
     assert "All checks passed!" in result.stdout
 
 
+def test_test_target_creates_project_local_temp_root_before_pytest(
+    workspace_tmp_path: Path,
+) -> None:
+    isolated_script = workspace_tmp_path / "dev.ps1"
+    shutil.copy2(DEV_SCRIPT, isolated_script)
+    scripts_folder = workspace_tmp_path / ".venv" / "Scripts"
+    scripts_folder.mkdir(parents=True)
+    shutil.copy2(
+        Path(os.environ["WINDIR"]) / "System32" / "cmd.exe",
+        scripts_folder / "python.exe",
+    )
+
+    run_dev_script("test", cwd=workspace_tmp_path, script=isolated_script)
+
+    assert (workspace_tmp_path / ".pytest-tmp").is_dir()
+
+
 def test_openai_target_warns_and_restores_existing_opt_in_flag() -> None:
     escaped_script = str(DEV_SCRIPT).replace("'", "''")
     command = (

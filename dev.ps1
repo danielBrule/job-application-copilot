@@ -108,9 +108,26 @@ function Enable-Environment {
     Write-Output "Activated $env:VIRTUAL_ENV"
 }
 
+function New-PytestBaseTemp {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Prefix
+    )
+
+    $tempRoot = Join-Path $script:ProjectRoot ".pytest-tmp"
+    try {
+        New-Item -ItemType Directory -Path $tempRoot -Force -ErrorAction Stop | Out-Null
+    }
+    catch {
+        throw "Cannot prepare pytest temp directory '$tempRoot': $($_.Exception.Message)"
+    }
+
+    return Join-Path $tempRoot "$Prefix-$([Guid]::NewGuid().ToString("N"))"
+}
+
 function Invoke-Tests {
     $python = Resolve-VenvTool -Name "python.exe"
-    $baseTemp = ".pytest-tmp/tests-$([Guid]::NewGuid().ToString("N"))"
+    $baseTemp = New-PytestBaseTemp -Prefix "tests"
     Invoke-ProjectTool -Executable $python -Arguments @(
         "-m",
         "pytest",
@@ -121,7 +138,7 @@ function Invoke-Tests {
 
 function Invoke-Coverage {
     $python = Resolve-VenvTool -Name "python.exe"
-    $baseTemp = ".pytest-tmp/coverage-$([Guid]::NewGuid().ToString("N"))"
+    $baseTemp = New-PytestBaseTemp -Prefix "coverage"
     Invoke-ProjectTool -Executable $python -Arguments @(
         "-m",
         "pytest",
@@ -137,8 +154,7 @@ function Invoke-OpenAIIntegrationTests {
     $python = Resolve-VenvTool -Name "python.exe"
     $flagName = "JAC_RUN_OPENAI_INTEGRATION"
     $existingFlag = Get-Item -LiteralPath "Env:$flagName" -ErrorAction SilentlyContinue
-    $testRunId = [Guid]::NewGuid().ToString("N")
-    $baseTemp = ".pytest-tmp/openai-$testRunId"
+    $baseTemp = New-PytestBaseTemp -Prefix "openai"
 
     Write-Output (
         "This target contacts OpenAI, uploads temporary DOCX files, creates and searches a " +

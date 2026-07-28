@@ -18,6 +18,17 @@ The project is intentionally **not an automated mass-application tool**. It does
 8. Tracks application status, contacts, interviews, notes and next actions.
 9. Reports simple workflow, token and processing-time KPIs.
 
+## What Documents A and B are
+
+- **Document A — Career Strategy, Evidence & Job Assessment Guide:** the authority for job-fit
+  decisions and factual career evidence. It defines evidence confidence, gaps and overclaiming
+  constraints. The complete active Document A is supplied to every assessment; Document B is
+  never used during assessment.
+- **Document B — CV Generation & Positioning Guide:** instructions for selecting and positioning
+  already validated evidence when generating a CV. Required sections are selected
+  deterministically for the chosen CV lane. Document B cannot create evidence, strengthen a
+  claim beyond Document A, or override Document A.
+
 ## Core principles
 
 - **Selective applications:** optimise decision quality, not application volume.
