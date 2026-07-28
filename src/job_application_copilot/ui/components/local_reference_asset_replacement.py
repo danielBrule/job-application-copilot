@@ -2,6 +2,7 @@
 
 import streamlit as st
 
+from job_application_copilot.documents.docx_validation import MAX_DOCX_UPLOAD_SIZE_MB
 from job_application_copilot.domain import (
     FrenchReferenceExamplesOverview,
     ReferenceAssetVersionSummary,
@@ -38,6 +39,7 @@ def render_local_reference_asset_form(
                 f"{requirement.label} DOCX",
                 type=["docx"],
                 key=f"reference_asset_file_{requirement.asset_key}",
+                max_upload_size=MAX_DOCX_UPLOAD_SIZE_MB,
             )
             submitted = st.form_submit_button("Validate and store")
 
@@ -66,6 +68,7 @@ def render_french_example_form(
                 "French CV example DOCX",
                 type=["docx"],
                 key="reference_asset_file_french_example",
+                max_upload_size=MAX_DOCX_UPLOAD_SIZE_MB,
             )
             submitted = st.form_submit_button("Validate and store")
 

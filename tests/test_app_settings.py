@@ -89,6 +89,7 @@ def test_settings_page_displays_seeded_prompt_completeness(
             "2. French extension prompt 2 — Missing",
             "Add pipeline prompt",
         ]
+        assert [uploader.proto.max_upload_size_mb for uploader in app.file_uploader] == [5] * 5
     finally:
         reset_logging()
 

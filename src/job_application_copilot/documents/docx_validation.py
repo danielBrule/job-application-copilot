@@ -8,7 +8,8 @@ from docx import Document
 from docx.opc.exceptions import OpcError
 from lxml.etree import XMLSyntaxError
 
-MAX_DOCX_BYTES = 5 * 1024 * 1024
+MAX_DOCX_UPLOAD_SIZE_MB = 5
+MAX_DOCX_BYTES = MAX_DOCX_UPLOAD_SIZE_MB * 1024 * 1024
 MAX_DOCX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024
 
 
