@@ -222,7 +222,9 @@ appears in a log record, but this is a safety net rather than a substitute for c
 
 - Document A and Document B are maintained as DOCX.
 - The complete active Document A is supplied to every assessment call.
-- Document B is routed deterministically by CV lane, with optional supplementary semantic retrieval.
+- The user confirms the assessment-recommended CV lane; a versioned routing table then selects
+  mandatory Document B sections. Optional vector retrieval is limited to that authorised scope and
+  may only add supplementary CV material.
 - The two French prompts are additional stages after the four English CV-generation prompts.
 - English and French templates remain local DOCX files.
 

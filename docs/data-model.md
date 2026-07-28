@@ -11,6 +11,9 @@ Job 1 ── 0..* LLM Calls
 Background Batch 1 ── 1..* Background Tasks
 Reference Asset Type 1 ── 0..* Versions
 Prompt Definition 1 ── 0..* Prompt Reference-Asset Versions
+Document B Version 1 ── 0..* Lane Routing Sets
+Lane Routing Set 1 ── 1..* Lane Routes
+CV Generation 1 ── 1 Structured CV-generation Brief
 ```
 
 ## Job
@@ -102,6 +105,23 @@ Key fields:
 - `error_message`
 
 No Word-document version history is required.
+
+## CV-generation brief
+
+One approved Phase 2 handover is retained for each generated CV attempt. It records:
+
+- confirmed selected lane and optional secondary angle
+- primary narrative
+- evidence to lead with, soften or exclude, always anchored to Document A
+- selected Document B local section IDs
+- selected optional bullet or vector-passage IDs
+- mandatory guardrail IDs
+- proposed CV structure
+- Document B, routing-set and prompt versions
+- user approval time
+
+Phase 3 and Phase 4 use this retained brief and its selections. A later broad Document B search is
+not an implicit input to either phase.
 
 ## Contact
 
@@ -233,6 +253,32 @@ The document preamble is retained as level `0`. Heading sections use positive Wo
 levels. Section IDs are deterministic within a version: an explicit heading number is preferred,
 otherwise the normalized hierarchy of heading titles is used. Sequence and section ID are each
 unique within one Document B version.
+
+## Document B lane routing set
+
+Versioned SQLite configuration validated against one exact Document B reference-asset version:
+
+- routing-set identity, version, status and timestamps
+- `document_b_reference_asset_id`
+- controlled lane identifier
+- route entries containing `section_id`, role, mandatory or optional inclusion, descendant handling
+  and sequence
+- excluded or cautious lane/section declarations where applicable
+
+Only a validated active routing set may be used with its bound active Document B version. Validation
+requires every referenced local section ID to exist in that version.
+
+## Document B retrieval record
+
+Section-derived vector-index records and Phase 2 selections retain:
+
+- exact Document B version and local `section_id`
+- remote vector record identifier and content hash where applicable
+- retrieval query/result provenance without logging unnecessary private prompt content
+- selected or rejected status in the CV-generation brief
+
+Every vector query applies the section IDs authorised by the active routing set. Vector results are
+supplementary material, not a substitute for the local mandatory section tree.
 
 ## Application settings
 
