@@ -110,9 +110,14 @@ actionable error so the document can be activated again.
 
 ### Document B
 
-Document B is maintained as one DOCX. The application extracts headings locally and routes mandatory sections deterministically based on the selected CV lane.
+Document B is maintained as one DOCX. The application extracts headings locally and routes mandatory
+section trees deterministically from the user-confirmed selected CV lane. A versioned SQLite routing
+set is bound to one exact Document B version and maps each lane to mandatory and optional section
+IDs, inclusion roles, descendant handling, exclusions and output-template requirements.
 
-Optional semantic retrieval may add relevant passages. It must never replace the fixed rules or lane sections.
+Optional semantic retrieval may add relevant CV material only from section-derived records
+authorised by that routing set. It must never replace the fixed rules or lane sections, determine
+the primary lane, or establish factual evidence.
 
 Local extraction preserves the document preamble, Word heading levels, ordered paragraph and
 table text, and uses a conservative bold-numbered fallback when a Word heading style is absent.
@@ -122,6 +127,13 @@ Document B cannot be activated unless this local extraction succeeds. Versions a
 the section schema existed are extracted on their first section read. A section-tree query
 returns a selected heading followed by its ordered descendants until the next peer or ancestor,
 allowing deterministic routing to consume complete blocks without duplicating stored text.
+
+The current reference-asset flow validates a vector store built from the complete Document B DOCX.
+The planned CV-generation retrieval flow requires a section-scoped index: section-derived records
+are indexed with the exact Document B version and local section ID as metadata, and every retrieval
+applies the authorised section-ID filter. This target design is necessary to enforce scoped
+retrieval; a whole-document search alone cannot prove that a returned chunk belongs to an
+authorised local section.
 
 ### French references
 

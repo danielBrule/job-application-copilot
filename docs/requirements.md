@@ -89,7 +89,8 @@ The model recommendation remains visible.
 The user can optionally override the model-produced relevance. The original model relevance
 remains visible, and clearing the override restores the model value as the effective relevance.
 
-The user can confirm or change the recommended CV lane before generation.
+The user can confirm or change the recommended CV lane before Phase 2. The model recommendation
+remains stored separately from the confirmed selected lane.
 
 ## 6. CV selection and generation
 
@@ -118,9 +119,17 @@ French path:
 Requirements:
 
 - The stored assessment is input to CV generation.
-- Document B is routed by the selected lane.
-- Mandatory B sections are selected deterministically.
-- Semantic retrieval may add relevant context but must not replace mandatory sections.
+- The selected CV lane is a controlled, data-driven identifier used as an exact key in a versioned
+  routing configuration bound to the active Document B version.
+- Mandatory Document B section trees are selected deterministically from that routing configuration.
+- Vector retrieval may return optional CV material only from the section IDs authorised by that
+  routing configuration. It must not determine the primary lane or replace mandatory sections.
+- Phase 2 produces a structured CV-generation brief recording selected section, bullet/passage and
+  guardrail IDs. Human approval of that brief is required before Phase 3 generates CV wording.
+- Phase 3 receives only the approved brief, selected local sections and approved retrieved passages;
+  it does not independently search the complete Document B.
+- Phase 4 uses the same selected material to review and rewrite the CV. A new retrieval is allowed
+  only for a specific identified gap and remains within the authorised section scope.
 - One failed CV must not stop other jobs.
 - CV generation and regeneration can be launched for multiple selected rows.
 - The prior usable generated file remains until regeneration succeeds.
