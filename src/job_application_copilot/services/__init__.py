@@ -18,6 +18,14 @@ from job_application_copilot.services.document_b_processing import (
     DocumentBProcessingError,
     DocumentBProcessingService,
 )
+from job_application_copilot.services.document_b_routing import (
+    DocumentBRoutingError,
+    DocumentBRoutingManifestService,
+    ResolvedLanePacket,
+    ResolvedRouteEntry,
+    ResolvedRouting,
+    RoutingSetSummary,
+)
 from job_application_copilot.services.document_b_sections import (
     DocumentBSectionError,
     DocumentBSectionRecord,
@@ -82,6 +90,12 @@ __all__ = [
     "DocumentBSectionError",
     "DocumentBSectionRecord",
     "DocumentBSectionService",
+    "DocumentBRoutingError",
+    "DocumentBRoutingManifestService",
+    "ResolvedLanePacket",
+    "ResolvedRouteEntry",
+    "ResolvedRouting",
+    "RoutingSetSummary",
     "JobNotFoundError",
     "JobService",
     "OpenAIFileUploadError",

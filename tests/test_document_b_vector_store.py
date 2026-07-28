@@ -6,6 +6,7 @@ from typing import cast
 from unittest.mock import Mock
 
 import pytest
+from conftest import make_routable_document_b
 from docx import Document
 from sqlalchemy import event
 from sqlalchemy.orm import Session
@@ -38,12 +39,7 @@ from job_application_copilot.services.database_bootstrap import initialize_datab
 
 
 def make_docx(text: str) -> bytes:
-    buffer = BytesIO()
-    document = Document()
-    document.add_heading("CV generation and positioning guidance", level=1)
-    document.add_paragraph(text)
-    document.save(buffer)
-    return buffer.getvalue()
+    return make_routable_document_b(text)
 
 
 def make_docx_without_heading(text: str) -> bytes:
@@ -202,9 +198,12 @@ def test_indexes_validates_and_atomically_activates_candidate(
             (1, False, "vs_previous", 4_096),
         ]
     sections = DocumentBSectionService(database, service.settings).list_sections(candidate.version)
-    assert [section.section_id for section in sections] == [
-        "cv-generation-and-positioning-guidance"
-    ]
+    assert sections[0].section_id == "cv-generation-workflow-and-rules"
+    assert any(
+        section.section_id
+        == "professional-summary-library-head-of-solutions-architecture-data-ai-architecture"
+        for section in sections
+    )
 
 
 def test_completed_lifecycle_is_idempotent(
@@ -362,17 +361,19 @@ def test_activation_failure_rolls_back_previous_deactivation(
 ) -> None:
     service, storage, database, _ = vector_store_context
     candidate = stored_candidate(storage, database)
-    flush_count = 0
 
     def fail_candidate_activation(
         session: Session,
         flush_context: object,
         instances: object,
     ) -> None:
-        del session, flush_context, instances
-        nonlocal flush_count
-        flush_count += 1
-        if flush_count == 4:
+        del flush_context, instances
+        if any(
+            isinstance(item, ReferenceAsset)
+            and item.version == candidate.version
+            and item.is_active
+            for item in session.dirty
+        ):
             raise RuntimeError("database unavailable")
 
     session_class = database.session_factory.class_

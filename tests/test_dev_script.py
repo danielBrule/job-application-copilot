@@ -73,6 +73,7 @@ def test_explicit_help_displays_supported_targets() -> None:
         "directories",
         "database",
         "database-sql",
+        "document-b-routing",
         "reset-reference-assets",
         "test",
         "coverage",

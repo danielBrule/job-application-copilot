@@ -1,0 +1,875 @@
+schema_version: 1
+routing_config_version: 1.0.0
+resolution:
+  strategy: EXACT_HEADING_PATH_AFTER_NORMALIZATION
+  normalization:
+    unicode_form: NFKC
+    trim_outer_whitespace: true
+    collapse_internal_whitespace: true
+    normalize_non_breaking_spaces: true
+    normalize_punctuation: false
+  case_sensitive: true
+  allow_fuzzy_matching: false
+  allow_substring_matching: false
+  allow_model_resolution: false
+  toc_hints_are_identifiers: false
+  reject_overlap_when_ancestor_expands: true
+  allow_parent_and_child_when_parent_excludes_descendants: true
+  deduplicate_expanded_sections: true
+  preserve_first_configured_sequence: true
+  fail_on_missing_mandatory_section: true
+section_catalog:
+  workflow.cv_generation_rules:
+    toc_hint: '2'
+    heading_path:
+    - CV generation workflow and rules
+    include_descendants: true
+  summary.applied_ai_deployment_leadership:
+    toc_hint: '3.3'
+    heading_path:
+    - Professional summary library
+    - Applied AI / Deployment Leadership
+    include_descendants: true
+  summary.ai_deployment_solution_owner:
+    toc_hint: '3.4'
+    heading_path:
+    - Professional summary library
+    - AI Deployment / Solution Owner
+    include_descendants: true
+  summary.zero_to_one_data_ai_solution_lead:
+    toc_hint: '3.5'
+    heading_path:
+    - Professional summary library
+    - 0-to-1 Data / AI Solution Lead
+    include_descendants: true
+  summary.data_ai_value_creation:
+    toc_hint: '3.6'
+    heading_path:
+    - Professional summary library
+    - Data & AI Value Creation
+    include_descendants: true
+  summary.head_of_solutions_architecture:
+    toc_hint: '3.7'
+    heading_path:
+    - Professional summary library
+    - Head of Solutions Architecture / Data-AI Architecture
+    include_descendants: true
+  summary.head_of_data_analytics_ai:
+    toc_hint: '3.8'
+    heading_path:
+    - Professional summary library
+    - Head of Data / Analytics & AI
+    include_descendants: true
+  summary.expert_led_commercial_post_sales:
+    toc_hint: '3.9'
+    heading_path:
+    - Professional summary library
+    - Expert-led Commercial / Post-sales Solutions Leadership
+    include_descendants: true
+  summary.technical_product_ai_product_builder:
+    toc_hint: '3.10'
+    heading_path:
+    - Professional summary library
+    - Technical Product / AI Product Builder
+    include_descendants: true
+  summary.execution_focused_cto_field_cto:
+    toc_hint: '3.11'
+    heading_path:
+    - Professional summary library
+    - Execution-focused CTO / VP Engineering — Data-AI product area
+    include_descendants: true
+  experience.applied_ai_deployment_leadership:
+    toc_hint: '4.3'
+    heading_path:
+    - Role-specific experience framing blocks
+    - Applied AI / Deployment Leadership
+    include_descendants: true
+  experience.ai_deployment_solution_owner:
+    toc_hint: '4.4'
+    heading_path:
+    - Role-specific experience framing blocks
+    - AI Deployment / Solution Owner / Forward-Deployed AI
+    include_descendants: true
+  experience.head_of_solutions_architecture:
+    toc_hint: '4.5'
+    heading_path:
+    - Role-specific experience framing blocks
+    - Head of Solutions Architecture / Data-AI Architecture
+    include_descendants: true
+  experience.head_of_data_platforms_technology:
+    toc_hint: '4.6'
+    heading_path:
+    - Role-specific experience framing blocks
+    - Head of Data Platforms & Technology
+    include_descendants: true
+  experience.head_of_data_analytics_ai:
+    toc_hint: '4.7'
+    heading_path:
+    - Role-specific experience framing blocks
+    - Head of Data / Analytics & AI
+    include_descendants: true
+  experience.data_ai_value_creation:
+    toc_hint: '4.8'
+    heading_path:
+    - Role-specific experience framing blocks
+    - Data & AI Value Creation / Private Equity
+    include_descendants: true
+  experience.technical_product_ai_product_builder:
+    toc_hint: '4.9'
+    heading_path:
+    - Role-specific experience framing blocks
+    - Technical Product / AI Product Builder
+    include_descendants: true
+  experience.expert_led_commercial_post_sales:
+    toc_hint: '4.10'
+    heading_path:
+    - Role-specific experience framing blocks
+    - Expert-led Commercial / Post-sales Solution Leadership
+    include_descendants: true
+  experience.execution_focused_cto_field_cto:
+    toc_hint: '4.11'
+    heading_path:
+    - Role-specific experience framing blocks
+    - Execution-focused CTO / Field CTO
+    include_descendants: true
+  supporting_experience.software_engineering_foundation:
+    toc_hint: '4.12'
+    heading_path:
+    - Role-specific experience framing blocks
+    - Software Engineering Foundation / Technical Credibility
+    include_descendants: true
+  supporting_experience.french_market_leadership:
+    toc_hint: '4.13'
+    heading_path:
+    - Role-specific experience framing blocks
+    - French-market Data / Analytics / AI leadership
+    include_descendants: true
+  bullets.data_ai_strategy:
+    toc_hint: '5.3'
+    heading_path:
+    - Bullet library by theme
+    - Data & AI strategy / AI deployment strategy
+    include_descendants: true
+  bullets.solution_architecture:
+    toc_hint: '5.4'
+    heading_path:
+    - Bullet library by theme
+    - Solution architecture / Data-AI architecture
+    include_descendants: true
+  bullets.ai_deployment_zero_to_one:
+    toc_hint: '5.5'
+    heading_path:
+    - Bullet library by theme
+    - AI deployment / 0-to-1 delivery
+    include_descendants: true
+  bullets.genai_llm_talk_to_data:
+    toc_hint: '5.6'
+    heading_path:
+    - Bullet library by theme
+    - GenAI / LLM / Talk-to-Data
+    include_descendants: true
+  bullets.data_products_platforms:
+    toc_hint: '5.7'
+    heading_path:
+    - Bullet library by theme
+    - Data products / Internal platforms / Productised accelerators
+    include_descendants: true
+  bullets.private_equity_value_creation:
+    toc_hint: '5.8'
+    heading_path:
+    - Bullet library by theme
+    - Private Equity / Due diligence / Value creation
+    include_descendants: true
+  bullets.data_platforms_engineering:
+    toc_hint: '5.9'
+    heading_path:
+    - Bullet library by theme
+    - Data platforms / Engineering / DevOps discipline
+    include_descendants: true
+  bullets.governance_privacy:
+    toc_hint: '5.10'
+    heading_path:
+    - Bullet library by theme
+    - Governance / Privacy / Regulated delivery
+    include_descendants: true
+  bullets.analytics_commercial_intelligence:
+    toc_hint: '5.11'
+    heading_path:
+    - Bullet library by theme
+    - Analytics / Commercial intelligence / Market intelligence
+    include_descendants: true
+  bullets.leadership_team_build:
+    toc_hint: '5.12'
+    heading_path:
+    - Bullet library by theme
+    - Leadership / Team build-out / Capability building
+    include_descendants: true
+  bullets.expert_commercial_post_sales:
+    toc_hint: '5.13'
+    heading_path:
+    - Bullet library by theme
+    - Expert-led commercial / Post-sales solution leadership
+    include_descendants: true
+  bullets.software_engineering_foundation:
+    toc_hint: '5.14'
+    heading_path:
+    - Bullet library by theme
+    - Software engineering foundation / Technical credibility
+    include_descendants: true
+  bullets.transformation_rescue:
+    toc_hint: '5.15'
+    heading_path:
+    - Bullet library by theme
+    - Transformation rescue / Delivery recovery / Operating model
+    include_descendants: true
+  bullets.education_bridge:
+    toc_hint: '5.16'
+    heading_path:
+    - Bullet library by theme
+    - Education / Career transition / Bridge profile
+    include_descendants: true
+  skills.core_by_role_family:
+    toc_hint: '6.3'
+    heading_path:
+    - Skills and keyword bank
+    - Core skills by role family
+    include_descendants: true
+  skills.technical_keyword_evidence_levels:
+    toc_hint: '6.4'
+    heading_path:
+    - Skills and keyword bank
+    - Technical keyword evidence levels
+    include_descendants: true
+  skills.keywords_to_use_carefully:
+    toc_hint: '6.5'
+    heading_path:
+    - Skills and keyword bank
+    - Keywords to use carefully
+    include_descendants: false
+  skills.genai_confidence_rule:
+    toc_hint: 6.5.1
+    heading_path:
+    - Skills and keyword bank
+    - Keywords to use carefully
+    - GenAI confidence rule
+    include_descendants: true
+  skills.construction_rules:
+    toc_hint: '6.6'
+    heading_path:
+    - Skills and keyword bank
+    - Skills section construction rules
+    include_descendants: false
+  skills.construction_core_principles:
+    toc_hint: 6.6.2
+    heading_path:
+    - Skills and keyword bank
+    - Skills section construction rules
+    - Core principles
+    include_descendants: true
+  skills.construction_recommended_size:
+    toc_hint: 6.6.3
+    heading_path:
+    - Skills and keyword bank
+    - Skills section construction rules
+    - Recommended size
+    include_descendants: true
+  skills.construction_ats_rules:
+    toc_hint: 6.6.5
+    heading_path:
+    - Skills and keyword bank
+    - Skills section construction rules
+    - ATS optimisation rules
+    include_descendants: true
+  skills.construction_evidence_hierarchy:
+    toc_hint: 6.6.6
+    heading_path:
+    - Skills and keyword bank
+    - Skills section construction rules
+    - Evidence hierarchy
+    include_descendants: true
+  skills.construction_what_to_avoid:
+    toc_hint: 6.6.7
+    heading_path:
+    - Skills and keyword bank
+    - Skills section construction rules
+    - What to avoid
+    include_descendants: true
+  skills.adaptation.applied_ai_deployment:
+    toc_hint: 6.6.4.1
+    heading_path:
+    - Skills and keyword bank
+    - Skills section construction rules
+    - Role-family adaptations
+    - Applied AI / Deployment Leadership
+    include_descendants: true
+  skills.adaptation.head_of_solutions_architecture:
+    toc_hint: 6.6.4.2
+    heading_path:
+    - Skills and keyword bank
+    - Skills section construction rules
+    - Role-family adaptations
+    - Head of Solutions Architecture
+    include_descendants: true
+  skills.adaptation.head_of_data_platforms_technology:
+    toc_hint: 6.6.4.3
+    heading_path:
+    - Skills and keyword bank
+    - Skills section construction rules
+    - Role-family adaptations
+    - Head of Data Platforms & Technology
+    include_descendants: true
+  skills.adaptation.data_ai_value_creation:
+    toc_hint: 6.6.4.4
+    heading_path:
+    - Skills and keyword bank
+    - Skills section construction rules
+    - Role-family adaptations
+    - Data & AI Value Creation / PE
+    include_descendants: true
+  skills.adaptation.technical_product_ai_product_builder:
+    toc_hint: 6.6.4.5
+    heading_path:
+    - Skills and keyword bank
+    - Skills section construction rules
+    - Role-family adaptations
+    - Technical Product / AI Product Builder
+    include_descendants: true
+  assembly.purpose_hierarchy:
+    toc_hint: '7.1'
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Purpose and assembly hierarchy
+    include_descendants: true
+  assembly.workflow:
+    toc_hint: '7.2'
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - CV assembly workflow
+    include_descendants: true
+  assembly.selection_rules:
+    toc_hint: '7.3'
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Selection rules by target role
+    include_descendants: true
+  assembly.evidence_order:
+    toc_hint: '7.4'
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Evidence order by role family
+    include_descendants: true
+  guardrails.anti_overclaiming:
+    toc_hint: '7.5'
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Anti-overclaiming guardrails
+    include_descendants: false
+  guardrails.final_quality_check:
+    toc_hint: '7.6'
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Final CV quality checklist
+    include_descendants: true
+  assembly.structure_layout:
+    toc_hint: '7.7'
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Structure and layout rules
+    include_descendants: true
+  assembly.career_narrative:
+    toc_hint: '7.8'
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Career narrative and seniority bridge
+    include_descendants: true
+  assembly.length_prioritisation:
+    toc_hint: '7.9'
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Length control and evidence prioritisation rules
+    include_descendants: true
+  guardrails.evidence_confidence:
+    toc_hint: '7.11'
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Evidence confidence levels
+    include_descendants: true
+  guardrails.applied_genai:
+    toc_hint: '7.12'
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Applied GenAI positioning guidance
+    include_descendants: true
+  guardrails.talk_to_data_mvp:
+    toc_hint: 7.5.1
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Anti-overclaiming guardrails
+    - T2D implementation and MVP limitation guardrail
+    include_descendants: true
+  positioning.applied_ai_deployment_leadership:
+    toc_hint: 7.10.2
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Positioning playbooks
+    - Applied AI / Deployment Leadership
+    include_descendants: true
+  positioning.ai_deployment_solution_owner:
+    toc_hint: 7.10.3
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Positioning playbooks
+    - AI Deployment / Solution Owner
+    include_descendants: true
+  positioning.zero_to_one_data_ai_solution_lead:
+    toc_hint: 7.10.4
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Positioning playbooks
+    - 0-to-1 Data / AI Solution Lead
+    include_descendants: true
+  positioning.head_of_solutions_architecture:
+    toc_hint: 7.10.5
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Positioning playbooks
+    - Head of Solutions Architecture
+    include_descendants: true
+  positioning.head_of_data_platforms_technology:
+    toc_hint: 7.10.6
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Positioning playbooks
+    - Head of Data Platforms & Technology
+    include_descendants: true
+  positioning.head_of_data_analytics_ai:
+    toc_hint: 7.10.7
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Positioning playbooks
+    - Head of Data / Analytics & AI
+    include_descendants: true
+  positioning.data_ai_value_creation:
+    toc_hint: 7.10.8
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Positioning playbooks
+    - Data & AI Value Creation
+    include_descendants: true
+  positioning.technical_product_ai_product_builder:
+    toc_hint: 7.10.9
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Positioning playbooks
+    - Technical Product / AI Product Builder
+    include_descendants: true
+  positioning.expert_led_commercial_post_sales:
+    toc_hint: 7.10.10
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Positioning playbooks
+    - Expert-led Commercial / Post-sales
+    include_descendants: true
+  positioning.execution_focused_cto_field_cto:
+    toc_hint: 7.10.11
+    heading_path:
+    - CV assembly rules and anti-overclaiming guardrails
+    - Positioning playbooks
+    - Execution-focused CTO / Field CTO
+    include_descendants: true
+  template.phase_3_tailored_cv:
+    toc_hint: '8.1'
+    heading_path:
+    - Application content output templates
+    - Tailored CV output
+    include_descendants: true
+  template.phase_2_cv_generation_brief:
+    toc_hint: '8.2'
+    heading_path:
+    - Application content output templates
+    - CV generation brief
+    include_descendants: true
+  workflow.prompt_handoff_instructions:
+    toc_hint: '9'
+    heading_path:
+    - Prompt handoff instructions
+    include_descendants: true
+conditional_guardrails:
+- trigger_sections:
+  - bullets.genai_llm_talk_to_data
+  required_sections:
+  - skills.genai_confidence_rule
+  - guardrails.talk_to_data_mvp
+  - guardrails.applied_genai
+- trigger_sections:
+  - supporting_experience.software_engineering_foundation
+  required_sections: []
+shared_route:
+  mandatory_workflow:
+  - workflow.cv_generation_rules
+  mandatory_skills:
+  - skills.core_by_role_family
+  - skills.technical_keyword_evidence_levels
+  - skills.keywords_to_use_carefully
+  - skills.construction_rules
+  - skills.construction_core_principles
+  - skills.construction_recommended_size
+  - skills.construction_ats_rules
+  - skills.construction_evidence_hierarchy
+  - skills.construction_what_to_avoid
+  mandatory_assembly_and_guardrails:
+  - assembly.purpose_hierarchy
+  - assembly.workflow
+  - assembly.selection_rules
+  - assembly.evidence_order
+  - guardrails.anti_overclaiming
+  - guardrails.final_quality_check
+  - assembly.structure_layout
+  - assembly.career_narrative
+  - assembly.length_prioritisation
+  - guardrails.evidence_confidence
+  phase_2_templates:
+  - template.phase_2_cv_generation_brief
+  phase_3_templates:
+  - template.phase_3_tailored_cv
+lanes:
+  APPLIED_AI_DEPLOYMENT_LEADERSHIP:
+    status: SUPPORTED
+    summary:
+    - summary.applied_ai_deployment_leadership
+    experience_framing:
+    - experience.applied_ai_deployment_leadership
+    positioning_playbook:
+    - positioning.applied_ai_deployment_leadership
+    mandatory_bullet_libraries:
+    - bullets.data_ai_strategy
+    - bullets.solution_architecture
+    - bullets.ai_deployment_zero_to_one
+    - bullets.genai_llm_talk_to_data
+    - bullets.governance_privacy
+    optional_bullet_libraries:
+    - bullets.data_products_platforms
+    - bullets.data_platforms_engineering
+    - bullets.leadership_team_build
+    - bullets.transformation_rescue
+    - bullets.software_engineering_foundation
+    - bullets.private_equity_value_creation
+    additional_skills:
+    - skills.adaptation.applied_ai_deployment
+    additional_guardrails:
+    - skills.genai_confidence_rule
+    - guardrails.talk_to_data_mvp
+    - guardrails.applied_genai
+    secondary_lane_constraints:
+      default_disposition_for_unlisted_lane: EXCLUDED
+      source_section:
+      - assembly.selection_rules
+      allowed:
+      - HEAD_OF_SOLUTIONS_ARCHITECTURE
+      cautious: []
+      supporting_sections:
+      - supporting_experience.software_engineering_foundation
+  AI_DEPLOYMENT_SOLUTION_OWNER:
+    status: SUPPORTED
+    summary:
+    - summary.ai_deployment_solution_owner
+    experience_framing:
+    - experience.ai_deployment_solution_owner
+    positioning_playbook:
+    - positioning.ai_deployment_solution_owner
+    mandatory_bullet_libraries:
+    - bullets.solution_architecture
+    - bullets.ai_deployment_zero_to_one
+    - bullets.genai_llm_talk_to_data
+    - bullets.data_products_platforms
+    - bullets.software_engineering_foundation
+    optional_bullet_libraries:
+    - bullets.data_platforms_engineering
+    - bullets.governance_privacy
+    - bullets.transformation_rescue
+    - bullets.data_ai_strategy
+    - bullets.leadership_team_build
+    additional_skills: []
+    additional_guardrails:
+    - skills.genai_confidence_rule
+    - guardrails.talk_to_data_mvp
+    - guardrails.applied_genai
+    secondary_lane_constraints:
+      default_disposition_for_unlisted_lane: EXCLUDED
+      source_section:
+      - assembly.selection_rules
+      allowed: []
+      cautious:
+      - lane: ZERO_TO_ONE_DATA_AI_SOLUTION_LEAD
+        reason: Use only when Document A explicitly identifies first-build / ambiguity as a secondary angle.
+      supporting_sections:
+      - supporting_experience.software_engineering_foundation
+  ZERO_TO_ONE_DATA_AI_SOLUTION_LEAD:
+    status: SUPPORTED
+    summary:
+    - summary.zero_to_one_data_ai_solution_lead
+    experience_framing:
+    - experience.technical_product_ai_product_builder
+    positioning_playbook:
+    - positioning.zero_to_one_data_ai_solution_lead
+    mandatory_bullet_libraries:
+    - bullets.data_ai_strategy
+    - bullets.solution_architecture
+    - bullets.ai_deployment_zero_to_one
+    - bullets.data_products_platforms
+    optional_bullet_libraries:
+    - bullets.genai_llm_talk_to_data
+    - bullets.data_platforms_engineering
+    - bullets.transformation_rescue
+    - bullets.software_engineering_foundation
+    - bullets.education_bridge
+    - bullets.private_equity_value_creation
+    additional_skills: []
+    additional_guardrails:
+    - skills.genai_confidence_rule
+    - guardrails.talk_to_data_mvp
+    - guardrails.applied_genai
+    secondary_lane_constraints:
+      default_disposition_for_unlisted_lane: EXCLUDED
+      source_section:
+      - assembly.selection_rules
+      allowed:
+      - TECHNICAL_PRODUCT_AI_PRODUCT_BUILDER
+      cautious:
+      - lane: AI_DEPLOYMENT_SOLUTION_OWNER
+        reason: Use only where the JD also requires embedded deployment, user workflows and validation.
+      supporting_sections:
+      - supporting_experience.software_engineering_foundation
+  DATA_AI_VALUE_CREATION:
+    status: SUPPORTED
+    summary:
+    - summary.data_ai_value_creation
+    experience_framing:
+    - experience.data_ai_value_creation
+    positioning_playbook:
+    - positioning.data_ai_value_creation
+    mandatory_bullet_libraries:
+    - bullets.data_ai_strategy
+    - bullets.private_equity_value_creation
+    - bullets.analytics_commercial_intelligence
+    optional_bullet_libraries:
+    - bullets.data_products_platforms
+    - bullets.solution_architecture
+    - bullets.governance_privacy
+    - bullets.expert_commercial_post_sales
+    - bullets.genai_llm_talk_to_data
+    - bullets.data_platforms_engineering
+    additional_skills:
+    - skills.adaptation.data_ai_value_creation
+    additional_guardrails: []
+    secondary_lane_constraints:
+      default_disposition_for_unlisted_lane: EXCLUDED
+      source_section:
+      - assembly.selection_rules
+      allowed:
+      - EXPERT_LED_COMMERCIAL_POST_SALES
+      - HEAD_OF_SOLUTIONS_ARCHITECTURE
+      cautious: []
+      supporting_sections:
+      - supporting_experience.software_engineering_foundation
+  HEAD_OF_SOLUTIONS_ARCHITECTURE:
+    status: SUPPORTED
+    summary:
+    - summary.head_of_solutions_architecture
+    experience_framing:
+    - experience.head_of_solutions_architecture
+    positioning_playbook:
+    - positioning.head_of_solutions_architecture
+    mandatory_bullet_libraries:
+    - bullets.solution_architecture
+    - bullets.data_platforms_engineering
+    - bullets.governance_privacy
+    - bullets.ai_deployment_zero_to_one
+    optional_bullet_libraries:
+    - bullets.data_ai_strategy
+    - bullets.genai_llm_talk_to_data
+    - bullets.data_products_platforms
+    - bullets.leadership_team_build
+    - bullets.software_engineering_foundation
+    - bullets.transformation_rescue
+    - bullets.private_equity_value_creation
+    additional_skills:
+    - skills.adaptation.head_of_solutions_architecture
+    additional_guardrails:
+    - skills.genai_confidence_rule
+    - guardrails.talk_to_data_mvp
+    - guardrails.applied_genai
+    secondary_lane_constraints:
+      default_disposition_for_unlisted_lane: EXCLUDED
+      source_section:
+      - assembly.selection_rules
+      allowed: []
+      cautious:
+      - lane: EXECUTION_FOCUSED_CTO_FIELD_CTO
+        reason: Use only for execution-focused technical direction; avoid broad corporate CTO positioning.
+      supporting_sections:
+      - supporting_experience.software_engineering_foundation
+      - experience.head_of_data_platforms_technology
+      - positioning.head_of_data_platforms_technology
+  HEAD_OF_DATA_ANALYTICS_AI:
+    status: SUPPORTED
+    summary:
+    - summary.head_of_data_analytics_ai
+    experience_framing:
+    - experience.head_of_data_analytics_ai
+    positioning_playbook:
+    - positioning.head_of_data_analytics_ai
+    mandatory_bullet_libraries:
+    - bullets.data_ai_strategy
+    - bullets.data_products_platforms
+    - bullets.data_platforms_engineering
+    - bullets.governance_privacy
+    - bullets.analytics_commercial_intelligence
+    - bullets.leadership_team_build
+    optional_bullet_libraries:
+    - bullets.ai_deployment_zero_to_one
+    - bullets.genai_llm_talk_to_data
+    - bullets.expert_commercial_post_sales
+    - bullets.transformation_rescue
+    - bullets.solution_architecture
+    additional_skills: []
+    additional_guardrails:
+    - skills.genai_confidence_rule
+    - guardrails.talk_to_data_mvp
+    - guardrails.applied_genai
+    secondary_lane_constraints:
+      default_disposition_for_unlisted_lane: EXCLUDED
+      source_section:
+      - assembly.selection_rules
+      allowed:
+      - APPLIED_AI_DEPLOYMENT_LEADERSHIP
+      cautious: []
+      supporting_sections:
+      - experience.head_of_data_platforms_technology
+      - positioning.head_of_data_platforms_technology
+  EXPERT_LED_COMMERCIAL_POST_SALES:
+    status: SUPPORTED
+    summary:
+    - summary.expert_led_commercial_post_sales
+    experience_framing:
+    - experience.expert_led_commercial_post_sales
+    positioning_playbook:
+    - positioning.expert_led_commercial_post_sales
+    mandatory_bullet_libraries:
+    - bullets.expert_commercial_post_sales
+    - bullets.data_ai_strategy
+    - bullets.solution_architecture
+    optional_bullet_libraries:
+    - bullets.ai_deployment_zero_to_one
+    - bullets.genai_llm_talk_to_data
+    - bullets.data_products_platforms
+    - bullets.private_equity_value_creation
+    - bullets.analytics_commercial_intelligence
+    - bullets.leadership_team_build
+    additional_skills: []
+    additional_guardrails:
+    - skills.genai_confidence_rule
+    - guardrails.applied_genai
+    secondary_lane_constraints:
+      default_disposition_for_unlisted_lane: EXCLUDED
+      source_section:
+      - assembly.selection_rules
+      allowed:
+      - APPLIED_AI_DEPLOYMENT_LEADERSHIP
+      - HEAD_OF_SOLUTIONS_ARCHITECTURE
+      cautious: []
+      supporting_sections: []
+  TECHNICAL_PRODUCT_AI_PRODUCT_BUILDER:
+    status: SUPPORTED
+    summary:
+    - summary.technical_product_ai_product_builder
+    experience_framing:
+    - experience.technical_product_ai_product_builder
+    positioning_playbook:
+    - positioning.technical_product_ai_product_builder
+    mandatory_bullet_libraries:
+    - bullets.data_products_platforms
+    - bullets.ai_deployment_zero_to_one
+    - bullets.solution_architecture
+    optional_bullet_libraries:
+    - bullets.genai_llm_talk_to_data
+    - bullets.data_platforms_engineering
+    - bullets.data_ai_strategy
+    - bullets.software_engineering_foundation
+    - bullets.transformation_rescue
+    - bullets.analytics_commercial_intelligence
+    additional_skills:
+    - skills.adaptation.technical_product_ai_product_builder
+    additional_guardrails:
+    - skills.genai_confidence_rule
+    - guardrails.talk_to_data_mvp
+    - guardrails.applied_genai
+    secondary_lane_constraints:
+      default_disposition_for_unlisted_lane: EXCLUDED
+      source_section:
+      - assembly.selection_rules
+      allowed:
+      - AI_DEPLOYMENT_SOLUTION_OWNER
+      - HEAD_OF_SOLUTIONS_ARCHITECTURE
+      cautious: []
+      supporting_sections:
+      - supporting_experience.software_engineering_foundation
+  EXECUTION_FOCUSED_CTO_FIELD_CTO:
+    status: SUPPORTED
+    summary:
+    - summary.execution_focused_cto_field_cto
+    experience_framing:
+    - experience.execution_focused_cto_field_cto
+    positioning_playbook:
+    - positioning.execution_focused_cto_field_cto
+    mandatory_bullet_libraries:
+    - bullets.solution_architecture
+    - bullets.data_platforms_engineering
+    - bullets.leadership_team_build
+    - bullets.software_engineering_foundation
+    - bullets.transformation_rescue
+    optional_bullet_libraries:
+    - bullets.data_ai_strategy
+    - bullets.ai_deployment_zero_to_one
+    - bullets.genai_llm_talk_to_data
+    - bullets.data_products_platforms
+    - bullets.governance_privacy
+    - bullets.expert_commercial_post_sales
+    additional_skills: []
+    additional_guardrails:
+    - skills.genai_confidence_rule
+    - guardrails.talk_to_data_mvp
+    - guardrails.applied_genai
+    secondary_lane_constraints:
+      default_disposition_for_unlisted_lane: EXCLUDED
+      source_section:
+      - assembly.selection_rules
+      allowed:
+      - HEAD_OF_SOLUTIONS_ARCHITECTURE
+      cautious: []
+      supporting_sections:
+      - supporting_experience.software_engineering_foundation
+supporting_routes:
+  HEAD_OF_DATA_PLATFORMS_TECHNOLOGY:
+    category: INCOMPLETE_PRIMARY_LANE
+    primary_lane_selectable: false
+    secondary_support_selectable: true
+    reason: Document A treats this as a target direction and Document B contains experience framing, skills adaptation and
+      a positioning playbook, but Document B has no dedicated professional-summary section.
+    available_sections:
+    - experience.head_of_data_platforms_technology
+    - skills.adaptation.head_of_data_platforms_technology
+    - positioning.head_of_data_platforms_technology
+  SOFTWARE_ENGINEERING_FOUNDATION:
+    category: OPTIONAL_SUPPORTING_CONTENT
+    primary_lane_selectable: false
+    secondary_support_selectable: true
+    sections:
+    - supporting_experience.software_engineering_foundation
+    - bullets.software_engineering_foundation
+  FRENCH_MARKET_LEADERSHIP:
+    category: OPTIONAL_SUPPORTING_CONTENT
+    primary_lane_selectable: false
+    secondary_support_selectable: true
+    sections:
+    - supporting_experience.french_market_leadership
