@@ -10,6 +10,8 @@ Job 1 ── 0..* Background Tasks
 Job 1 ── 0..* LLM Calls
 Background Batch 1 ── 1..* Background Tasks
 Background Task 1 ── 0..* Execution Attempts
+Background Task 1 ── 0..* LLM Calls
+Execution Attempt 1 ── 0..* LLM Calls
 Reference Asset Type 1 ── 0..* Versions
 Prompt Definition 1 ── 0..* Prompt Reference-Asset Versions
 Document B Version 1 ── 0..* Lane Routing Sets
@@ -175,22 +177,47 @@ the logical task is retried, providing an audit trail of earlier errors and timi
 ## LLM call
 
 - `job_id`
-- `task_id`
+- nullable `task_id`
+- nullable `task_attempt_id`; when present, `task_id` is also required and must own the attempt
 - `operation`
 - `pipeline_step`
-- `model_name`
+- `call_sequence`
+- `provider`
+- `requested_model`
+- nullable `resolved_model`
 - `input_tokens`
 - `cached_input_tokens`
+- `cache_write_tokens`
 - `output_tokens`
+- `reasoning_tokens`
 - `total_tokens`
 - `started_at`
 - `completed_at`
 - `duration_seconds`
 - `status`
-- `response_id`
-- prompt/document version metadata
+- nullable `response_id` and provider request ID
+- nullable HTTP status, service tier and controlled incomplete reason
+- retry number and controlled failure category
+- cache identity hash, identity-recipe version and retention setting
+- prompt/document version metadata containing identifiers, versions and hashes only
 
-This table is the source for token and processing-time KPIs.
+`job_id` is required. The optional task and attempt associations identify the logical background
+operation and exact worker execution attempt that incurred the call. When associated, the job and
+operation must agree across the call, task and attempt.
+
+Provider-reported token fields are nullable. `NULL` means that the provider did not report the
+category, while `0` means that it explicitly reported zero. `cached_input_tokens` maps the
+provider's `cached_tokens` field. Cache-read and cache-write counts are accounting details and are
+not added again to `total_tokens`.
+
+The cache identity is a SHA-256 hash derived only from canonical non-sensitive identifiers such as
+operation, pipeline step, requested model, prompt version and applicable Document A, Document B,
+template or reference versions. Its version records the hash recipe. Raw prompts, cache keys,
+Documents A/B, job descriptions, model output and provider error bodies are not stored here.
+
+Successful and failed calls with reported usage both contribute to usage totals. Counts remain
+separated by outcome, and calls where usage was unavailable remain distinguishable from calls that
+reported zero. This table is the source for later token, cache-economics and processing-time KPIs.
 
 ## Reference asset
 

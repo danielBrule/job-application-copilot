@@ -50,6 +50,7 @@ def test_streamlit_app_starts_and_creates_private_directories(
                 "document_b_sections",
                 "document_b_vector_records",
                 "jobs",
+                "llm_calls",
                 "prompt_definitions",
                 "reference_assets",
             ]

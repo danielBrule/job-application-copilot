@@ -27,6 +27,10 @@ from job_application_copilot.repositories.job_repository import (
     JobNotFoundError,
     JobRepository,
 )
+from job_application_copilot.repositories.llm_call_repository import (
+    LlmCallAssociationError,
+    LlmCallRepository,
+)
 from job_application_copilot.repositories.prompt_definition_repository import (
     PromptDefinitionNotFoundError,
     PromptDefinitionRepository,
@@ -52,6 +56,8 @@ __all__ = [
     "JobNotFoundError",
     "JobRepository",
     "InvalidBackgroundTaskTransitionError",
+    "LlmCallAssociationError",
+    "LlmCallRepository",
     "PromptDefinitionNotFoundError",
     "PromptDefinitionRepository",
     "ReferenceAssetVersionNotFoundError",
