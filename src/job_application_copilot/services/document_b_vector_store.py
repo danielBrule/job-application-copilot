@@ -7,7 +7,6 @@ import hashlib
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import (
     DOCUMENT_B_KEY,
-    CvLane,
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
 )
@@ -295,10 +294,14 @@ class DocumentBVectorStoreService:
                 )
 
             # Resolution is deliberately checked again at the activation boundary.
-            DocumentBRoutingManifestService(
+            routes = DocumentBRoutingManifestService(
                 self.database,
                 DocumentBSectionService(self.database, self.settings),
-            ).resolve(version, next(iter(CvLane)))
+            ).list_current_routes(version)
+            if not routes:
+                raise DocumentBVectorStoreError(
+                    f"Document B version {version} has no configured CV lanes."
+                )
 
             previous = repository.get_active(DOCUMENT_B_KEY)
             if previous is not None and previous.id != candidate.id:

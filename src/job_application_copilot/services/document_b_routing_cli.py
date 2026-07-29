@@ -8,7 +8,7 @@ from job_application_copilot.config import load_settings
 from job_application_copilot.config.document_b_routing import (
     load_document_b_routing_config,
 )
-from job_application_copilot.domain import DOCUMENT_B_KEY, CvLane
+from job_application_copilot.domain import DOCUMENT_B_KEY
 from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
@@ -21,12 +21,13 @@ from job_application_copilot.services.document_b_sections import DocumentBSectio
 
 
 def main() -> None:
+    settings = load_settings()
+    config = load_document_b_routing_config(settings.document_b_routing_config_path)
     parser = argparse.ArgumentParser(description="Inspect validated Document B lane routing.")
     parser.add_argument("--document-b-version", type=int)
-    parser.add_argument("--lane", choices=[lane.value for lane in CvLane])
+    parser.add_argument("--lane", choices=sorted(config.lanes))
     args = parser.parse_args()
 
-    settings = load_settings()
     database = create_database(settings.database_path)
     try:
         version = args.document_b_version or _active_version(database)
@@ -35,11 +36,10 @@ def main() -> None:
             DocumentBSectionService(database, settings),
             config_path=settings.document_b_routing_config_path,
         )
-        config = load_document_b_routing_config(settings.document_b_routing_config_path)
         print(f"Document B version: {version}")
         print("Supported canonical lanes:")
-        for lane in CvLane:
-            print(f"  {lane.value}")
+        for lane in config.lanes:
+            print(f"  {lane}")
         print("Incomplete primary lanes (not selectable as primary):")
         for route_name, route in config.supporting_routes.items():
             if route.category == "INCOMPLETE_PRIMARY_LANE":
@@ -59,14 +59,14 @@ def main() -> None:
             )
             return
 
-        lane_resolution = service.resolve(version, CvLane(args.lane))
+        lane_resolution = service.resolve(version, args.lane)
         summary = lane_resolution.summary
         print(
             f"Routing set: {summary.routing_set_id} "
             f"config={summary.routing_config_version} "
             f"status={summary.status.value} current={summary.is_current}"
         )
-        print(f"Lane: {lane_resolution.packet.lane.value}")
+        print(f"Lane: {lane_resolution.packet.lane}")
         for position, entry in enumerate(lane_resolution.packet.entries, start=1):
             print(
                 f"{position:02d} {entry.inclusion.value:<9} {entry.role.value:<28} "

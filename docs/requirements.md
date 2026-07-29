@@ -62,14 +62,14 @@ Stored assessment output:
 
 - Relevance: High / Medium / Low
 - Role snapshot and real mandate behind the title
-- Primary and secondary role family
+- Primary and secondary role family, using the same configured identifiers as CV lanes
 - Go / Caution / Stretch / No-Go recommendation
 - Seniority fit, fit score and priority score, each scored from 0 to 10
 - Interview probability range and confidence, each scored from 0 to 10
 - Strong fit signals
 - Red flags and sustainability risks
 - Technical-bar assessment
-- Recommended Document B lane
+- Recommended Document B lane from the active validated routing configuration
 - Evidence anchors and one overall evidence-confidence score from 0 to 10
 - Evidence gaps
 - Overclaiming risks

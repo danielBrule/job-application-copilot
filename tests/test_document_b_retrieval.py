@@ -7,7 +7,7 @@ import pytest
 from conftest import install_document_b_routing_config, make_routable_document_b
 
 from job_application_copilot.config import AppSettings
-from job_application_copilot.domain import CvLane, DocumentBRetrievalRequest, ReferenceAssetType
+from job_application_copilot.domain import DocumentBRetrievalRequest, ReferenceAssetType
 from job_application_copilot.llm import OpenAIVectorStoreSearchResult
 from job_application_copilot.repositories import create_database
 from job_application_copilot.repositories.document_b_retrieval_repository import (
@@ -48,9 +48,7 @@ def make_context(tmp_path: Path) -> tuple[object, DocumentBRoutingManifestServic
         asset.openai_vector_store_id = "vs_document_b"
         section_id = next(
             entry.expanded_section_ids[0]
-            for entry in routing.resolve(
-                version, CvLane.HEAD_OF_SOLUTIONS_ARCHITECTURE
-            ).packet.entries
+            for entry in routing.resolve(version, "HEAD_OF_SOLUTIONS_ARCHITECTURE").packet.entries
             if entry.delivery_mode.value.startswith("VECTOR_SCOPE")
         )
         DocumentBRetrievalRepository(session).add_vector_record(
@@ -68,7 +66,7 @@ def make_context(tmp_path: Path) -> tuple[object, DocumentBRoutingManifestServic
 def request(version: int) -> DocumentBRetrievalRequest:
     return DocumentBRetrievalRequest(
         document_b_version=version,
-        lane=CvLane.HEAD_OF_SOLUTIONS_ARCHITECTURE,
+        lane="HEAD_OF_SOLUTIONS_ARCHITECTURE",
         job_requirements="Own applied AI architecture delivery.",
         evidence_anchors=("Led solution architecture.",),
         overclaiming_exclusions=("Do not claim sole production ownership.",),
@@ -77,7 +75,7 @@ def request(version: int) -> DocumentBRetrievalRequest:
 
 def test_retrieval_filters_and_returns_only_verified_authorised_results(tmp_path: Path) -> None:
     database, routing, version = make_context(tmp_path)
-    resolved = routing.resolve(version, CvLane.HEAD_OF_SOLUTIONS_ARCHITECTURE)
+    resolved = routing.resolve(version, "HEAD_OF_SOLUTIONS_ARCHITECTURE")
     section_id = next(
         entry.expanded_section_ids[0]
         for entry in resolved.packet.entries
@@ -143,4 +141,4 @@ def test_vector_failure_preserves_resolved_routing(tmp_path: Path) -> None:
     with pytest.raises(DocumentBRetrievalError) as raised:
         DocumentBRetrievalService(database, routing, client).retrieve(request(version))
 
-    assert raised.value.routing == routing.resolve(version, CvLane.HEAD_OF_SOLUTIONS_ARCHITECTURE)
+    assert raised.value.routing == routing.resolve(version, "HEAD_OF_SOLUTIONS_ARCHITECTURE")

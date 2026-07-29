@@ -57,8 +57,8 @@ Key fields:
 - `model_relevance`: High / Medium / Low
 - `role_snapshot`
 - `real_mandate`
-- `primary_role_family`
-- `secondary_role_family`
+- `primary_role_family`: configured lane identifier
+- `secondary_role_family`: configured lane identifier
 - `seniority_fit`: 0 to 10
 - `technical_bar`
 - `tech_bar_fit`: 0 to 10
@@ -75,8 +75,8 @@ Key fields:
 - `evidence_gaps`
 - `evidence_anchors`
 - `evidence_confidence`: one overall 0-to-10 score
-- `recommended_document_b_lane`
-- `selected_cv_lane`
+- `recommended_document_b_lane`: configured lane identifier
+- `selected_cv_lane`: configured lane identifier
 - `secondary_cv_angle`
 - `overclaiming_risks`
 - `assessment_notes`
@@ -105,6 +105,10 @@ arrays and may be empty when the assessment explicitly finds no items.
 Effective relevance is `Job.relevance_override` when present, otherwise the current
 `Assessment.model_relevance`. Keeping both values preserves the model output when the user
 overrides it.
+
+Role-family identifiers and CV-lane identifiers share one installation-specific vocabulary. The
+current validated Document B routing set defines the allowed values; they are stored as strings
+rather than a global database or Python enum.
 
 ## CV
 

@@ -344,6 +344,8 @@ Each installation keeps its editable routing file at
 `data/reference/routing/document-b-lane-routes.yaml`. Copy the committed
 [`templates/document-b-lane-routes.template.yaml`](templates/document-b-lane-routes.template.yaml)
 there and customise it for that installation's Document B before processing the document.
+Those configured lane keys are also the allowed primary and secondary role-family values returned
+by assessment; no source-code enum needs changing for another installation.
 
 See [Document B lane-routing manifest](docs/document-b-routing-manifest.md) for first-time setup,
 the complete YAML structure, review process and the distinction between direct context and

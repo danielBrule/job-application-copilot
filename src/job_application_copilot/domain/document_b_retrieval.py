@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from job_application_copilot.domain.document_b_routing import CvLane
+from job_application_copilot.domain.document_b_routing import LaneId
 
 
 class DocumentBRetrievalRequest(BaseModel):
@@ -13,10 +13,10 @@ class DocumentBRetrievalRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     document_b_version: int = Field(gt=0)
-    lane: CvLane
+    lane: LaneId
     job_requirements: str = Field(min_length=1)
     evidence_anchors: tuple[str, ...] = ()
-    secondary_lanes: tuple[CvLane, ...] = ()
+    secondary_lanes: tuple[LaneId, ...] = ()
     strengths: tuple[str, ...] = ()
     gaps: tuple[str, ...] = ()
     overclaiming_exclusions: tuple[str, ...] = ()

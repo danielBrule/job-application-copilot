@@ -9,7 +9,6 @@ from sqlalchemy.exc import IntegrityError
 from job_application_copilot.domain import (
     AssessmentDecision,
     AssessmentStatus,
-    CvLane,
     Language,
     Location,
     Relevance,
@@ -71,8 +70,8 @@ def completed_assessment(job: Job, **overrides: object) -> Assessment:
         "evidence_gaps": ["No sector-specific experience"],
         "evidence_anchors": [{"id": "A-17", "claim": "Platform leadership"}],
         "evidence_confidence": 8,
-        "recommended_document_b_lane": CvLane.HEAD_OF_SOLUTIONS_ARCHITECTURE,
-        "selected_cv_lane": CvLane.HEAD_OF_SOLUTIONS_ARCHITECTURE,
+        "recommended_document_b_lane": "HEAD_OF_SOLUTIONS_ARCHITECTURE",
+        "selected_cv_lane": "HEAD_OF_SOLUTIONS_ARCHITECTURE",
         "secondary_cv_angle": "Transformation leadership",
         "overclaiming_risks": ["Do not claim sole ownership"],
         "document_a_version": 3,

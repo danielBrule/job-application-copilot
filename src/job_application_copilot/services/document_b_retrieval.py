@@ -169,9 +169,9 @@ class DocumentBRetrievalService:
 def _build_query(request: DocumentBRetrievalRequest) -> str:
     values = [
         ("Job requirements", request.job_requirements),
-        ("Primary lane", request.lane.value),
+        ("Primary lane", request.lane),
         ("Evidence anchors", "; ".join(request.evidence_anchors)),
-        ("Secondary lanes", "; ".join(lane.value for lane in request.secondary_lanes)),
+        ("Secondary lanes", "; ".join(request.secondary_lanes)),
         ("Strengths", "; ".join(request.strengths)),
         ("Gaps", "; ".join(request.gaps)),
         ("Do not overclaim", "; ".join(request.overclaiming_exclusions)),

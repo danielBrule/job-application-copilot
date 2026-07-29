@@ -8,7 +8,7 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from job_application_copilot.domain import CvLane
+from job_application_copilot.domain import LaneId
 
 
 class RoutingConfigError(ValueError):
@@ -59,14 +59,14 @@ class SharedRouteConfig(ConfigModel):
 
 
 class CautiousLaneConfig(ConfigModel):
-    lane: CvLane
+    lane: LaneId
     reason: str = Field(min_length=1)
 
 
 class SecondaryLaneConstraintsConfig(ConfigModel):
     default_disposition_for_unlisted_lane: Literal["EXCLUDED"]
     source_section: tuple[str, ...] = Field(min_length=1)
-    allowed: tuple[CvLane, ...]
+    allowed: tuple[LaneId, ...]
     cautious: tuple[CautiousLaneConfig, ...]
     supporting_sections: tuple[str, ...]
 
@@ -104,14 +104,14 @@ class DocumentBRoutingConfig(ConfigModel):
     section_catalog: dict[str, SectionCatalogEntry]
     conditional_guardrails: tuple[ConditionalGuardrailConfig, ...]
     shared_route: SharedRouteConfig
-    lanes: dict[CvLane, LaneRouteConfig]
+    lanes: dict[LaneId, LaneRouteConfig]
     supporting_routes: dict[str, SupportingRouteConfig]
 
     @model_validator(mode="after")
     def validate_completeness(self) -> DocumentBRoutingConfig:
-        if set(self.lanes) != set(CvLane):
-            missing = sorted(lane.value for lane in set(CvLane) - set(self.lanes))
-            raise ValueError(f"lane catalogue mismatch; missing={missing}")
+        if not self.lanes:
+            raise ValueError("lane catalogue must contain at least one supported lane")
+        configured_lanes = set(self.lanes)
         unresolved = sorted(referenced_logical_section_ids(self) - set(self.section_catalog))
         if unresolved:
             raise ValueError(f"unknown logical section references: {', '.join(unresolved)}")
@@ -123,11 +123,21 @@ class DocumentBRoutingConfig(ConfigModel):
             )
             if counts != (1, 1, 1):
                 raise ValueError(
-                    f"{lane.value} must configure exactly one summary, experience framing, "
+                    f"{lane} must configure exactly one summary, experience framing, "
                     "and positioning playbook"
                 )
             if not route.mandatory_bullet_libraries:
-                raise ValueError(f"{lane.value} has no mandatory bullet library")
+                raise ValueError(f"{lane} has no mandatory bullet library")
+            secondary_lanes = set(route.secondary_lane_constraints.allowed)
+            secondary_lanes.update(
+                cautious.lane for cautious in route.secondary_lane_constraints.cautious
+            )
+            unknown_secondary = sorted(secondary_lanes - configured_lanes)
+            if unknown_secondary:
+                raise ValueError(
+                    f"{lane} references unconfigured secondary lanes: "
+                    f"{', '.join(unknown_secondary)}"
+                )
         if len(self.shared_route.phase_2_templates) != 1:
             raise ValueError("shared route must configure exactly one Phase 2 template")
         if len(self.shared_route.phase_3_templates) != 1:

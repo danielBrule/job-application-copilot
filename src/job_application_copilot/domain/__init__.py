@@ -2,7 +2,10 @@
 
 from job_application_copilot.domain.assessment import (
     AssessmentDecision,
+    AssessmentEvidenceAnchor,
+    AssessmentOutput,
     AssessmentStatus,
+    assessment_output_json_schema,
 )
 from job_application_copilot.domain.background_run import (
     BackgroundAttemptSummary,
@@ -19,9 +22,9 @@ from job_application_copilot.domain.document_b_retrieval import (
     DocumentBRetrievedPassage,
 )
 from job_application_copilot.domain.document_b_routing import (
-    CvLane,
     DocumentBRouteRole,
     DocumentBRoutingSetStatus,
+    LaneId,
     RouteDeliveryMode,
     RouteInclusion,
     SecondaryLaneDisposition,
@@ -63,13 +66,15 @@ from job_application_copilot.domain.reference_asset_overview import (
 
 __all__ = [
     "AssessmentDecision",
+    "AssessmentEvidenceAnchor",
+    "AssessmentOutput",
     "AssessmentStatus",
+    "assessment_output_json_schema",
     "BackgroundOperation",
     "BackgroundAttemptSummary",
     "BackgroundRunFilters",
     "BackgroundRunSummary",
     "BackgroundTaskStatus",
-    "CvLane",
     "CreateJob",
     "CreatePromptDefinition",
     "DOCUMENT_A_KEY",
@@ -84,6 +89,7 @@ __all__ = [
     "JobFilters",
     "is_valid_background_task_transition",
     "Language",
+    "LaneId",
     "Location",
     "LlmCallStatus",
     "LlmFailureCategory",

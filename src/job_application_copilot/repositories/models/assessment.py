@@ -20,7 +20,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from job_application_copilot.domain import (
     AssessmentDecision,
     AssessmentStatus,
-    CvLane,
+    LaneId,
     Relevance,
 )
 from job_application_copilot.repositories.base import Base
@@ -168,26 +168,8 @@ class Assessment(Base):
         JSON, nullable=False, default=list, server_default=text("'[]'")
     )
     evidence_confidence: Mapped[int | None] = mapped_column(Integer)
-    recommended_document_b_lane: Mapped[CvLane | None] = mapped_column(
-        Enum(
-            CvLane,
-            name="assessment_recommended_document_b_lane",
-            native_enum=False,
-            create_constraint=True,
-            validate_strings=True,
-            values_callable=enum_values,
-        )
-    )
-    selected_cv_lane: Mapped[CvLane | None] = mapped_column(
-        Enum(
-            CvLane,
-            name="assessment_selected_cv_lane",
-            native_enum=False,
-            create_constraint=True,
-            validate_strings=True,
-            values_callable=enum_values,
-        )
-    )
+    recommended_document_b_lane: Mapped[LaneId | None] = mapped_column(String(128))
+    selected_cv_lane: Mapped[LaneId | None] = mapped_column(String(128))
     secondary_cv_angle: Mapped[str | None] = mapped_column(Text)
     overclaiming_risks: Mapped[list[str]] = mapped_column(
         JSON, nullable=False, default=list, server_default=text("'[]'")

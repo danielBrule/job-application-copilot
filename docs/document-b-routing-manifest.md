@@ -111,6 +111,10 @@ The role-family vocabulary and CV-lane vocabulary are the same for this applicat
 classifies the role and is also the exact key used to resolve Document B positioning. Job fit,
 stretch status and evidence confidence remain Document A assessment decisions.
 
+Lane keys are validated uppercase identifiers such as `HEAD_OF_SOLUTIONS_ARCHITECTURE`. They are
+not declared in Python: adding or replacing a lane is a private YAML and Document B content change.
+Every secondary-lane reference must name another configured primary lane.
+
 ## Conditional guardrails
 
 Conditional guardrails declare a dependency for later Phase 2 selection. For example, selecting
