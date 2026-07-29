@@ -31,6 +31,11 @@ from job_application_copilot.domain.job import (
     UpdateJob,
     UserDecision,
 )
+from job_application_copilot.domain.llm_call import (
+    LlmCallStatus,
+    LlmFailureCategory,
+    LlmUsageTotals,
+)
 from job_application_copilot.domain.prompt import (
     CreatePromptDefinition,
     PromptCompleteness,
@@ -74,6 +79,9 @@ __all__ = [
     "is_valid_background_task_transition",
     "Language",
     "Location",
+    "LlmCallStatus",
+    "LlmFailureCategory",
+    "LlmUsageTotals",
     "Relevance",
     "PromptCompleteness",
     "REQUIRED_REFERENCE_ASSETS",

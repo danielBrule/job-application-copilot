@@ -75,6 +75,7 @@ def test_migrations_create_current_domain_tables(
             "document_b_sections",
             "document_b_vector_records",
             "jobs",
+            "llm_calls",
             "prompt_definitions",
             "reference_assets",
         ]

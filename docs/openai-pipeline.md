@@ -156,9 +156,24 @@ For every model call store:
 - model;
 - input tokens;
 - cached input tokens where returned;
+- cache-write tokens where returned;
 - output tokens;
+- reasoning tokens where returned;
 - total tokens;
 - duration;
 - response ID;
 - success or error;
 - prompt and reference versions.
+
+Every actual token-bearing Responses API invocation is recorded, including calls that return a
+provider response but later fail local structured-output validation. File upload, vector-store
+polling, deletion and retrieval are not LLM calls and are outside this token-usage table.
+
+Provider-reported token categories remain nullable: `NULL` means unreported and zero means reported
+as zero. Failed calls retain whatever response ID, request ID, status, usage and safe failure
+metadata are available without storing provider error bodies.
+
+Cache economics use a versioned SHA-256 identity derived only from canonical operation, pipeline
+stage, requested model and prompt/reference version identifiers or hashes. The identity permits
+cache-write cost to be compared with later cached-input savings without persisting the raw cache
+key, prompt text, Document A/B content, job description or model output.
