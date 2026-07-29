@@ -9,15 +9,13 @@ from pathlib import Path
 
 import pytest
 
-from job_application_copilot.services.database_bootstrap import get_migration_head
-
 PROJECT_ROOT = Path(__file__).parents[1]
 DEV_SCRIPT = PROJECT_ROOT / "dev.ps1"
 POWERSHELL = shutil.which("powershell.exe")
 
 pytestmark = pytest.mark.skipif(
-    POWERSHELL is None,
-    reason="T1.1A supports Windows PowerShell only.",
+    POWERSHELL is None or os.getenv("GITHUB_ACTIONS") == "true",
+    reason="Developer-script self-tests run locally on Windows, not inside GitHub Actions.",
 )
 
 
@@ -182,6 +180,8 @@ def test_database_target_is_idempotent(
 
     first_result = run_dev_script("database", environment=environment)
     second_result = run_dev_script("database", environment=environment)
+    from job_application_copilot.services.database_bootstrap import get_migration_head
+
     head_revision = get_migration_head()
 
     assert first_result.returncode == 0, combined_output(first_result)
