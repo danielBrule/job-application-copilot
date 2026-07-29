@@ -18,7 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from job_application_copilot.domain import CvLane, DocumentBRoutingSetStatus
+from job_application_copilot.domain import DocumentBRoutingSetStatus, LaneId
 from job_application_copilot.repositories.base import Base
 from job_application_copilot.repositories.models.common import enum_values, utc_now
 
@@ -92,16 +92,6 @@ class DocumentBLaneRoute(Base):
         nullable=False,
         index=True,
     )
-    lane_id: Mapped[CvLane] = mapped_column(
-        Enum(
-            CvLane,
-            name="cv_lane",
-            native_enum=False,
-            create_constraint=True,
-            validate_strings=True,
-            values_callable=enum_values,
-        ),
-        nullable=False,
-    )
+    lane_id: Mapped[LaneId] = mapped_column(String(128), nullable=False)
     ordered_route_json: Mapped[str] = mapped_column(Text, nullable=False)
     secondary_lane_constraints_json: Mapped[str] = mapped_column(Text, nullable=False)

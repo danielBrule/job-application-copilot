@@ -1,0 +1,41 @@
+{
+  "model_relevance": "HIGH",
+  "role_snapshot": "Lead a fictional platform architecture capability.",
+  "real_mandate": "Improve delivery quality while establishing reusable architecture standards.",
+  "primary_role_family": "FICTIONAL_ARCHITECTURE_LEAD",
+  "secondary_role_family": "FICTIONAL_AI_DEPLOYMENT_LEAD",
+  "seniority_fit": 8,
+  "technical_bar": "Strong architecture judgement and practical delivery leadership.",
+  "tech_bar_fit": 8,
+  "fit_score": 8,
+  "priority_score": 7,
+  "decision": "GO",
+  "decision_reason": "The fictional evidence aligns with the mandate without requiring unsupported claims.",
+  "interview_probability_low": 5,
+  "interview_probability_high": 7,
+  "interview_probability_confidence": 6,
+  "strong_fit_signals": [
+    "Evidence of architecture leadership",
+    "Experience improving delivery practices"
+  ],
+  "red_flags": [],
+  "sustainability_risks": [
+    "The remit may include substantial operational escalation"
+  ],
+  "evidence_gaps": [
+    "No evidence of experience in the employer's fictional industry"
+  ],
+  "evidence_anchors": [
+    {
+      "source_reference": "A-FICTIONAL-01",
+      "evidence": "Led a shared architecture workstream for a fictional transformation.",
+      "supports": "Credibility for architecture leadership while preserving shared ownership."
+    }
+  ],
+  "evidence_confidence": 8,
+  "recommended_document_b_lane": "FICTIONAL_ARCHITECTURE_LEAD",
+  "secondary_cv_angle": null,
+  "overclaiming_risks": [
+    "Do not convert shared architecture leadership into sole ownership."
+  ]
+}

@@ -3,7 +3,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from job_application_copilot.domain import CvLane, DocumentBRoutingSetStatus
+from job_application_copilot.domain import DocumentBRoutingSetStatus, LaneId
 from job_application_copilot.repositories.models import (
     DocumentBLaneRoute,
     DocumentBRoutingSet,
@@ -45,7 +45,7 @@ class DocumentBRoutingRepository:
             )
         )
 
-    def get_route(self, routing_set_id: int, lane: CvLane) -> DocumentBLaneRoute | None:
+    def get_route(self, routing_set_id: int, lane: LaneId) -> DocumentBLaneRoute | None:
         return self.session.scalar(
             select(DocumentBLaneRoute).where(
                 DocumentBLaneRoute.routing_set_id == routing_set_id,

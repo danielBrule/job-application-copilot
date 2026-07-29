@@ -42,6 +42,10 @@ risks and overclaiming guardrails, and any secondary angle.
 The assessment recommends the lane; before Phase 2, the user confirms or changes it. The confirmed
 selected lane controls all subsequent Document B routing.
 
+Primary role family, secondary role family and recommended lane use the same identifiers. The
+assessment structured-output schema restricts all three to the lane keys from the active validated
+routing set; local Pydantic validation repeats that membership check.
+
 ### Phase 2 — select Document B content and approve the CV brief
 
 The selected lane is an exact key in a versioned SQLite routing set bound to the active Document B

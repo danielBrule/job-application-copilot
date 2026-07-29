@@ -8,7 +8,6 @@ import pytest
 from job_application_copilot.domain import (
     AssessmentDecision,
     AssessmentStatus,
-    CvLane,
     Language,
     Location,
     Relevance,
@@ -90,7 +89,7 @@ def test_initial_failure_can_retry_but_success_cannot_be_marked_running_or_faile
         assessment.seniority_fit = 9
         assessment.decision = AssessmentDecision.GO
         assessment.decision_reason = "Strong fit"
-        assessment.recommended_document_b_lane = CvLane.HEAD_OF_SOLUTIONS_ARCHITECTURE
+        assessment.recommended_document_b_lane = "HEAD_OF_SOLUTIONS_ARCHITECTURE"
         assessment.assessed_at = datetime(2026, 7, 29, 10, 0, 0)
         assessment.source_job_updated_at = job.assessment_input_updated_at
         session.flush()
@@ -123,7 +122,7 @@ def test_stale_compares_only_assessment_input_timestamp(
                 seniority_fit=9,
                 decision=AssessmentDecision.GO,
                 decision_reason="Strong fit",
-                recommended_document_b_lane=CvLane.HEAD_OF_SOLUTIONS_ARCHITECTURE,
+                recommended_document_b_lane="HEAD_OF_SOLUTIONS_ARCHITECTURE",
                 assessed_at=datetime(2026, 7, 29, 10, 0, 0),
                 source_job_updated_at=source_timestamp,
             )

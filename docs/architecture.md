@@ -77,6 +77,10 @@ Model-produced assessment relevance and the optional human relevance override re
 The current assessment owns the model value; the job owns the nullable override. Presentation
 uses the override when present and otherwise falls back to the model value.
 
+Assessment role families and CV lanes are one configured taxonomy. Lane identifiers are validated
+strings, and membership is checked against the current validated routing set bound to the active
+Document B version. No global Python enum defines a person's lane catalogue.
+
 `ui/pages` contains only the thin entry points registered with Streamlit navigation. They
 load dependencies and compose a page. Forms, tables, filters and rendered page sections live
 under `ui/components`; these components call application services and contain presentation

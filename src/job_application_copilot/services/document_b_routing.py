@@ -19,9 +19,9 @@ from job_application_copilot.config.document_b_routing import (
 )
 from job_application_copilot.domain import (
     DOCUMENT_B_KEY,
-    CvLane,
     DocumentBRouteRole,
     DocumentBRoutingSetStatus,
+    LaneId,
     RouteDeliveryMode,
     RouteInclusion,
 )
@@ -69,7 +69,7 @@ class SecondaryLaneConstraintPacket(BaseModel):
 
     default_disposition_for_unlisted_lane: str
     source_sections: tuple[str, ...]
-    allowed: tuple[CvLane, ...]
+    allowed: tuple[LaneId, ...]
     cautious: tuple[dict[str, str], ...]
 
 
@@ -88,7 +88,7 @@ class ResolvedLanePacket(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    lane: CvLane
+    lane: LaneId
     entries: tuple[ResolvedRouteEntry, ...]
     conditional_guardrails: tuple[ConditionalGuardrailPacket, ...]
 
@@ -173,7 +173,7 @@ class DocumentBRoutingManifestService:
                 raise
             raise DocumentBRoutingError(message) from error
 
-    def resolve(self, version: int, lane: CvLane) -> ResolvedRouting:
+    def resolve(self, version: int, lane: LaneId) -> ResolvedRouting:
         """Resolve an exact lane from the current validated set for one version."""
 
         reference_asset_id, _ = self._reference_asset(version)
@@ -192,7 +192,7 @@ class DocumentBRoutingManifestService:
             route = repository.get_route(routing_set.id, lane)
             if route is None:
                 raise DocumentBRoutingError(
-                    f"CV lane '{lane.value}' is unsupported for Document B version {version}."
+                    f"CV lane '{lane}' is unsupported for Document B version {version}."
                 )
             return ResolvedRouting(
                 summary=_summary(routing_set, version),
@@ -205,12 +205,21 @@ class DocumentBRoutingManifestService:
     def list_current_routes(self, version: int) -> tuple[ResolvedRouting, ...]:
         """Return every supported lane from one current validated set."""
 
-        return tuple(self.resolve(version, lane) for lane in CvLane)
+        reference_asset_id, _ = self._reference_asset(version)
+        with self.database.session() as session:
+            repository = DocumentBRoutingRepository(session)
+            routing_set = repository.get_current(reference_asset_id)
+            if routing_set is None:
+                raise DocumentBRoutingError(
+                    f"Document B version {version} has no current routing set."
+                )
+            lane_ids = tuple(route.lane_id for route in repository.list_routes(routing_set.id))
+        return tuple(self.resolve(version, lane) for lane in lane_ids)
 
     def conditional_guardrails_for_selection(
         self,
         version: int,
-        lane: CvLane,
+        lane: LaneId,
         selected_logical_ids: frozenset[str],
     ) -> tuple[ConditionalGuardrailPacket, ...]:
         """Return guardrails that must join a later selected-passage brief."""
@@ -220,7 +229,7 @@ class DocumentBRoutingManifestService:
         unsupported = sorted(selected_logical_ids - authorised_ids)
         if unsupported:
             raise DocumentBRoutingError(
-                f"Selected Document B logical IDs are not authorised for {lane.value}: "
+                f"Selected Document B logical IDs are not authorised for {lane}: "
                 f"{', '.join(unsupported)}."
             )
         return tuple(
@@ -277,7 +286,7 @@ class DocumentBRoutingManifestService:
         reference_asset_id: int,
         version: int,
         config: DocumentBRoutingConfig,
-        packets: dict[CvLane, ResolvedLanePacket],
+        packets: dict[LaneId, ResolvedLanePacket],
         catalog_sha256: str,
     ) -> RoutingSetSummary:
         with self.database.session() as session:
@@ -310,10 +319,10 @@ class DocumentBRoutingManifestService:
 def _compile_packets(
     config: DocumentBRoutingConfig,
     sections: tuple[DocumentBSectionRecord, ...],
-) -> dict[CvLane, ResolvedLanePacket]:
+) -> dict[LaneId, ResolvedLanePacket]:
     by_path = _sections_by_heading_path(sections)
     _validate_referenced_paths(config, by_path)
-    packets: dict[CvLane, ResolvedLanePacket] = {}
+    packets: dict[LaneId, ResolvedLanePacket] = {}
     for lane, route in config.lanes.items():
         specifications = _route_specifications(config, route)
         entries: list[ResolvedRouteEntry] = []
@@ -322,14 +331,14 @@ def _compile_packets(
         for logical_id, role, inclusion, delivery_mode in specifications:
             if logical_id in used_roots:
                 raise DocumentBRoutingError(
-                    f"{lane.value} configures logical section '{logical_id}' more than once."
+                    f"{lane} configures logical section '{logical_id}' more than once."
                 )
             used_roots.add(logical_id)
             catalog = config.section_catalog[logical_id]
             root = by_path.get(_normalized_path(catalog.heading_path))
             if root is None:
                 raise DocumentBRoutingError(
-                    f"{lane.value} cannot resolve exact heading path "
+                    f"{lane} cannot resolve exact heading path "
                     f"'{' > '.join(catalog.heading_path)}' for '{logical_id}'."
                 )
             tree = _section_tree(sections, root) if catalog.include_descendants else (root,)
@@ -338,7 +347,7 @@ def _compile_packets(
                 previous = expanded_owner.get(section_id)
                 if previous is not None:
                     raise DocumentBRoutingError(
-                        f"{lane.value} has overlapping configured roots '{previous}' and "
+                        f"{lane} has overlapping configured roots '{previous}' and "
                         f"'{logical_id}' at section '{section_id}'."
                     )
                 expanded_owner[section_id] = logical_id
@@ -473,9 +482,7 @@ def _constraint_packet(route: LaneRouteConfig) -> SecondaryLaneConstraintPacket:
         default_disposition_for_unlisted_lane=constraints.default_disposition_for_unlisted_lane,
         source_sections=constraints.source_section,
         allowed=constraints.allowed,
-        cautious=tuple(
-            {"lane": item.lane.value, "reason": item.reason} for item in constraints.cautious
-        ),
+        cautious=tuple({"lane": item.lane, "reason": item.reason} for item in constraints.cautious),
     )
 
 

@@ -1,20 +1,19 @@
-"""Closed domain types for deterministic Document B lane routing."""
+"""Domain types for deterministic Document B lane routing."""
 
 from enum import StrEnum
+from typing import Annotated
 
+from pydantic import StringConstraints
 
-class CvLane(StrEnum):
-    """Supported primary CV lanes shared by assessment and routing."""
-
-    APPLIED_AI_DEPLOYMENT_LEADERSHIP = "APPLIED_AI_DEPLOYMENT_LEADERSHIP"
-    AI_DEPLOYMENT_SOLUTION_OWNER = "AI_DEPLOYMENT_SOLUTION_OWNER"
-    ZERO_TO_ONE_DATA_AI_SOLUTION_LEAD = "ZERO_TO_ONE_DATA_AI_SOLUTION_LEAD"
-    DATA_AI_VALUE_CREATION = "DATA_AI_VALUE_CREATION"
-    HEAD_OF_SOLUTIONS_ARCHITECTURE = "HEAD_OF_SOLUTIONS_ARCHITECTURE"
-    HEAD_OF_DATA_ANALYTICS_AI = "HEAD_OF_DATA_ANALYTICS_AI"
-    EXPERT_LED_COMMERCIAL_POST_SALES = "EXPERT_LED_COMMERCIAL_POST_SALES"
-    TECHNICAL_PRODUCT_AI_PRODUCT_BUILDER = "TECHNICAL_PRODUCT_AI_PRODUCT_BUILDER"
-    EXECUTION_FOCUSED_CTO_FIELD_CTO = "EXECUTION_FOCUSED_CTO_FIELD_CTO"
+LaneId = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=1,
+        max_length=128,
+        pattern=r"^[A-Z][A-Z0-9_]*$",
+    ),
+]
 
 
 class DocumentBRoutingSetStatus(StrEnum):
