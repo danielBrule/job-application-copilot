@@ -21,6 +21,9 @@ from job_application_copilot.repositories import (
     create_database,
 )
 from job_application_copilot.repositories.models import BackgroundBatch, BackgroundTask, Job
+from job_application_copilot.services.background_task_recovery import (
+    BackgroundTaskRecoveryService,
+)
 from job_application_copilot.services.background_worker import (
     BackgroundWorker,
     BackgroundWorkerAlreadyRunningError,
@@ -196,3 +199,69 @@ def test_windows_process_probe_never_uses_os_kill(monkeypatch: pytest.MonkeyPatc
     assert background_worker_module._process_is_alive(123)
     windows_probe.assert_called_once_with(123)
     os_kill.assert_not_called()
+
+
+def test_worker_startup_interrupts_abandoned_work_before_polling(
+    migrated_database: Database,
+    tmp_path: Path,
+) -> None:
+    abandoned = add_task(
+        migrated_database,
+        "Abandoned",
+        BackgroundOperation.ASSESSMENT,
+    )
+    with migrated_database.session() as session:
+        stored_task = BackgroundTaskRepository(session).require(abandoned.id)
+        BackgroundTaskRepository(session).transition(
+            stored_task,
+            BackgroundTaskStatus.RUNNING,
+        )
+    handled_ids: list[int] = []
+    worker = BackgroundWorker(
+        migrated_database,
+        {BackgroundOperation.ASSESSMENT: lambda task: handled_ids.append(task.id)},
+        stop_requested=lambda: True,
+        lease=BackgroundWorkerLease(tmp_path / "worker.lock"),
+    )
+
+    worker.run()
+
+    recovered = get_task(migrated_database, abandoned.id)
+    assert handled_ids == []
+    assert recovered.status is BackgroundTaskStatus.INTERRUPTED
+
+
+def test_interrupted_work_can_be_retried_after_worker_restart(
+    migrated_database: Database,
+    tmp_path: Path,
+) -> None:
+    abandoned = add_task(
+        migrated_database,
+        "Abandoned",
+        BackgroundOperation.ASSESSMENT,
+    )
+    with migrated_database.session() as session:
+        stored_task = BackgroundTaskRepository(session).require(abandoned.id)
+        BackgroundTaskRepository(session).transition(
+            stored_task,
+            BackgroundTaskStatus.RUNNING,
+        )
+    BackgroundWorker(
+        migrated_database,
+        handlers={},
+        stop_requested=lambda: True,
+        lease=BackgroundWorkerLease(tmp_path / "worker.lock"),
+    ).run()
+    BackgroundTaskRecoveryService(migrated_database).retry_task(abandoned.id)
+    handled_ids: list[int] = []
+    replacement_worker = BackgroundWorker(
+        migrated_database,
+        {BackgroundOperation.ASSESSMENT: lambda task: handled_ids.append(task.id)},
+    )
+
+    assert replacement_worker.process_next_task()
+
+    completed = get_task(migrated_database, abandoned.id)
+    assert handled_ids == [abandoned.id]
+    assert completed.status is BackgroundTaskStatus.COMPLETED
+    assert completed.retry_count == 1
