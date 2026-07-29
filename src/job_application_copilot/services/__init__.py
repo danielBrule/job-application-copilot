@@ -4,6 +4,10 @@ from job_application_copilot.repositories import (
     DuplicateJobUrlError,
     JobNotFoundError,
 )
+from job_application_copilot.services.background_worker import (
+    BackgroundTaskHandler,
+    BackgroundWorker,
+)
 from job_application_copilot.services.document_a_input import (
     DocumentAInput,
     DocumentAInputService,
@@ -78,6 +82,8 @@ from job_application_copilot.services.reference_asset_storage import (
 )
 
 __all__ = [
+    "BackgroundTaskHandler",
+    "BackgroundWorker",
     "DocumentAInput",
     "DocumentAInputService",
     "DocumentAInputUnavailableError",

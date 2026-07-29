@@ -80,6 +80,7 @@ def test_explicit_help_displays_supported_targets() -> None:
         "test-openai",
         "lint",
         "type",
+        "worker",
         "ui",
     ):
         assert target in result.stdout

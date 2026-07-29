@@ -1,5 +1,7 @@
 """Session-scoped persistence operations for background batches and tasks."""
 
+from collections.abc import Collection
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -124,6 +126,28 @@ class BackgroundTaskRepository:
             statement = statement.where(BackgroundTask.status == status)
         statement = statement.order_by(BackgroundTask.created_at.asc(), BackgroundTask.id.asc())
         return list(self.session.scalars(statement))
+
+    def claim_next_pending(
+        self,
+        operations: Collection[BackgroundOperation],
+    ) -> BackgroundTask | None:
+        """Claim the oldest pending task for one of the worker's registered operations."""
+
+        if not operations:
+            return None
+
+        task = self.session.scalar(
+            select(BackgroundTask)
+            .where(
+                BackgroundTask.status == BackgroundTaskStatus.PENDING,
+                BackgroundTask.operation.in_(operations),
+            )
+            .order_by(BackgroundTask.created_at.asc(), BackgroundTask.id.asc())
+            .limit(1)
+        )
+        if task is None:
+            return None
+        return self.transition(task, BackgroundTaskStatus.RUNNING)
 
     def transition(
         self,
