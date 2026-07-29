@@ -37,7 +37,8 @@ Usage:
   .\dev.ps1 test-openai Run opt-in tests against real OpenAI files and vector stores
   .\dev.ps1 lint       Run Ruff lint and formatting checks
   .\dev.ps1 type       Run mypy static type checks
-  .\dev.ps1 ui         Start the Streamlit application
+  .\dev.ps1 worker     Start the local sequential worker
+  .\dev.ps1 ui         Start Streamlit and its local worker
   .\dev.ps1 help       Show this help
 "@
 }
@@ -255,9 +256,44 @@ function Invoke-TypeChecks {
 }
 
 function Start-UserInterface {
+    $python = Resolve-VenvTool -Name "python.exe"
     $streamlit = Resolve-VenvTool -Name "streamlit.exe"
     $application = Join-Path $script:ProjectRoot "src\job_application_copilot\ui\app.py"
-    Invoke-ProjectTool -Executable $streamlit -Arguments @("run", $application)
+    $dataDirectory = if ($env:JAC_DATA_DIR) {
+        [System.IO.Path]::GetFullPath($env:JAC_DATA_DIR)
+    }
+    else {
+        Join-Path $script:ProjectRoot "data"
+    }
+    $stopFile = Join-Path $dataDirectory ("worker-stop-" + [Guid]::NewGuid().ToString("N") + ".signal")
+
+    New-Item -ItemType Directory -Path $dataDirectory -Force | Out-Null
+    $worker = Start-Process -FilePath $python -ArgumentList @(
+        "-m",
+        "job_application_copilot.services.background_worker",
+        "--stop-file",
+        $stopFile
+    ) -WorkingDirectory $script:ProjectRoot -WindowStyle Hidden -PassThru
+    try {
+        Invoke-ProjectTool -Executable $streamlit -Arguments @("run", $application)
+    }
+    finally {
+        New-Item -ItemType File -Path $stopFile -Force | Out-Null
+        if (-not $worker.WaitForExit(65000)) {
+            Write-Warning "The background worker is still finishing its current task."
+        }
+        elseif (Test-Path -LiteralPath $stopFile -PathType Leaf) {
+            Remove-Item -LiteralPath $stopFile -Force
+        }
+    }
+}
+
+function Start-BackgroundWorker {
+    $python = Resolve-VenvTool -Name "python.exe"
+    Invoke-ProjectTool -Executable $python -Arguments @(
+        "-m",
+        "job_application_copilot.services.background_worker"
+    )
 }
 
 switch ($Target.ToLowerInvariant()) {
@@ -296,6 +332,9 @@ switch ($Target.ToLowerInvariant()) {
     }
     "type" {
         Invoke-TypeChecks
+    }
+    "worker" {
+        Start-BackgroundWorker
     }
     "ui" {
         Start-UserInterface

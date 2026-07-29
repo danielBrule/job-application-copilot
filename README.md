@@ -62,7 +62,12 @@ The workflow uses two controlled career documents:
 
 ## Processing model
 
-Assessment and CV generation run through a local background worker.
+Assessment and CV generation run through a local background worker. `./dev.ps1 ui` starts the
+worker as a separate local process alongside Streamlit and requests a clean worker shutdown when
+Streamlit exits. The worker polls for registered work every 60 seconds while idle; a later UI
+refresh action only reloads durable task status and does not control the worker.
+One private worker lease prevents more than one live worker from running at a time. A stale lease
+left by a crash is replaced safely on the next startup.
 
 - Default assessment concurrency: `1`
 - Default CV-generation concurrency: `1`
@@ -347,6 +352,7 @@ Run the automated checks:
 .\dev.ps1 coverage
 .\dev.ps1 lint
 .\dev.ps1 type
+.\dev.ps1 worker
 ```
 
 `coverage` runs the complete test suite with branch coverage and reports missing lines. It
