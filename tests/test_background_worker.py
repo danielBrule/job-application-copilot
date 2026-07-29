@@ -3,9 +3,11 @@
 from datetime import date
 from pathlib import Path
 from threading import Event
+from unittest.mock import Mock
 
 import pytest
 
+import job_application_copilot.services.background_worker as background_worker_module
 from job_application_copilot.domain import (
     BackgroundOperation,
     BackgroundTaskStatus,
@@ -182,3 +184,15 @@ def test_worker_lease_replaces_stale_crash_artifact(tmp_path: Path) -> None:
     assert '"process_id": ' in lease_path.read_text(encoding="utf-8")
     assert '"token": "stale"' not in lease_path.read_text(encoding="utf-8")
     lease.release()
+
+
+def test_windows_process_probe_never_uses_os_kill(monkeypatch: pytest.MonkeyPatch) -> None:
+    windows_probe = Mock(return_value=True)
+    os_kill = Mock(side_effect=AssertionError("os.kill must not probe Windows processes"))
+    monkeypatch.setattr(background_worker_module, "_IS_WINDOWS", True)
+    monkeypatch.setattr(background_worker_module, "_windows_process_is_alive", windows_probe)
+    monkeypatch.setattr(background_worker_module.os, "kill", os_kill)
+
+    assert background_worker_module._process_is_alive(123)
+    windows_probe.assert_called_once_with(123)
+    os_kill.assert_not_called()
