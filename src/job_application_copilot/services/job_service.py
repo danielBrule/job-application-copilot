@@ -1,5 +1,7 @@
 """Transaction-owning application service for job CRUD operations."""
 
+from datetime import timedelta
+
 from job_application_copilot.domain import CreateJob, JobFilters, UpdateJob
 from job_application_copilot.repositories import Database
 from job_application_copilot.repositories.job_repository import (
@@ -7,6 +9,7 @@ from job_application_copilot.repositories.job_repository import (
     JobRepository,
 )
 from job_application_copilot.repositories.models import Job
+from job_application_copilot.repositories.models.common import utc_now
 
 
 class JobService:
@@ -56,6 +59,13 @@ class JobService:
             repository = JobRepository(session)
             job = repository.require(job_id)
             self._ensure_url_available(repository, command.job_url, job_id)
+            assessment_inputs_changed = (
+                job.company != command.company
+                or job.job_title != command.job_title
+                or job.location != command.location
+                or job.language != command.language
+                or job.job_description != command.job_description
+            )
             job.company = command.company
             job.job_title = command.job_title
             job.location = command.location
@@ -73,6 +83,12 @@ class JobService:
             job.next_action_date = command.next_action_date
             job.salary_expectation = command.salary_expectation
             job.closure_reason = command.closure_reason
+            if assessment_inputs_changed:
+                now = utc_now()
+                job.assessment_input_updated_at = max(
+                    now,
+                    job.assessment_input_updated_at + timedelta(seconds=1),
+                )
             session.flush()
             return job
 

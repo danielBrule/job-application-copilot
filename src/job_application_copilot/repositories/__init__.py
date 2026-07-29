@@ -1,5 +1,10 @@
 """Database repositories and persistence infrastructure."""
 
+from job_application_copilot.repositories.assessment_repository import (
+    AssessmentNotAllowedError,
+    AssessmentNotFoundError,
+    AssessmentRepository,
+)
 from job_application_copilot.repositories.background_task_repository import (
     BackgroundBatchNotFoundError,
     BackgroundBatchRepository,
@@ -41,6 +46,9 @@ from job_application_copilot.repositories.reference_asset_repository import (
 )
 
 __all__ = [
+    "AssessmentNotAllowedError",
+    "AssessmentNotFoundError",
+    "AssessmentRepository",
     "BackgroundBatchNotFoundError",
     "BackgroundBatchRepository",
     "BackgroundRunRepository",

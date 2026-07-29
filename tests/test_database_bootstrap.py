@@ -65,6 +65,7 @@ def test_migrations_create_current_domain_tables(
     try:
         assert inspect(database.engine).get_table_names() == [
             "alembic_version",
+            "assessments",
             "background_batches",
             "background_task_attempts",
             "background_tasks",

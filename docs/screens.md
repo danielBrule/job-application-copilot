@@ -62,7 +62,7 @@ Job Details opens from the Jobs table.
 ### Batch actions
 
 - Assess selected
-- Reassess selected
+- Reassess selected stale jobs
 - Select for CV generation
 - Generate selected CVs
 - Regenerate selected CVs
@@ -101,7 +101,7 @@ Editing never launches assessment automatically. Relevant edits may create a sta
 - Full JD
 - URL
 - Notes
-- Assess / Reassess
+- Assess / Reassess when stale
 - Delete, with confirmation
 
 ### Tab B — Assessment
