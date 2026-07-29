@@ -11,6 +11,7 @@ import signal
 import time
 import uuid
 from collections.abc import Callable, Mapping
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -26,8 +27,11 @@ from job_application_copilot.observability import (
     log_event,
 )
 from job_application_copilot.repositories import Database, create_database
-from job_application_copilot.repositories.background_task_repository import BackgroundTaskRepository
-from job_application_copilot.repositories.models import BackgroundTask
+from job_application_copilot.repositories.background_task_repository import (
+    BackgroundBatchRepository,
+    BackgroundTaskRepository,
+)
+from job_application_copilot.repositories.models import BackgroundBatch, BackgroundTask
 from job_application_copilot.services.background_task_recovery import (
     BackgroundTaskRecoveryService,
 )
@@ -40,6 +44,7 @@ _ERROR_ACCESS_DENIED = 5
 
 DEFAULT_IDLE_POLL_INTERVAL_SECONDS = 60.0
 STOP_CHECK_INTERVAL_SECONDS = 1.0
+MAX_WORKER_COUNT = 5
 
 BackgroundTaskHandler = Callable[[BackgroundTask], None]
 logger = get_logger("job_application_copilot.services.background_worker")
@@ -143,13 +148,14 @@ class BackgroundWorkerLease:
 
 
 class BackgroundWorker:
-    """Run registered task handlers sequentially outside Streamlit execution."""
+    """Run one batch at a time with bounded parallel tasks outside Streamlit."""
 
     def __init__(
         self,
         database: Database,
         handlers: Mapping[BackgroundOperation, BackgroundTaskHandler],
         *,
+        worker_counts: Mapping[BackgroundOperation, int] | None = None,
         idle_poll_interval_seconds: float = DEFAULT_IDLE_POLL_INTERVAL_SECONDS,
         stop_requested: Callable[[], bool] | None = None,
         lease: BackgroundWorkerLease | None = None,
@@ -158,6 +164,7 @@ class BackgroundWorker:
             raise ValueError("idle_poll_interval_seconds must be greater than zero.")
         self.database = database
         self.handlers = dict(handlers)
+        self.worker_counts = _validated_worker_counts(self.handlers, worker_counts)
         self.idle_poll_interval_seconds = idle_poll_interval_seconds
         self.stop_requested = stop_requested or (lambda: False)
         self.lease = lease
@@ -186,11 +193,7 @@ class BackgroundWorker:
                     recovered_task_count=len(recovered_task_ids),
                     recovered_task_ids=list(recovered_task_ids),
                 )
-            while not self._should_stop():
-                self._heartbeat()
-                processed = self.process_next_task()
-                if not processed:
-                    self._wait_for_next_poll()
+            self._run_batches()
         finally:
             log_event(logger, logging.INFO, "background_worker_stopped")
             if self.lease is not None:
@@ -203,6 +206,61 @@ class BackgroundWorker:
             task = BackgroundTaskRepository(session).claim_next_pending(self.handlers)
         if task is None:
             return False
+
+        self._process_claimed_task(task)
+        return True
+
+    def _run_batches(self) -> None:
+        """Run one selected batch at a time until shutdown is requested."""
+
+        with ThreadPoolExecutor(
+            max_workers=max(self.worker_counts.values(), default=1)
+        ) as executor:
+            active_batch_id: int | None = None
+            active_worker_count = 0
+            futures: set[Future[None]] = set()
+            while True:
+                self._heartbeat()
+                futures = {future for future in futures if not future.done()}
+
+                if self._should_stop():
+                    if not futures:
+                        return
+                    self._wait_for_futures(futures)
+                    continue
+
+                if active_batch_id is None:
+                    active_batch = self._next_pending_batch()
+                    if active_batch is None:
+                        self._wait_for_next_poll()
+                        continue
+                    active_batch_id = active_batch.id
+                    active_worker_count = self.worker_counts[active_batch.operation]
+
+                while len(futures) < active_worker_count and not self._should_stop():
+                    task = self._claim_next_task_in_batch(active_batch_id)
+                    if task is None:
+                        break
+                    futures.add(executor.submit(self._process_claimed_task, task))
+
+                if futures:
+                    self._wait_for_futures(futures)
+                    continue
+
+                # This batch has no pending or running tasks, so choose the next one.
+                active_batch_id = None
+                active_worker_count = 0
+
+    def _next_pending_batch(self) -> BackgroundBatch | None:
+        with self.database.session() as session:
+            return BackgroundBatchRepository(session).next_pending_for_operations(self.handlers)
+
+    def _claim_next_task_in_batch(self, batch_id: int) -> BackgroundTask | None:
+        with self.database.session() as session:
+            return BackgroundTaskRepository(session).claim_next_pending_in_batch(batch_id)
+
+    def _process_claimed_task(self, task: BackgroundTask) -> None:
+        """Run one detached task and record its terminal lifecycle state."""
 
         handler = self.handlers[task.operation]
         log_event(
@@ -249,7 +307,11 @@ class BackgroundWorker:
                 operation=task.operation.value,
                 task_id=task.id,
             )
-        return True
+
+    def _wait_for_futures(self, futures: set[Future[None]]) -> None:
+        """Wait briefly for running work while refreshing the worker lease."""
+
+        wait(futures, timeout=STOP_CHECK_INTERVAL_SECONDS)
 
     def _should_stop(self) -> bool:
         return self._stop_event.is_set() or self.stop_requested()
@@ -283,6 +345,10 @@ def main() -> None:
     worker = BackgroundWorker(
         database,
         handlers={},
+        worker_counts={
+            BackgroundOperation.ASSESSMENT: settings.assessment_worker_count,
+            BackgroundOperation.CV_GENERATION: settings.cv_worker_count,
+        },
         stop_requested=lambda: arguments.stop_file is not None and arguments.stop_file.exists(),
         lease=BackgroundWorkerLease(settings.logs_folder / "worker.lock"),
     )
@@ -391,6 +457,29 @@ def _read_process_id(path: Path) -> int:
         return int(path.read_text(encoding="utf-8"))
     except (FileNotFoundError, ValueError):
         return 0
+
+
+def _validated_worker_counts(
+    handlers: Mapping[BackgroundOperation, BackgroundTaskHandler],
+    worker_counts: Mapping[BackgroundOperation, int] | None,
+) -> dict[BackgroundOperation, int]:
+    """Return bounded per-operation counts, defaulting registered handlers to one."""
+
+    configured = dict(worker_counts or {})
+    counts: dict[BackgroundOperation, int] = {}
+    for operation in handlers:
+        count = configured.get(operation, 1)
+        if (
+            not isinstance(count, int)
+            or isinstance(count, bool)
+            or not 1 <= count <= MAX_WORKER_COUNT
+        ):
+            raise ValueError(
+                f"Worker count for {operation.value} must be an integer between 1 and "
+                f"{MAX_WORKER_COUNT}."
+            )
+        counts[operation] = count
+    return counts
 
 
 if __name__ == "__main__":

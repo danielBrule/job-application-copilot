@@ -87,6 +87,27 @@ class BackgroundBatchRepository:
             raise BackgroundBatchNotFoundError(batch_id)
         return batch
 
+    def next_pending_for_operations(
+        self,
+        operations: Collection[BackgroundOperation],
+    ) -> BackgroundBatch | None:
+        """Return the oldest batch with pending work handled by this worker."""
+
+        if not operations:
+            return None
+
+        statement = (
+            select(BackgroundBatch)
+            .join(BackgroundTask, BackgroundTask.batch_id == BackgroundBatch.id)
+            .where(
+                BackgroundTask.status == BackgroundTaskStatus.PENDING,
+                BackgroundTask.operation.in_(operations),
+            )
+            .order_by(BackgroundBatch.created_at.asc(), BackgroundBatch.id.asc())
+            .limit(1)
+        )
+        return self.session.scalar(statement)
+
 
 class BackgroundTaskRepository:
     """Read, create, and transition background tasks in one transaction."""
@@ -150,6 +171,22 @@ class BackgroundTaskRepository:
             .where(
                 BackgroundTask.status == BackgroundTaskStatus.PENDING,
                 BackgroundTask.operation.in_(operations),
+            )
+            .order_by(BackgroundTask.created_at.asc(), BackgroundTask.id.asc())
+            .limit(1)
+        )
+        if task is None:
+            return None
+        return self.transition(task, BackgroundTaskStatus.RUNNING)
+
+    def claim_next_pending_in_batch(self, batch_id: int) -> BackgroundTask | None:
+        """Claim the oldest pending task in one already-selected batch."""
+
+        task = self.session.scalar(
+            select(BackgroundTask)
+            .where(
+                BackgroundTask.batch_id == batch_id,
+                BackgroundTask.status == BackgroundTaskStatus.PENDING,
             )
             .order_by(BackgroundTask.created_at.asc(), BackgroundTask.id.asc())
             .limit(1)

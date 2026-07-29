@@ -2,7 +2,7 @@
 
 from datetime import date
 from pathlib import Path
-from threading import Event
+from threading import Event, Thread
 from unittest.mock import Mock
 
 import pytest
@@ -62,6 +62,34 @@ def add_task(database: Database, company: str, operation: BackgroundOperation) -
         )
 
 
+def add_batch_tasks(
+    database: Database,
+    companies: list[str],
+    operation: BackgroundOperation,
+) -> list[BackgroundTask]:
+    with database.session() as session:
+        batch = BackgroundBatchRepository(session).add(BackgroundBatch(operation=operation))
+        tasks: list[BackgroundTask] = []
+        for company in companies:
+            job = Job(
+                company=company,
+                job_title="Platform Engineer",
+                location=Location.UK,
+                language=Language.EN,
+                source="LinkedIn",
+                job_description="Build reliable systems.",
+                date_added=date(2026, 7, 29),
+            )
+            session.add(job)
+            session.flush()
+            tasks.append(
+                BackgroundTaskRepository(session).add(
+                    BackgroundTask(batch_id=batch.id, job_id=job.id, operation=operation)
+                )
+            )
+        return tasks
+
+
 def get_task(database: Database, task_id: int) -> BackgroundTask:
     with database.session() as session:
         task = BackgroundTaskRepository(session).get(task_id)
@@ -87,6 +115,117 @@ def test_processes_dummy_tasks_sequentially_in_oldest_first_order(
     assert processed_ids == [first.id, second.id]
     assert get_task(migrated_database, first.id).status is BackgroundTaskStatus.COMPLETED
     assert get_task(migrated_database, second.id).status is BackgroundTaskStatus.COMPLETED
+
+
+def test_worker_count_one_keeps_tasks_in_one_batch_sequential(
+    migrated_database: Database,
+) -> None:
+    first, second = add_batch_tasks(
+        migrated_database,
+        ["First", "Second"],
+        BackgroundOperation.ASSESSMENT,
+    )
+    first_started = Event()
+    release_first = Event()
+    second_started = Event()
+    worker = BackgroundWorker(
+        migrated_database,
+        {
+            BackgroundOperation.ASSESSMENT: lambda task: _sequential_handler(
+                task, first.id, first_started, release_first, second_started
+            )
+        },
+        worker_counts={BackgroundOperation.ASSESSMENT: 1},
+    )
+    runner = Thread(target=worker.run)
+    runner.start()
+    assert first_started.wait(timeout=5)
+    assert not second_started.wait(timeout=0.2)
+
+    release_first.set()
+    assert second_started.wait(timeout=5)
+    worker.request_stop()
+    runner.join(timeout=5)
+
+    assert not runner.is_alive()
+    assert get_task(migrated_database, first.id).status is BackgroundTaskStatus.COMPLETED
+    assert get_task(migrated_database, second.id).status is BackgroundTaskStatus.COMPLETED
+
+
+def test_worker_processes_only_one_batch_while_tasks_run_concurrently(
+    migrated_database: Database,
+) -> None:
+    first, second = add_batch_tasks(
+        migrated_database,
+        ["First", "Second"],
+        BackgroundOperation.ASSESSMENT,
+    )
+    (later,) = add_batch_tasks(
+        migrated_database,
+        ["Later"],
+        BackgroundOperation.ASSESSMENT,
+    )
+    first_batch_started = Event()
+    release_first_batch = Event()
+    later_started = Event()
+    active_first_batch: set[int] = set()
+
+    def handler(task: BackgroundTask) -> None:
+        if task.id in {first.id, second.id}:
+            active_first_batch.add(task.id)
+            if len(active_first_batch) == 2:
+                first_batch_started.set()
+            assert release_first_batch.wait(timeout=5)
+            return
+        assert task.id == later.id
+        assert len(active_first_batch) == 2
+        later_started.set()
+
+    worker = BackgroundWorker(
+        migrated_database,
+        {BackgroundOperation.ASSESSMENT: handler},
+        worker_counts={BackgroundOperation.ASSESSMENT: 2},
+    )
+    runner = Thread(target=worker.run)
+    runner.start()
+    assert first_batch_started.wait(timeout=5)
+    assert not later_started.wait(timeout=0.2)
+
+    release_first_batch.set()
+    assert later_started.wait(timeout=5)
+    worker.request_stop()
+    runner.join(timeout=5)
+
+    assert not runner.is_alive()
+    for task in (first, second, later):
+        assert get_task(migrated_database, task.id).status is BackgroundTaskStatus.COMPLETED
+
+
+@pytest.mark.parametrize("worker_count", [0, 6, True])
+def test_rejects_invalid_runtime_worker_counts(
+    migrated_database: Database,
+    worker_count: int,
+) -> None:
+    with pytest.raises(ValueError, match="Worker count"):
+        BackgroundWorker(
+            migrated_database,
+            {BackgroundOperation.ASSESSMENT: lambda task: None},
+            worker_counts={BackgroundOperation.ASSESSMENT: worker_count},
+        )
+
+
+def _sequential_handler(
+    task: BackgroundTask,
+    first_task_id: int,
+    first_started: Event,
+    release_first: Event,
+    second_started: Event,
+) -> None:
+    if task.id == first_task_id:
+        first_started.set()
+        assert release_first.wait(timeout=5)
+        return
+    second_started.set()
 
 
 def test_handler_failure_marks_only_its_task_failed_and_continues(
