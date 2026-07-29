@@ -1,5 +1,10 @@
 """Application domain types."""
 
+from job_application_copilot.domain.background_run import (
+    BackgroundAttemptSummary,
+    BackgroundRunFilters,
+    BackgroundRunSummary,
+)
 from job_application_copilot.domain.background_task import (
     BackgroundOperation,
     BackgroundTaskStatus,
@@ -49,6 +54,9 @@ from job_application_copilot.domain.reference_asset_overview import (
 
 __all__ = [
     "BackgroundOperation",
+    "BackgroundAttemptSummary",
+    "BackgroundRunFilters",
+    "BackgroundRunSummary",
     "BackgroundTaskStatus",
     "CvLane",
     "CreateJob",

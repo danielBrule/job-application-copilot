@@ -7,6 +7,7 @@ import streamlit as st
 from job_application_copilot.config import AppSettings
 from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.services import (
+    BackgroundRunService,
     DocumentAProcessingService,
     DocumentBProcessingService,
     JobService,
@@ -32,6 +33,12 @@ def get_job_service(database_path: Path) -> JobService:
     """Build a job service using the UI process's shared database facade."""
 
     return JobService(get_database(database_path))
+
+
+def get_background_run_service(database_path: Path) -> BackgroundRunService:
+    """Build background-run monitoring over the UI process database."""
+
+    return BackgroundRunService(get_database(database_path))
 
 
 def get_prompt_service(settings: AppSettings) -> PromptService:

@@ -215,6 +215,8 @@ The application displays assessment and CV-generation tasks with:
 - Retry action
 
 Interrupted tasks become retryable after worker restart.
+Each worker claim creates a retained execution attempt. Retrying a failed or interrupted logical
+task preserves earlier attempt timings and errors and does not modify completed tasks in its batch.
 
 ## 12. KPI dashboard
 

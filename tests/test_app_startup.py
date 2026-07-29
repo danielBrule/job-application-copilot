@@ -41,6 +41,7 @@ def test_streamlit_app_starts_and_creates_private_directories(
             assert inspect(database.engine).get_table_names() == [
                 "alembic_version",
                 "background_batches",
+                "background_task_attempts",
                 "background_tasks",
                 "document_b_lane_routes",
                 "document_b_retrieval_trace_results",
@@ -64,7 +65,7 @@ def test_streamlit_app_starts_and_creates_private_directories(
         (
             "pages/background_runs.py",
             "Background Runs",
-            "Background task monitoring will be implemented in milestone M4.",
+            "No background tasks have been created yet.",
         ),
     ],
 )

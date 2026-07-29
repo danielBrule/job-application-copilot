@@ -64,8 +64,9 @@ The workflow uses two controlled career documents:
 
 Assessment and CV generation run through a local background worker. `./dev.ps1 ui` starts the
 worker as a separate local process alongside Streamlit and requests a clean worker shutdown when
-Streamlit exits. The worker polls for registered work every 60 seconds while idle; a later UI
-refresh action only reloads durable task status and does not control the worker.
+Streamlit exits. The worker polls for registered work every 60 seconds while idle. The Background
+Runs screen refreshes displayed active work every 60 seconds and also provides an explicit refresh
+action; both reload durable task status and do not control the worker.
 One private worker lease prevents more than one live worker from running at a time. A stale lease
 left by a crash is replaced safely on the next startup. After acquiring that lease, the worker
 marks tasks left `RUNNING` by its predecessor as `INTERRUPTED`. Interrupted work remains visible
@@ -264,10 +265,10 @@ Implementation is in progress. Delivery is managed through GitHub Issues and val
 GitHub Actions. The Streamlit application supports manual job entry and editing through a
 sortable, selectable and filterable Jobs dashboard. Prompt definitions, editing, completeness
 and version activation are available on Settings alongside a complete local asset readiness
-overview and validated DOCX replacement controls. OpenAI reference processing and background-run
-controls are delivered incrementally: file upload, identifier persistence and Document B
-vector-store processing and activation are available from Settings, while background-run
-controls are delivered by later tickets.
+overview and validated DOCX replacement controls. OpenAI reference file upload, identifier
+persistence and Document B vector-store processing and activation are available from Settings.
+Background Runs shows filterable batch and task state, retained execution-attempt history, errors
+and guarded retry actions.
 
 ## Development
 

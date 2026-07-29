@@ -3,6 +3,7 @@
 from job_application_copilot.repositories.models.background_task import (
     BackgroundBatch,
     BackgroundTask,
+    BackgroundTaskAttempt,
 )
 from job_application_copilot.repositories.models.document_b_retrieval import (
     DocumentBRetrievalTrace,
@@ -23,6 +24,7 @@ from job_application_copilot.repositories.models.reference_asset import Referenc
 __all__ = [
     "BackgroundBatch",
     "BackgroundTask",
+    "BackgroundTaskAttempt",
     "DocumentBLaneRoute",
     "DocumentBRoutingSet",
     "DocumentBSection",

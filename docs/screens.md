@@ -202,6 +202,10 @@ Filters:
 
 A failure affects only its own task.
 
+The batch filter identifies batches by ID and launch time. Each task exposes retained execution
+attempts so errors and timings from earlier retries remain reviewable. Displayed pending or running
+results refresh every 60 seconds, and an explicit refresh action is always available.
+
 ## 5. Settings
 
 ### Reference asset overview

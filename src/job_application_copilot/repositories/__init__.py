@@ -3,6 +3,7 @@
 from job_application_copilot.repositories.background_task_repository import (
     BackgroundBatchNotFoundError,
     BackgroundBatchRepository,
+    BackgroundRunRepository,
     BackgroundTaskBatchOperationMismatchError,
     BackgroundTaskNotFoundError,
     BackgroundTaskRepository,
@@ -38,6 +39,7 @@ from job_application_copilot.repositories.reference_asset_repository import (
 __all__ = [
     "BackgroundBatchNotFoundError",
     "BackgroundBatchRepository",
+    "BackgroundRunRepository",
     "BackgroundTaskBatchOperationMismatchError",
     "BackgroundTaskNotFoundError",
     "BackgroundTaskRepository",
