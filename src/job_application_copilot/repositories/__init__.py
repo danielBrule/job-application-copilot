@@ -1,5 +1,13 @@
 """Database repositories and persistence infrastructure."""
 
+from job_application_copilot.repositories.background_task_repository import (
+    BackgroundBatchNotFoundError,
+    BackgroundBatchRepository,
+    BackgroundTaskBatchOperationMismatchError,
+    BackgroundTaskNotFoundError,
+    BackgroundTaskRepository,
+    InvalidBackgroundTaskTransitionError,
+)
 from job_application_copilot.repositories.database import (
     Database,
     DatabaseHealth,
@@ -28,6 +36,11 @@ from job_application_copilot.repositories.reference_asset_repository import (
 )
 
 __all__ = [
+    "BackgroundBatchNotFoundError",
+    "BackgroundBatchRepository",
+    "BackgroundTaskBatchOperationMismatchError",
+    "BackgroundTaskNotFoundError",
+    "BackgroundTaskRepository",
     "Database",
     "DatabaseHealth",
     "DocumentBSectionNotFoundError",
@@ -36,6 +49,7 @@ __all__ = [
     "DuplicateJobUrlError",
     "JobNotFoundError",
     "JobRepository",
+    "InvalidBackgroundTaskTransitionError",
     "PromptDefinitionNotFoundError",
     "PromptDefinitionRepository",
     "ReferenceAssetVersionNotFoundError",

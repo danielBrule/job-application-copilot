@@ -1,5 +1,10 @@
 """Application domain types."""
 
+from job_application_copilot.domain.background_task import (
+    BackgroundOperation,
+    BackgroundTaskStatus,
+    is_valid_background_task_transition,
+)
 from job_application_copilot.domain.document_b_retrieval import (
     DocumentBRetrievalRequest,
     DocumentBRetrievedPassage,
@@ -43,6 +48,8 @@ from job_application_copilot.domain.reference_asset_overview import (
 )
 
 __all__ = [
+    "BackgroundOperation",
+    "BackgroundTaskStatus",
     "CvLane",
     "CreateJob",
     "CreatePromptDefinition",
@@ -56,6 +63,7 @@ __all__ = [
     "FRENCH_CV_TEMPLATE_KEY",
     "FrenchReferenceExamplesOverview",
     "JobFilters",
+    "is_valid_background_task_transition",
     "Language",
     "Location",
     "Relevance",
