@@ -67,7 +67,7 @@ skip_covered = true
 [dependency-groups]
 dev = [
     "mypy (>=1.18,<2.0)",
-    "pytest (>=9.1.1,<10.0.0)",
+    "pytest (>=8.4.2,<9.0.0)",
     "pytest-cov (>=7.0,<8.0)",
     "ruff (>=0.15.22,<0.16.0)",
     "types-pyyaml (>=6.0.12.20250915,<7.0.0)"
