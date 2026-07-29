@@ -96,3 +96,9 @@ class Job(Base):
         onupdate=utc_now,
         server_default=func.current_timestamp(),
     )
+    assessment_input_updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=utc_now,
+        server_default=func.current_timestamp(),
+    )

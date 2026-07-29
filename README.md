@@ -223,6 +223,11 @@ Documents A and B, model inputs and outputs, personal information, local paths, 
 timings and errors. The complete `data/logs` directory is excluded from Git. Do not publish
 or share logs without reviewing and sanitising them.
 
+Persisted assessment and background-task error messages are intended for this local-only
+application and may include provider or processing details. They are not guaranteed to be
+sanitised for publication. Review and redact database contents and logs before sharing them or
+adapting the application for hosted or multi-user use.
+
 API keys, authentication tokens, passwords, authorization headers and other secrets must
 never be logged. The configured OpenAI API key is redacted if its exact value accidentally
 appears in a log record, but this is a safety net rather than a substitute for careful logging.

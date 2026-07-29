@@ -40,6 +40,7 @@ def test_streamlit_app_starts_and_creates_private_directories(
         try:
             assert inspect(database.engine).get_table_names() == [
                 "alembic_version",
+                "assessments",
                 "background_batches",
                 "background_task_attempts",
                 "background_tasks",

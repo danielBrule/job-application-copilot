@@ -141,6 +141,37 @@ def test_update_can_change_and_clear_relevance_override(
     assert cleared.relevance_override is None
 
 
+def test_only_assessment_input_edits_advance_stale_source_timestamp(
+    database_and_service: tuple[Database, JobService],
+) -> None:
+    _, service = database_and_service
+    created = service.create(create_command())
+    original_timestamp = created.assessment_input_updated_at
+
+    administrative_update = replace(
+        update_command(),
+        company=created.company,
+        job_title=created.job_title,
+        location=created.location,
+        language=created.language,
+        job_description=created.job_description,
+        source=created.source,
+        date_added=created.date_added,
+        job_url=created.job_url,
+        general_notes="Changed note",
+        relevance_override=Relevance.HIGH,
+        user_decision=UserDecision.PURSUE,
+    )
+    unchanged = service.update(created.id, administrative_update)
+    assert unchanged.assessment_input_updated_at == original_timestamp
+
+    changed = service.update(
+        created.id,
+        replace(administrative_update, job_description="Materially changed description."),
+    )
+    assert changed.assessment_input_updated_at > original_timestamp
+
+
 def test_list_delegates_filters(database_and_service: tuple[Database, JobService]) -> None:
     _, service = database_and_service
     service.create(create_command("Alpha"))

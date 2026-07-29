@@ -52,7 +52,8 @@ Requirements:
 - A configuration parameter may allow bounded parallelism.
 - Each job is processed independently.
 - A failure does not stop the rest of the batch.
-- Completed or failed jobs can be manually reassessed, including multiple selected rows in one action.
+- Failed assessments can be retried. Successfully assessed jobs can be manually reassessed only
+  after a relevant job edit makes the stored assessment stale.
 - A previous valid assessment remains available until a replacement completes successfully.
 - Editing company, title, location, language or JD marks the assessment stale.
 - Editing URL, source or notes does not mark it stale.
@@ -60,17 +61,18 @@ Requirements:
 Stored assessment output:
 
 - Relevance: High / Medium / Low
-- Short summary
-- Primary and optional secondary role family
+- Role snapshot and real mandate behind the title
+- Primary and secondary role family
 - Go / Caution / Stretch / No-Go recommendation
-- Fit score
-- Interview probability range and confidence
+- Seniority fit, fit score and priority score, each scored from 0 to 10
+- Interview probability range and confidence, each scored from 0 to 10
 - Strong fit signals
 - Red flags and sustainability risks
-- Recommended CV lane
-- Evidence anchors and confidence
+- Technical-bar assessment
+- Recommended Document B lane
+- Evidence anchors and one overall evidence-confidence score from 0 to 10
 - Evidence gaps
-- Overclaiming constraints
+- Overclaiming risks
 - Document A and prompt versions
 - Model and usage metadata
 

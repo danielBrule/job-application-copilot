@@ -1,5 +1,9 @@
 """Application domain types."""
 
+from job_application_copilot.domain.assessment import (
+    AssessmentDecision,
+    AssessmentStatus,
+)
 from job_application_copilot.domain.background_run import (
     BackgroundAttemptSummary,
     BackgroundRunFilters,
@@ -58,6 +62,8 @@ from job_application_copilot.domain.reference_asset_overview import (
 )
 
 __all__ = [
+    "AssessmentDecision",
+    "AssessmentStatus",
     "BackgroundOperation",
     "BackgroundAttemptSummary",
     "BackgroundRunFilters",

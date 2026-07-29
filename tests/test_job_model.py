@@ -312,6 +312,7 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
             "closure_reason",
             "created_at",
             "updated_at",
+            "assessment_input_updated_at",
         }
         assert columns["id"]["primary_key"]
         assert not columns["company"]["nullable"]
@@ -323,6 +324,7 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
         assert columns["relevance_override"]["nullable"]
         assert columns["created_at"]["default"] is not None
         assert columns["updated_at"]["default"] is not None
+        assert columns["assessment_input_updated_at"]["default"] is not None
         assert {
             "job_location",
             "job_language",

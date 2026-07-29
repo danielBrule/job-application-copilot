@@ -18,9 +18,9 @@ repositories     files / DOCX       (explicit workflows)
 SQLite / Alembic
 ```
 
-The local task queue and worker described below are planned execution paths for assessment and
-CV generation. They are not part of the currently implemented Settings reference-asset flows,
-which run synchronously after an explicit user action.
+The local task queue, worker, retained attempts, recovery and configurable concurrency are
+implemented execution foundations for assessment and CV generation. Settings reference-asset
+flows remain synchronous after an explicit user action.
 
 ## 2. Technology choices
 
@@ -85,8 +85,7 @@ at `ui/app.py` and `ui/dependencies.py`.
 
 ## 4. Background processing
 
-The planned background-processing implementation uses a separate local worker polling a
-SQLite-backed task table.
+Background processing uses a separate local worker polling a SQLite-backed task table.
 
 - Default concurrency is one.
 - Assessment and CV generation may have separate configured worker counts.

@@ -43,6 +43,8 @@ Key fields:
 - `closure_reason`
 - `created_at`
 - `updated_at`
+- `assessment_input_updated_at`: changes only when company, title, location, language or job
+  description changes
 
 ## Assessment
 
@@ -53,24 +55,30 @@ Key fields:
 - `job_id`
 - `status`: pending / running / assessed / failed
 - `model_relevance`: High / Medium / Low
-- `summary`
+- `role_snapshot`
+- `real_mandate`
 - `primary_role_family`
 - `secondary_role_family`
+- `seniority_fit`: 0 to 10
+- `technical_bar`
+- `tech_bar_fit`: 0 to 10
 - `decision`: Go / Caution / Stretch / No-Go
 - `decision_reason`
-- `fit_score`
-- `interview_probability_low`
-- `interview_probability_high`
-- `interview_probability_confidence`
+- `fit_score`: 0 to 10
+- `priority_score`: 0 to 10
+- `interview_probability_low`: 0 to 10
+- `interview_probability_high`: 0 to 10
+- `interview_probability_confidence`: 0 to 10
 - `strong_fit_signals`
-- `risks`
-- `evidence_anchors`
-- `evidence_confidence`
+- `red_flags`
+- `sustainability_risks`
 - `evidence_gaps`
-- `recommended_cv_lane`
+- `evidence_anchors`
+- `evidence_confidence`: one overall 0-to-10 score
+- `recommended_document_b_lane`
 - `selected_cv_lane`
 - `secondary_cv_angle`
-- `overclaiming_constraints`
+- `overclaiming_risks`
 - `assessment_notes`
 - `document_a_version`
 - `prompt_version`
@@ -79,7 +87,21 @@ Key fields:
 - `source_job_updated_at`
 - `error_message`
 
-A failed reassessment must not delete the last valid result.
+A failed initial assessment is retained and retryable. A successful assessment can be reassessed
+only after a relevant job edit makes it stale. The successful row remains available while that
+reassessment runs, and a failed reassessment must not replace it; operational retry and failure
+details remain on the background task and its retained attempts.
+
+Staleness compares `Assessment.source_job_updated_at` with
+`Job.assessment_input_updated_at`. Administrative, application-tracking and human-review edits do
+not advance the job timestamp and therefore do not make an assessment stale.
+
+An `ASSESSED` row must populate the model relevance, role snapshot, real mandate, primary and
+secondary role families, fit and priority scores, strong-fit signals, red flags, sustainability
+risks, technical bar, seniority fit, evidence anchors, evidence gaps, overclaiming risks, decision,
+decision reason and recommended Document B lane. Collection fields are stored as non-null JSON
+arrays and may be empty when the assessment explicitly finds no items.
+
 Effective relevance is `Job.relevance_override` when present, otherwise the current
 `Assessment.model_relevance`. Keeping both values preserves the model output when the user
 overrides it.
