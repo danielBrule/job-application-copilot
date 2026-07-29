@@ -22,6 +22,7 @@ def required_local_directories(settings: AppSettings) -> tuple[Path, ...]:
         settings.logs_folder,
         settings.document_a_folder,
         settings.document_b_folder,
+        settings.routing_folder,
         settings.templates_folder,
         settings.french_examples_folder,
         settings.assessment_prompts_folder,

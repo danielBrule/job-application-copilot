@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-from conftest import make_routable_document_b
+from conftest import install_document_b_routing_config, make_routable_document_b
 
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import (
@@ -32,6 +32,7 @@ def test_cli_resolves_lane_without_changing_routing_data(
     capsys,
 ) -> None:
     settings = AppSettings(_env_file=None, data_dir=tmp_path / "data")
+    install_document_b_routing_config(settings)
     settings.database_path.parent.mkdir(parents=True)
     initialize_database(settings.database_path)
     database = create_database(settings.database_path)

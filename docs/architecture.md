@@ -266,6 +266,12 @@ Generated and uploaded CVs share one folder. All generated CVs use one naming co
 Versioned prompts are private local assets stored below `data/reference/prompts`, separated
 into assessment, English-generation and French-generation directories.
 
+Each installation also owns
+`data/reference/routing/document-b-lane-routes.yaml`. It is created from the committed
+[`templates/document-b-lane-routes.template.yaml`](../templates/document-b-lane-routes.template.yaml)
+and customised for that installation's Document B. The editable YAML remains private; only a
+validated routing set bound to an exact Document B version is used at runtime.
+
 Prompt definitions are stored separately from their immutable text versions. A definition
 declares the stable asset key, enum-free pipeline group, optional language, position and enabled
 state; `reference_assets` records each UTF-8 text version, hash and active state. This allows

@@ -29,6 +29,11 @@ class AppSettings(BaseSettings):
     cv_folder: Path = Field(default_factory=lambda data: data["data_dir"] / "cvs")
     logs_folder: Path = Field(default_factory=lambda data: data["data_dir"] / "logs")
     reference_folder: Path = Field(default_factory=lambda data: data["data_dir"] / "reference")
+    document_b_routing_config_path: Path = Field(
+        default_factory=lambda data: (
+            data["reference_folder"] / "routing" / "document-b-lane-routes.yaml"
+        )
+    )
     openai_api_key: SecretStr | None = Field(
         default=None,
         validation_alias=AliasChoices("OPENAI_API_KEY", "JAC_OPENAI_API_KEY"),
@@ -73,6 +78,12 @@ class AppSettings(BaseSettings):
         """Root directory containing private prompt versions."""
 
         return self.reference_folder / "prompts"
+
+    @property
+    def routing_folder(self) -> Path:
+        """Directory containing private Document B routing configuration."""
+
+        return self.document_b_routing_config_path.parent
 
     @property
     def assessment_prompts_folder(self) -> Path:

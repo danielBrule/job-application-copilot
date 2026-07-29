@@ -1,3 +1,7 @@
+# Copy this committed template to:
+#   data/reference/routing/document-b-lane-routes.yaml
+# Keep the copied file private and customise every heading path and lane route for the
+# installation's own Document B. See docs/document-b-routing-manifest.md before importing it.
 schema_version: 1
 routing_config_version: 1.0.0
 resolution:
