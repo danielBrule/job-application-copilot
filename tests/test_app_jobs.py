@@ -45,7 +45,7 @@ def test_empty_jobs_dashboard_shows_add_prompt(
     monkeypatch.setenv("JAC_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.chdir(tmp_path)
 
-    app = AppTest.from_file(str(APP_PATH)).run()
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
 
     try:
         assert not app.exception

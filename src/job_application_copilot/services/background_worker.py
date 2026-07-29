@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import logging
 import os
@@ -29,6 +30,10 @@ from job_application_copilot.repositories.background_task_repository import Back
 from job_application_copilot.repositories.models import BackgroundTask
 from job_application_copilot.services.database_bootstrap import initialize_database
 from job_application_copilot.services.local_directories import ensure_local_directories
+
+_IS_WINDOWS = os.name == "nt"
+_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+_ERROR_ACCESS_DENIED = 5
 
 DEFAULT_IDLE_POLL_INTERVAL_SECONDS = 60.0
 STOP_CHECK_INTERVAL_SECONDS = 1.0
@@ -340,6 +345,8 @@ def _read_metadata(path: Path) -> BackgroundWorkerLeaseMetadata | None:
 def _process_is_alive(process_id: int) -> bool:
     if process_id <= 0:
         return False
+    if _IS_WINDOWS:
+        return _windows_process_is_alive(process_id)
     try:
         os.kill(process_id, 0)
     except ProcessLookupError:
@@ -347,6 +354,22 @@ def _process_is_alive(process_id: int) -> bool:
     except PermissionError:
         return True
     return True
+
+
+def _windows_process_is_alive(process_id: int) -> bool:
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    open_process = kernel32.OpenProcess
+    open_process.argtypes = (ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong)
+    open_process.restype = ctypes.c_void_p
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = (ctypes.c_void_p,)
+    close_handle.restype = ctypes.c_int
+
+    handle = open_process(_PROCESS_QUERY_LIMITED_INFORMATION, False, process_id)
+    if handle:
+        close_handle(handle)
+        return True
+    return ctypes.get_last_error() == _ERROR_ACCESS_DENIED
 
 
 def _read_process_id(path: Path) -> int:
