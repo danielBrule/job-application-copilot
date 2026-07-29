@@ -13,6 +13,7 @@ SETTING_ENVIRONMENT_VARIABLES = (
     "JAC_CV_FOLDER",
     "JAC_LOGS_FOLDER",
     "JAC_REFERENCE_FOLDER",
+    "JAC_DOCUMENT_B_ROUTING_CONFIG_PATH",
     "JAC_ASSESSMENT_WORKER_COUNT",
     "JAC_CV_WORKER_COUNT",
     "JAC_LOG_LEVEL",
@@ -44,6 +45,10 @@ def test_defaults_are_safe_and_typed() -> None:
     assert settings.cv_folder == Path("data/cvs")
     assert settings.logs_folder == Path("data/logs")
     assert settings.reference_folder == Path("data/reference")
+    assert settings.routing_folder == Path("data/reference/routing")
+    assert settings.document_b_routing_config_path == Path(
+        "data/reference/routing/document-b-lane-routes.yaml"
+    )
     assert settings.prompts_folder == Path("data/reference/prompts")
     assert settings.document_a_folder == Path("data/reference/document_a")
     assert settings.document_b_folder == Path("data/reference/document_b")
@@ -81,6 +86,9 @@ def test_data_paths_are_derived_from_data_directory(
     assert settings.cv_folder == Path("private/cvs")
     assert settings.logs_folder == Path("private/logs")
     assert settings.reference_folder == Path("private/reference")
+    assert settings.document_b_routing_config_path == Path(
+        "private/reference/routing/document-b-lane-routes.yaml"
+    )
 
 
 def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -89,6 +97,10 @@ def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("JAC_CV_FOLDER", "private/cvs")
     monkeypatch.setenv("JAC_LOGS_FOLDER", "private/logs")
     monkeypatch.setenv("JAC_REFERENCE_FOLDER", "private/reference")
+    monkeypatch.setenv(
+        "JAC_DOCUMENT_B_ROUTING_CONFIG_PATH",
+        "private/routing/custom-document-b-routes.yaml",
+    )
     monkeypatch.setenv("JAC_ASSESSMENT_WORKER_COUNT", "3")
     monkeypatch.setenv("JAC_CV_WORKER_COUNT", "5")
     monkeypatch.setenv("JAC_LOG_LEVEL", "DEBUG")
@@ -108,6 +120,9 @@ def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None
     assert settings.cv_folder == Path("private/cvs")
     assert settings.logs_folder == Path("private/logs")
     assert settings.reference_folder == Path("private/reference")
+    assert settings.document_b_routing_config_path == Path(
+        "private/routing/custom-document-b-routes.yaml"
+    )
     assert settings.assessment_worker_count == 3
     assert settings.cv_worker_count == 5
     assert settings.log_level == "DEBUG"

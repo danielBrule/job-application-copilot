@@ -260,6 +260,7 @@ Invalid Windows filename characters are sanitised. A numeric suffix prevents acc
 - [Architecture](docs/architecture.md)
 - [OpenAI pipeline](docs/openai-pipeline.md)
 - [Document B section-aware retrieval](docs/document-b-retrieval.md)
+- [Document B lane-routing setup and template](docs/document-b-routing-manifest.md)
 - [Codex workflow](docs/codex-workflow.md)
 - [Roadmap and issue workflow](docs/backlog.md)
 - [Architecture decisions](docs/decisions/)
@@ -339,8 +340,14 @@ calls:
 .\dev.ps1 document-b-routing -DocumentBVersion 3 -Lane HEAD_OF_SOLUTIONS_ARCHITECTURE
 ```
 
-See [Document B lane-routing manifest](docs/document-b-routing-manifest.md) for the YAML structure,
-review process and the distinction between direct context and vector-search scopes.
+Each installation keeps its editable routing file at
+`data/reference/routing/document-b-lane-routes.yaml`. Copy the committed
+[`templates/document-b-lane-routes.template.yaml`](templates/document-b-lane-routes.template.yaml)
+there and customise it for that installation's Document B before processing the document.
+
+See [Document B lane-routing manifest](docs/document-b-routing-manifest.md) for first-time setup,
+the complete YAML structure, review process and the distinction between direct context and
+vector-search scopes.
 
 Reset every stored reference-asset version during development:
 

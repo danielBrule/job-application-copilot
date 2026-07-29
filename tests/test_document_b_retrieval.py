@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-from conftest import make_routable_document_b
+from conftest import install_document_b_routing_config, make_routable_document_b
 
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import CvLane, DocumentBRetrievalRequest, ReferenceAssetType
@@ -29,6 +29,7 @@ from job_application_copilot.services.database_bootstrap import initialize_datab
 
 def make_context(tmp_path: Path) -> tuple[object, DocumentBRoutingManifestService, int]:
     settings = AppSettings(_env_file=None, data_dir=tmp_path / "data")
+    install_document_b_routing_config(settings)
     settings.database_path.parent.mkdir(parents=True)
     initialize_database(settings.database_path)
     database = create_database(settings.database_path)

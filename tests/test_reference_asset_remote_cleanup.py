@@ -7,7 +7,7 @@ from typing import cast
 from unittest.mock import Mock
 
 import pytest
-from conftest import make_routable_document_b
+from conftest import install_document_b_routing_config, make_routable_document_b
 from docx import Document
 
 from job_application_copilot.config import AppSettings
@@ -47,6 +47,7 @@ def cleanup_context(
     tmp_path: Path,
 ) -> tuple[ReferenceAssetRemoteCleanupService, Database, AppSettings, Mock]:
     settings = AppSettings(_env_file=None, data_dir=tmp_path / "data")
+    install_document_b_routing_config(settings)
     settings.database_path.parent.mkdir(parents=True)
     initialize_database(settings.database_path)
     database = create_database(settings.database_path)

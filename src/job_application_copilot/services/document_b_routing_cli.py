@@ -33,8 +33,9 @@ def main() -> None:
         service = DocumentBRoutingManifestService(
             database,
             DocumentBSectionService(database, settings),
+            config_path=settings.document_b_routing_config_path,
         )
-        config = load_document_b_routing_config()
+        config = load_document_b_routing_config(settings.document_b_routing_config_path)
         print(f"Document B version: {version}")
         print("Supported canonical lanes:")
         for lane in CvLane:

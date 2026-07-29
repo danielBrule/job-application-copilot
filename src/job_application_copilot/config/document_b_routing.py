@@ -10,11 +10,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from job_application_copilot.domain import CvLane
 
-DEFAULT_DOCUMENT_B_ROUTING_CONFIG = Path(__file__).with_name("document_b_lane_routes.yaml")
-
 
 class RoutingConfigError(ValueError):
-    """Raised when the version-controlled routing configuration is invalid."""
+    """Raised when the private routing configuration is missing or invalid."""
 
 
 class ConfigModel(BaseModel):
@@ -137,16 +135,22 @@ class DocumentBRoutingConfig(ConfigModel):
         return self
 
 
-def load_document_b_routing_config(
-    path: Path = DEFAULT_DOCUMENT_B_ROUTING_CONFIG,
-) -> DocumentBRoutingConfig:
-    """Load and validate the canonical UTF-8 YAML."""
+def load_document_b_routing_config(path: Path) -> DocumentBRoutingConfig:
+    """Load and validate one installation's private UTF-8 YAML."""
 
     try:
         raw: Any = yaml.safe_load(path.read_text(encoding="utf-8"))
         return DocumentBRoutingConfig.model_validate(raw)
+    except FileNotFoundError as error:
+        raise RoutingConfigError(
+            "Document B routing configuration is missing at "
+            f"'{path}'. Copy 'templates/document-b-lane-routes.template.yaml' to this "
+            "private path and customise it for the active Document B."
+        ) from error
     except (OSError, yaml.YAMLError, ValueError) as error:
-        raise RoutingConfigError(f"Document B routing configuration is invalid: {error}") from error
+        raise RoutingConfigError(
+            f"Document B routing configuration at '{path}' is invalid: {error}"
+        ) from error
 
 
 def referenced_logical_section_ids(config: DocumentBRoutingConfig) -> set[str]:

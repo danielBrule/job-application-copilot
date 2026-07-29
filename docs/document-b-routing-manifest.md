@@ -2,9 +2,16 @@
 
 ## Purpose
 
-`src/job_application_copilot/config/document_b_lane_routes.yaml` is the small, version-controlled
-set of human decisions that says which parts of Document B may be used for each CV lane. It does
-not contain career evidence, generate CV wording, assess job fit, or choose a lane for the user.
+Each installation owns a private
+`data/reference/routing/document-b-lane-routes.yaml` containing the human decisions that say
+which parts of that person's Document B may be used for each CV lane. It does not generate CV
+wording, assess job fit or choose a lane for the user.
+
+The repository commits
+[`templates/document-b-lane-routes.template.yaml`](../templates/document-b-lane-routes.template.yaml)
+as the complete starter structure. The template contains no private career evidence. Copy it to
+the private path and customise the copy; never edit the committed template with personal content.
+The whole `data` directory is excluded from Git.
 
 The application combines this YAML with headings extracted from one exact Document B DOCX to make
 an immutable routing manifest for that document version.
@@ -20,6 +27,25 @@ Document B DOCX
   -> only a validated manifest allows that Document B version to activate
 ```
 
+## First-time setup
+
+1. Prepare the private directories with `./dev.ps1 directories`.
+2. Copy `templates/document-b-lane-routes.template.yaml` to
+   `data/reference/routing/document-b-lane-routes.yaml`.
+3. Change `routing_config_version` whenever the routing decisions change.
+4. Replace the template heading paths and routes with values matching the installation's own
+   Document B.
+5. Process Document B so the application validates every configured path and persists a routing
+   set bound to that exact document version.
+6. Inspect the result with `./dev.ps1 document-b-routing`.
+
+When `JAC_DATA_DIR` or `JAC_REFERENCE_FOLDER` is overridden, the default private routing path moves
+with it. `JAC_DOCUMENT_B_ROUTING_CONFIG_PATH` may explicitly override the complete file path.
+The application reports the expected private path and template when the file is missing.
+
+The private YAML is the editable source. The current validated routing set in SQLite is the
+runtime source of truth because it records the exact YAML, Document B and extracted-section hashes.
+
 ## What belongs in the YAML
 
 | YAML section | Meaning | Who maintains it |
@@ -30,7 +56,7 @@ Document B DOCX
 | `section_catalog` | Stable logical names mapped to exact Document B heading paths. | Content owner |
 | `conditional_guardrails` | Safety sections required when later selection uses a trigger scope. | Content owner |
 | `shared_route` | Material required for every supported lane. | Content owner |
-| `lanes` | The route for each supported `CvLane`. | Content owner |
+| `lanes` | The selectable role-family/CV-lane keys and their routes. | Content owner |
 | `supporting_routes` | Available supporting-only or incomplete directions, not valid primary lanes. | Content owner |
 
 The YAML intentionally does not contain source-document descriptions, role-family remapping,
@@ -81,8 +107,9 @@ Every supported lane has exactly one summary, experience-framing section and pos
 Shared routing provides exactly one Phase 2 brief template and Phase 3 CV template. Every lane also
 has at least one mandatory bullet-library scope.
 
-The user-confirmed selected `CvLane` is the only key used to resolve a lane. Job fit, stretch
-status and evidence confidence remain Document A assessment decisions.
+The role-family vocabulary and CV-lane vocabulary are the same for this application. A lane key
+classifies the role and is also the exact key used to resolve Document B positioning. Job fit,
+stretch status and evidence confidence remain Document A assessment decisions.
 
 ## Conditional guardrails
 

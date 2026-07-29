@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 import yaml
-from conftest import make_routable_document_b
+from conftest import (
+    DOCUMENT_B_ROUTING_TEMPLATE,
+    install_document_b_routing_config,
+    make_routable_document_b,
+)
 
 from job_application_copilot.config import AppSettings
 from job_application_copilot.config.document_b_routing import (
@@ -33,6 +37,7 @@ def make_context(
     tmp_path: Path,
 ) -> tuple[DocumentBRoutingManifestService, ReferenceAssetStorageService]:
     settings = AppSettings(_env_file=None, data_dir=tmp_path / "data")
+    install_document_b_routing_config(settings)
     settings.database_path.parent.mkdir(parents=True)
     initialize_database(settings.database_path)
     database = create_database(settings.database_path)
@@ -56,7 +61,7 @@ def store_document_b(storage: ReferenceAssetStorageService) -> int:
 
 
 def test_canonical_config_has_exact_complete_closed_lane_catalogue() -> None:
-    config = load_document_b_routing_config()
+    config = load_document_b_routing_config(DOCUMENT_B_ROUTING_TEMPLATE)
 
     assert set(config.lanes) == set(CvLane)
     assert config.resolution.strategy == "EXACT_HEADING_PATH_AFTER_NORMALIZATION"
@@ -66,12 +71,18 @@ def test_canonical_config_has_exact_complete_closed_lane_catalogue() -> None:
     assert not config.resolution.allow_model_resolution
 
 
+def test_missing_private_config_points_to_committed_template(tmp_path: Path) -> None:
+    missing_path = tmp_path / "data" / "reference" / "routing" / "routes.yaml"
+
+    with pytest.raises(RoutingConfigError) as captured:
+        load_document_b_routing_config(missing_path)
+
+    assert str(missing_path) in str(captured.value)
+    assert "templates/document-b-lane-routes.template.yaml" in str(captured.value)
+
+
 def test_rejects_missing_supported_lane(tmp_path: Path) -> None:
-    source = yaml.safe_load(
-        Path("src/job_application_copilot/config/document_b_lane_routes.yaml").read_text(
-            encoding="utf-8"
-        )
-    )
+    source = yaml.safe_load(DOCUMENT_B_ROUTING_TEMPLATE.read_text(encoding="utf-8"))
     source["lanes"].pop(CvLane.HEAD_OF_DATA_ANALYTICS_AI.value)
     config_path = tmp_path / "routes.yaml"
     config_path.write_text(yaml.safe_dump(source), encoding="utf-8")
@@ -167,7 +178,7 @@ def test_genai_scope_carries_conditional_guardrail_dependencies(tmp_path: Path) 
 
 
 def test_supporting_routes_clearly_disallow_primary_lane_selection() -> None:
-    config = load_document_b_routing_config()
+    config = load_document_b_routing_config(DOCUMENT_B_ROUTING_TEMPLATE)
 
     incomplete = config.supporting_routes["HEAD_OF_DATA_PLATFORMS_TECHNOLOGY"]
     supporting = config.supporting_routes["SOFTWARE_ENGINEERING_FOUNDATION"]
@@ -318,11 +329,7 @@ def test_missing_mandatory_heading_fails_validation(tmp_path: Path) -> None:
 
 
 def test_rejects_additional_unsupported_lane(tmp_path: Path) -> None:
-    source = yaml.safe_load(
-        Path("src/job_application_copilot/config/document_b_lane_routes.yaml").read_text(
-            encoding="utf-8"
-        )
-    )
+    source = yaml.safe_load(DOCUMENT_B_ROUTING_TEMPLATE.read_text(encoding="utf-8"))
     source["lanes"]["UNSUPPORTED_LANE"] = source["lanes"][CvLane.HEAD_OF_DATA_ANALYTICS_AI.value]
     config_path = tmp_path / "unsupported-lane.yaml"
     config_path.write_text(yaml.safe_dump(source, sort_keys=False), encoding="utf-8")

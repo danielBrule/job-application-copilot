@@ -6,7 +6,7 @@ from typing import cast
 from unittest.mock import Mock
 
 import pytest
-from conftest import make_routable_document_b
+from conftest import install_document_b_routing_config, make_routable_document_b
 from docx import Document
 from sqlalchemy import event
 from sqlalchemy.orm import Session
@@ -65,6 +65,7 @@ def vector_store_context(
         data_dir=tmp_path / "data",
         openai_vector_store_timeout_seconds=30,
     )
+    install_document_b_routing_config(settings)
     settings.database_path.parent.mkdir(parents=True)
     initialize_database(settings.database_path)
     database = create_database(settings.database_path)

@@ -11,7 +11,6 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from job_application_copilot.config.document_b_routing import (
-    DEFAULT_DOCUMENT_B_ROUTING_CONFIG,
     DocumentBRoutingConfig,
     LaneRouteConfig,
     RoutingConfigError,
@@ -121,11 +120,11 @@ class DocumentBRoutingManifestService:
         database: Database,
         section_service: DocumentBSectionService,
         *,
-        config_path: Path = DEFAULT_DOCUMENT_B_ROUTING_CONFIG,
+        config_path: Path | None = None,
     ) -> None:
         self.database = database
         self.section_service = section_service
-        self.config_path = config_path
+        self.config_path = config_path or section_service.settings.document_b_routing_config_path
 
     def generate(self, version: int) -> RoutingSetSummary:
         """Generate a new current validated set, retaining failed attempts."""
