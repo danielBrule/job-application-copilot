@@ -67,7 +67,10 @@ worker as a separate local process alongside Streamlit and requests a clean work
 Streamlit exits. The worker polls for registered work every 60 seconds while idle; a later UI
 refresh action only reloads durable task status and does not control the worker.
 One private worker lease prevents more than one live worker from running at a time. A stale lease
-left by a crash is replaced safely on the next startup.
+left by a crash is replaced safely on the next startup. After acquiring that lease, the worker
+marks tasks left `RUNNING` by its predecessor as `INTERRUPTED`. Interrupted work remains visible
+until an explicit retry returns it to `PENDING`; it is never resumed automatically inside a
+partially completed handler or model call.
 
 - Default assessment concurrency: `1`
 - Default CV-generation concurrency: `1`

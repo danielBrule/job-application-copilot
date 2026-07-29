@@ -28,6 +28,9 @@ from job_application_copilot.observability import (
 from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.repositories.background_task_repository import BackgroundTaskRepository
 from job_application_copilot.repositories.models import BackgroundTask
+from job_application_copilot.services.background_task_recovery import (
+    BackgroundTaskRecoveryService,
+)
 from job_application_copilot.services.database_bootstrap import initialize_database
 from job_application_copilot.services.local_directories import ensure_local_directories
 
@@ -172,6 +175,17 @@ class BackgroundWorker:
             self.lease.acquire()
         try:
             log_event(logger, logging.INFO, "background_worker_started")
+            recovered_task_ids = BackgroundTaskRecoveryService(
+                self.database
+            ).recover_abandoned_tasks()
+            if recovered_task_ids:
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "background_tasks_interrupted_after_worker_restart",
+                    recovered_task_count=len(recovered_task_ids),
+                    recovered_task_ids=list(recovered_task_ids),
+                )
             while not self._should_stop():
                 self._heartbeat()
                 processed = self.process_next_task()
