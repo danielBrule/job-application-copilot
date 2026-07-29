@@ -11,6 +11,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
@@ -107,3 +108,52 @@ class BackgroundTask(Base):
         onupdate=utc_now,
         server_default=func.current_timestamp(),
     )
+
+
+class BackgroundTaskAttempt(Base):
+    """One retained execution attempt for a logical background task."""
+
+    __tablename__ = "background_task_attempts"
+    __table_args__ = (
+        CheckConstraint("attempt_number > 0", name="ck_background_task_attempt_number_positive"),
+        CheckConstraint(
+            "status IN ('RUNNING', 'COMPLETED', 'FAILED', 'INTERRUPTED')",
+            name="background_task_attempt_status",
+        ),
+        CheckConstraint(
+            "error_message IS NULL OR status IN ('FAILED', 'INTERRUPTED')",
+            name="ck_background_task_attempt_error_for_failure",
+        ),
+        CheckConstraint(
+            "completed_at IS NULL OR status != 'RUNNING'",
+            name="ck_background_task_attempt_running_not_completed",
+        ),
+        UniqueConstraint(
+            "task_id",
+            "attempt_number",
+            name="uq_background_task_attempt_number",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    task_id: Mapped[int] = mapped_column(
+        ForeignKey("background_tasks.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[BackgroundTaskStatus] = mapped_column(
+        Enum(
+            BackgroundTaskStatus,
+            name="background_task_attempt_status_enum",
+            native_enum=False,
+            create_constraint=False,
+            validate_strings=True,
+            values_callable=enum_values,
+        ),
+        nullable=False,
+    )
+    pipeline_step: Mapped[str | None] = mapped_column(String(128))
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=utc_now, server_default=func.current_timestamp()
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    error_message: Mapped[str | None] = mapped_column(Text)

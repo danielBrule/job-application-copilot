@@ -1,17 +1,26 @@
 """Session-scoped persistence operations for background batches and tasks."""
 
 from collections.abc import Collection
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from job_application_copilot.domain import (
+    BackgroundAttemptSummary,
     BackgroundOperation,
+    BackgroundRunFilters,
+    BackgroundRunSummary,
     BackgroundTaskStatus,
     is_valid_background_task_transition,
 )
 from job_application_copilot.errors import ApplicationNotFoundError, ApplicationValidationError
-from job_application_copilot.repositories.models import BackgroundBatch, BackgroundTask
+from job_application_copilot.repositories.models import (
+    BackgroundBatch,
+    BackgroundTask,
+    BackgroundTaskAttempt,
+    Job,
+)
 from job_application_copilot.repositories.models.common import utc_now
 
 
@@ -171,12 +180,23 @@ class BackgroundTaskRepository:
             task.started_at = now
             task.completed_at = None
             task.error_message = None
+            self.session.add(
+                BackgroundTaskAttempt(
+                    task_id=task.id,
+                    attempt_number=task.retry_count + 1,
+                    status=BackgroundTaskStatus.RUNNING,
+                    pipeline_step=task.pipeline_step,
+                    started_at=now,
+                )
+            )
         elif target in {BackgroundTaskStatus.FAILED, BackgroundTaskStatus.INTERRUPTED}:
             task.completed_at = now
             task.error_message = error_message
+            self._finish_active_attempt(task, target, now, error_message)
         elif target is BackgroundTaskStatus.COMPLETED:
             task.completed_at = now
             task.error_message = None
+            self._finish_active_attempt(task, target, now, None)
         elif target is BackgroundTaskStatus.PENDING:
             task.retry_count += 1
             task.started_at = None
@@ -186,3 +206,100 @@ class BackgroundTaskRepository:
         task.status = target
         self.session.flush()
         return task
+
+    def _finish_active_attempt(
+        self,
+        task: BackgroundTask,
+        target: BackgroundTaskStatus,
+        completed_at: datetime,
+        error_message: str | None,
+    ) -> None:
+        attempt = self.session.scalar(
+            select(BackgroundTaskAttempt)
+            .where(
+                BackgroundTaskAttempt.task_id == task.id,
+                BackgroundTaskAttempt.status == BackgroundTaskStatus.RUNNING,
+            )
+            .order_by(BackgroundTaskAttempt.attempt_number.desc())
+            .limit(1)
+        )
+        if attempt is None:
+            raise InvalidBackgroundTaskTransitionError(task.status, target)
+        attempt.status = target
+        attempt.pipeline_step = task.pipeline_step
+        attempt.completed_at = completed_at
+        attempt.error_message = error_message
+
+
+class BackgroundRunRepository:
+    """Read task, batch, job, and attempt history for operational monitoring."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def list(self, filters: BackgroundRunFilters | None = None) -> list[BackgroundRunSummary]:
+        """Return matching logical tasks in newest-batch-first order."""
+
+        filters = filters or BackgroundRunFilters()
+        statement = (
+            select(BackgroundTask, BackgroundBatch, Job)
+            .join(BackgroundBatch, BackgroundBatch.id == BackgroundTask.batch_id)
+            .join(Job, Job.id == BackgroundTask.job_id)
+        )
+        if filters.operation is not None:
+            statement = statement.where(BackgroundTask.operation == filters.operation)
+        if filters.status is not None:
+            statement = statement.where(BackgroundTask.status == filters.status)
+        if filters.batch_id is not None:
+            statement = statement.where(BackgroundTask.batch_id == filters.batch_id)
+        if filters.job_id is not None:
+            statement = statement.where(BackgroundTask.job_id == filters.job_id)
+        statement = statement.order_by(
+            BackgroundBatch.created_at.desc(),
+            BackgroundTask.id.desc(),
+        )
+        rows = list(self.session.execute(statement).tuples())
+        task_ids = [task.id for task, _, _ in rows]
+        attempts_by_task: dict[int, list[BackgroundAttemptSummary]] = {
+            task_id: [] for task_id in task_ids
+        }
+        if task_ids:
+            attempts = self.session.scalars(
+                select(BackgroundTaskAttempt)
+                .where(BackgroundTaskAttempt.task_id.in_(task_ids))
+                .order_by(
+                    BackgroundTaskAttempt.task_id,
+                    BackgroundTaskAttempt.attempt_number.desc(),
+                )
+            )
+            for attempt in attempts:
+                attempts_by_task[attempt.task_id].append(
+                    BackgroundAttemptSummary(
+                        attempt_number=attempt.attempt_number,
+                        status=attempt.status,
+                        pipeline_step=attempt.pipeline_step,
+                        started_at=attempt.started_at,
+                        completed_at=attempt.completed_at,
+                        error_message=attempt.error_message,
+                    )
+                )
+
+        return [
+            BackgroundRunSummary(
+                task_id=task.id,
+                batch_id=batch.id,
+                batch_created_at=batch.created_at,
+                job_id=job.id,
+                company=job.company,
+                job_title=job.job_title,
+                operation=task.operation,
+                status=task.status,
+                retry_count=task.retry_count,
+                pipeline_step=task.pipeline_step,
+                started_at=task.started_at,
+                completed_at=task.completed_at,
+                error_message=task.error_message,
+                attempts=tuple(attempts_by_task[task.id]),
+            )
+            for task, batch, job in rows
+        ]

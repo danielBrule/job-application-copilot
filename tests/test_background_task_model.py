@@ -164,6 +164,13 @@ def test_migration_creates_background_task_schema(migrated_database: Database) -
     task_checks = {
         constraint["name"] for constraint in inspector.get_check_constraints("background_tasks")
     }
+    attempt_columns = {
+        column["name"] for column in inspector.get_columns("background_task_attempts")
+    }
+    attempt_checks = {
+        constraint["name"]
+        for constraint in inspector.get_check_constraints("background_task_attempts")
+    }
 
     assert batch_columns == {"id", "operation", "payload_metadata", "created_at"}
     assert task_columns == {
@@ -187,6 +194,22 @@ def test_migration_creates_background_task_schema(migrated_database: Database) -
         "ck_background_tasks_retry_count_non_negative",
         "ck_background_tasks_error_for_terminal_failure",
     } <= task_checks
+    assert attempt_columns == {
+        "id",
+        "task_id",
+        "attempt_number",
+        "status",
+        "pipeline_step",
+        "started_at",
+        "completed_at",
+        "error_message",
+    }
+    assert {
+        "background_task_attempt_status",
+        "ck_background_task_attempt_error_for_failure",
+        "ck_background_task_attempt_number_positive",
+        "ck_background_task_attempt_running_not_completed",
+    } <= attempt_checks
 
 
 def test_direct_insert_uses_task_defaults(migrated_database: Database) -> None:

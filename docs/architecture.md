@@ -94,6 +94,11 @@ SQLite-backed task table.
 - A batch is a group of independent tasks.
 - A failed task does not stop the batch.
 - Running tasks left after a crash become interrupted and retryable.
+- A logical task retains one execution-attempt row per worker claim. Manual retry returns only
+  that task to `PENDING`; the next claim creates a new attempt and completed sibling tasks remain
+  unchanged.
+- Background Runs polls displayed active work once per minute and also provides explicit refresh.
+  UI refresh reads durable state only and does not signal or control the worker.
 
 No Redis, Celery, cloud queue or microservice is required.
 

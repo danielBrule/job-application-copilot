@@ -9,6 +9,7 @@ Job 1 ── 0..* Contacts
 Job 1 ── 0..* Background Tasks
 Job 1 ── 0..* LLM Calls
 Background Batch 1 ── 1..* Background Tasks
+Background Task 1 ── 0..* Execution Attempts
 Reference Asset Type 1 ── 0..* Versions
 Prompt Definition 1 ── 0..* Prompt Reference-Asset Versions
 Document B Version 1 ── 0..* Lane Routing Sets
@@ -154,6 +155,22 @@ Multiple records per job.
 - `retry_count`
 - `error_message`
 - payload metadata
+
+A background task is the logical job-specific unit in a batch. Retrying it returns that same
+task to `PENDING`; it does not create a duplicate logical task or alter completed siblings.
+
+## Background task attempt
+
+- `task_id`
+- `attempt_number`
+- `status`: running / completed / failed / interrupted
+- `pipeline_step`
+- `started_at`
+- `completed_at`
+- `error_message`
+
+An attempt is created when the worker claims a pending task. Its terminal state is retained when
+the logical task is retried, providing an audit trail of earlier errors and timings.
 
 ## LLM call
 
