@@ -20,11 +20,92 @@ from job_application_copilot.llm.openai_client import (
     DOCX_MEDIA_TYPE,
     OPENAI_FILE_PURPOSE,
 )
+from job_application_copilot.services import (
+    AssessmentCacheIdentity,
+    AssessmentContext,
+    AssessmentFileInput,
+    AssessmentTextInput,
+    AssessmentTraceability,
+)
 
 
 def make_client() -> tuple[OpenAIClient, Mock]:
     sdk_client = Mock()
     return OpenAIClient(cast(OpenAI, sdk_client)), sdk_client
+
+
+def assessment_context(model: str = "gpt-5.6-sol") -> AssessmentContext:
+    traceability = AssessmentTraceability(
+        document_a_reference_asset_id=1,
+        document_a_version=1,
+        document_a_hash="sha256:a",
+        prompt_asset_key="assessment",
+        prompt_version=1,
+        prompt_hash="sha256:b",
+        schema_version=1,
+        schema_hash="sha256:c",
+        model_identifier=model,
+        reasoning_effort="medium",
+        routing_set_id=1,
+        routing_config_version="v1",
+    )
+    return AssessmentContext(
+        input=(
+            AssessmentTextInput(section="assessment_instructions", text="Assess safely."),
+            AssessmentFileInput(file_id="file_document_a"),
+        ),
+        stable_prefix_item_count=2,
+        reasoning_effort="medium",
+        response_schema={"type": "object"},
+        traceability=traceability,
+        cache_identity=AssessmentCacheIdentity(
+            identity_version=1,
+            identity_hash="a" * 64,
+            operation="ASSESSMENT",
+            pipeline_step="ASSESSMENT",
+            model_identifier=model,
+            document_a_version=1,
+            document_a_hash="sha256:a",
+            prompt_asset_key="assessment",
+            prompt_version=1,
+            prompt_hash="sha256:b",
+            schema_version=1,
+            schema_hash="sha256:c",
+        ),
+    )
+
+
+def test_runs_structured_assessment_with_explicit_cache_breakpoint() -> None:
+    client, sdk_client = make_client()
+    response_client = Mock()
+    sdk_client.with_options.return_value = response_client
+    response_client.responses.create.return_value = SimpleNamespace(
+        id="resp_123",
+        _request_id="req_123",
+        model="gpt-5.6-sol",
+        output_text='{"model_relevance":"HIGH"}',
+        incomplete_details=None,
+        service_tier="default",
+        usage=SimpleNamespace(
+            input_tokens=100,
+            input_tokens_details=SimpleNamespace(cached_tokens=80, cache_write_tokens=20),
+            output_tokens=25,
+            output_tokens_details=SimpleNamespace(reasoning_tokens=5),
+            total_tokens=125,
+        ),
+        prompt_cache_options=SimpleNamespace(mode="explicit", ttl="30m"),
+    )
+
+    result = client.assess(assessment_context())
+
+    sdk_client.with_options.assert_called_once_with(max_retries=0)
+    request = response_client.responses.create.call_args.kwargs
+    assert request["prompt_cache_key"] == "a" * 64
+    assert request["prompt_cache_options"] == {"mode": "explicit", "ttl": "30m"}
+    content = request["input"][0]["content"]
+    assert content[1]["prompt_cache_breakpoint"] == {"mode": "explicit"}
+    assert request["text"]["format"]["strict"] is True
+    assert result.cached_input_tokens == 80
 
 
 def test_uploads_exact_docx_content_as_user_data() -> None:

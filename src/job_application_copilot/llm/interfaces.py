@@ -2,14 +2,25 @@
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from job_application_copilot.llm.openai_client import (
+    AssessmentOpenAIResponse,
     OpenAIVectorStore,
     OpenAIVectorStoreFile,
     OpenAIVectorStoreSearchResult,
     UploadedOpenAIFile,
 )
+
+if TYPE_CHECKING:
+    from job_application_copilot.services.assessment_context import AssessmentContext
+
+
+@runtime_checkable
+class OpenAIAssessmentOperations(Protocol):
+    """Responses API capability needed by a single assessment execution."""
+
+    def assess(self, context: AssessmentContext) -> AssessmentOpenAIResponse: ...
 
 
 @runtime_checkable

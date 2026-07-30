@@ -13,6 +13,10 @@ from job_application_copilot.services.assessment_context import (
     AssessmentTextInput,
     AssessmentTraceability,
 )
+from job_application_copilot.services.assessment_execution import (
+    AssessmentExecutionResult,
+    AssessmentExecutionService,
+)
 from job_application_copilot.services.background_runs import BackgroundRunService
 from job_application_copilot.services.default_assessment_prompt import (
     DefaultAssessmentPromptError,
@@ -96,6 +100,8 @@ __all__ = [
     "AssessmentContext",
     "AssessmentContextBuilder",
     "AssessmentContextError",
+    "AssessmentExecutionResult",
+    "AssessmentExecutionService",
     "AssessmentFileInput",
     "AssessmentTextInput",
     "AssessmentTraceability",
