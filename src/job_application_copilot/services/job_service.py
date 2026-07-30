@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from datetime import timedelta
 
-from job_application_copilot.domain import CreateJob, JobFilters, UpdateJob
+from job_application_copilot.domain import CreateJob, JobFilters, UpdateJob, UserDecision
 from job_application_copilot.repositories import AssessmentRepository, Database
 from job_application_copilot.repositories.job_repository import (
     DuplicateJobUrlError,
@@ -135,6 +135,29 @@ class JobService:
                 job=job,
                 assessment=assessment,
                 is_stale=assessment is not None and AssessmentRepository.is_stale(assessment, job),
+            )
+
+    def update_human_review(
+        self,
+        job_id: int,
+        *,
+        user_decision: UserDecision,
+        assessment_notes: str | None,
+    ) -> JobAssessmentDetail:
+        """Persist human assessment review without changing model-owned fields."""
+
+        normalized_notes = assessment_notes.strip() if assessment_notes is not None else ""
+        with self.database.session() as session:
+            job = JobRepository(session).require(job_id)
+            assessment_repository = AssessmentRepository(session)
+            assessment = assessment_repository.require_for_job(job_id)
+            job.user_decision = user_decision
+            assessment.assessment_notes = normalized_notes or None
+            session.flush()
+            return JobAssessmentDetail(
+                job=job,
+                assessment=assessment,
+                is_stale=assessment_repository.is_stale(assessment, job),
             )
 
     def delete(self, job_id: int) -> None:

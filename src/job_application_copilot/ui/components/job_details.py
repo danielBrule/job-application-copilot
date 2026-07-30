@@ -5,7 +5,9 @@ import logging
 import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
 
+from job_application_copilot.domain import UserDecision
 from job_application_copilot.observability import get_logger, log_event
+from job_application_copilot.repositories.assessment_repository import AssessmentNotFoundError
 from job_application_copilot.repositories.job_repository import JobNotFoundError
 from job_application_copilot.services import JobAssessmentDetail, JobService
 from job_application_copilot.ui.components.job_form import render_edit_job_form
@@ -56,10 +58,10 @@ def render_job_details(service: JobService) -> None:
     with job_tab:
         render_edit_job_form(detail.job, service)
     with assessment_tab:
-        render_assessment_detail(detail)
+        render_assessment_detail(detail, service)
 
 
-def render_assessment_detail(detail: JobAssessmentDetail) -> None:
+def render_assessment_detail(detail: JobAssessmentDetail, service: JobService) -> None:
     """Render the current assessment without allowing model-output edits."""
 
     assessment = detail.assessment
@@ -131,15 +133,50 @@ def render_assessment_detail(detail: JobAssessmentDetail) -> None:
     st.markdown("#### Human choices")
     st.write(f"**Relevance override:** {_optional_label(detail.job.relevance_override)}")
     st.write(f"**Effective relevance:** {_effective_relevance(detail)}")
-    st.write(f"**User decision:** {_label(detail.job.user_decision.value)}")
     st.write(f"**Selected CV lane:** {_optional(assessment.selected_cv_lane)}")
-    st.write(f"**Assessment notes:** {_optional(assessment.assessment_notes)}")
+    _render_human_review(detail, service)
 
     st.markdown("#### Traceability")
     st.write(f"**Document A version:** {assessment.document_a_version}")
     st.write(f"**Assessment prompt version:** {assessment.prompt_version}")
     st.write(f"**Model:** {assessment.model_name}")
     st.write(f"**Assessed at:** {assessment.assessed_at}")
+
+
+def _render_human_review(detail: JobAssessmentDetail, service: JobService) -> None:
+    """Render the user-owned decision and notes separately from model output."""
+
+    assert detail.assessment is not None
+    st.caption("The model recommendation above remains unchanged when you save this review.")
+    with st.form(f"human_review_{detail.job.id}_form"):
+        user_decision = st.selectbox(
+            "User decision",
+            options=tuple(UserDecision),
+            index=tuple(UserDecision).index(detail.job.user_decision),
+            format_func=_label,
+        )
+        assessment_notes = st.text_area(
+            "Assessment notes",
+            value=detail.assessment.assessment_notes or "",
+        )
+        save = st.form_submit_button("Save human review")
+
+    if not save:
+        return
+
+    try:
+        service.update_human_review(
+            detail.job.id,
+            user_decision=user_decision,
+            assessment_notes=assessment_notes,
+        )
+    except (JobNotFoundError, AssessmentNotFoundError):
+        st.error("The assessment is no longer available. Refresh the page and try again.")
+    except SQLAlchemyError:
+        logger.exception("human_review_save_failed job_id=%s", detail.job.id)
+        st.error("The human review could not be saved. See the private UI log for details.")
+    else:
+        st.success("Human review saved.")
 
 
 def _render_items(label: str, values: list[str]) -> None:
