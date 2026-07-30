@@ -36,6 +36,9 @@ from job_application_copilot.services.background_task_recovery import (
     BackgroundTaskRecoveryService,
 )
 from job_application_copilot.services.database_bootstrap import initialize_database
+from job_application_copilot.services.default_assessment_prompt import (
+    DefaultAssessmentPromptService,
+)
 from job_application_copilot.services.local_directories import ensure_local_directories
 
 _IS_WINDOWS = os.name == "nt"
@@ -342,6 +345,7 @@ def main() -> None:
     configure_logging(settings, LogComponent.WORKER)
     initialize_database(settings.database_path)
     database = create_database(settings.database_path)
+    DefaultAssessmentPromptService(database, settings).ensure()
     worker = BackgroundWorker(
         database,
         handlers={},

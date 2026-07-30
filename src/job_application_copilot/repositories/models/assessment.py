@@ -72,6 +72,10 @@ class Assessment(Base):
             name="ck_assessments_interview_probability_order",
         ),
         CheckConstraint(
+            "secondary_role_family IS NULL OR length(trim(secondary_role_family)) > 0",
+            name="ck_assessments_secondary_role_family_not_blank",
+        ),
+        CheckConstraint(
             "(status = 'FAILED' AND error_message IS NOT NULL) "
             "OR (status != 'FAILED' AND error_message IS NULL)",
             name="ck_assessments_error_matches_status",
@@ -87,8 +91,6 @@ class Assessment(Base):
             "AND real_mandate IS NOT NULL AND length(trim(real_mandate)) > 0 "
             "AND primary_role_family IS NOT NULL "
             "AND length(trim(primary_role_family)) > 0 "
-            "AND secondary_role_family IS NOT NULL "
-            "AND length(trim(secondary_role_family)) > 0 "
             "AND fit_score IS NOT NULL "
             "AND priority_score IS NOT NULL "
             "AND technical_bar IS NOT NULL AND length(trim(technical_bar)) > 0 "

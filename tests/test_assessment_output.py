@@ -44,6 +44,13 @@ def test_parses_sanitized_saved_assessment_example() -> None:
     assert parsed.evidence_anchors[0].source_reference == "A-FICTIONAL-01"
 
 
+def test_accepts_explicitly_null_secondary_role_family() -> None:
+    payload = valid_payload()
+    payload["secondary_role_family"] = None
+
+    assert validate(payload).secondary_role_family is None
+
+
 @pytest.mark.parametrize(
     "field",
     [
@@ -161,12 +168,13 @@ def test_allows_explicitly_empty_collections_but_not_blank_items() -> None:
 def test_provider_schema_uses_configured_lanes_as_exact_enums() -> None:
     schema = assessment_output_json_schema(ALLOWED_LANES)
 
-    for field in (
-        "primary_role_family",
-        "secondary_role_family",
-        "recommended_document_b_lane",
-    ):
+    for field in ("primary_role_family", "recommended_document_b_lane"):
         assert schema["properties"][field]["enum"] == sorted(ALLOWED_LANES)
+    secondary_options = schema["properties"]["secondary_role_family"]["anyOf"]
+    assert {"type": "null"} in secondary_options
+    assert next(option for option in secondary_options if option.get("type") == "string")[
+        "enum"
+    ] == sorted(ALLOWED_LANES)
 
 
 def test_provider_schema_rejects_empty_or_invalid_lane_catalogue() -> None:

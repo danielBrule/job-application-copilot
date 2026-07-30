@@ -5,12 +5,15 @@ from datetime import date, datetime
 from pathlib import Path
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from job_application_copilot.domain import (
+    BackgroundOperation,
     CreateJob,
     JobFilters,
     Language,
+    LlmCallStatus,
     Location,
     Relevance,
     UpdateJob,
@@ -20,7 +23,13 @@ from job_application_copilot.repositories import (
     Database,
     create_database,
 )
-from job_application_copilot.repositories.models import Job
+from job_application_copilot.repositories.models import (
+    Assessment,
+    BackgroundBatch,
+    BackgroundTask,
+    Job,
+    LlmCall,
+)
 from job_application_copilot.services import (
     DuplicateJobUrlError,
     JobNotFoundError,
@@ -204,6 +213,60 @@ def test_delete_and_missing_job_errors(
         service.update(999, update_command())
     with pytest.raises(JobNotFoundError, match="Job 999"):
         service.delete(999)
+
+
+def test_delete_many_removes_selected_jobs_and_linked_local_history(
+    database_and_service: tuple[Database, JobService],
+) -> None:
+    database, service = database_and_service
+    removed = service.create(create_command("Remove"))
+    retained = service.create(replace(create_command("Retain"), job_url=None))
+    with database.session() as session:
+        session.add(Assessment(job_id=removed.id))
+        batch = BackgroundBatch(operation=BackgroundOperation.ASSESSMENT)
+        session.add(batch)
+        session.flush()
+        task = BackgroundTask(
+            batch_id=batch.id,
+            job_id=removed.id,
+            operation=BackgroundOperation.ASSESSMENT,
+        )
+        session.add(task)
+        session.flush()
+        session.add(
+            LlmCall(
+                job_id=removed.id,
+                task_id=task.id,
+                operation=BackgroundOperation.ASSESSMENT,
+                pipeline_step="ASSESSMENT",
+                call_sequence=1,
+                provider="OPENAI",
+                requested_model="gpt-test",
+                status=LlmCallStatus.SUCCEEDED,
+                retry_number=0,
+                response_id="resp-test",
+                input_tokens=10,
+                output_tokens=5,
+                total_tokens=15,
+                version_metadata={},
+                started_at=datetime(2026, 7, 29, 10, 0, 0),
+                completed_at=datetime(2026, 7, 29, 10, 0, 1),
+                duration_seconds=1.0,
+            )
+        )
+
+    assert service.delete_many((removed.id, removed.id)) == 1
+    assert service.get(removed.id) is None
+    assert service.get(retained.id) is not None
+    with database.session() as session:
+        assert (
+            session.scalars(select(Assessment).where(Assessment.job_id == removed.id)).all() == []
+        )
+        assert (
+            session.scalars(select(BackgroundTask).where(BackgroundTask.job_id == removed.id)).all()
+            == []
+        )
+        assert session.scalars(select(LlmCall).where(LlmCall.job_id == removed.id)).all() == []
 
 
 def test_create_rejects_exact_duplicate_non_null_url(

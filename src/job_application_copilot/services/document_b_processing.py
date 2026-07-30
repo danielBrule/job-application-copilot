@@ -14,6 +14,10 @@ from job_application_copilot.repositories.models import ReferenceAsset
 from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetVersionNotFoundError,
 )
+from job_application_copilot.services.document_b_progress import (
+    DocumentBProcessingProgress,
+    DocumentBProgressReporter,
+)
 from job_application_copilot.services.document_b_vector_store import (
     DocumentBVectorStoreError,
     DocumentBVectorStoreNotAllowedError,
@@ -53,7 +57,12 @@ class DocumentBProcessingService:
         self.settings = settings
         self.client_factory = client_factory
 
-    def process(self, version: int) -> ReferenceAsset:
+    def process(
+        self,
+        version: int,
+        *,
+        progress: DocumentBProgressReporter | None = None,
+    ) -> ReferenceAsset:
         """Upload, index, validate, and activate one Document B candidate."""
 
         with remote_reference_operation(
@@ -61,7 +70,7 @@ class DocumentBProcessingService:
             self.client_factory,
             DocumentBProcessingError,
         ) as operation:
-            return self._process(version, operation)
+            return self._process(version, operation, progress=progress)
 
     def replace_and_process(self, *, filename: str, content: bytes) -> ReferenceAsset:
         """Store a new Document B version, then process and activate it."""
@@ -83,9 +92,16 @@ class DocumentBProcessingService:
             )
             return self._process(candidate.version, operation)
 
-    def _process(self, version: int, operation: RemoteReferenceOperation) -> ReferenceAsset:
+    def _process(
+        self,
+        version: int,
+        operation: RemoteReferenceOperation,
+        *,
+        progress: DocumentBProgressReporter | None = None,
+    ) -> ReferenceAsset:
         client = operation.client
         try:
+            _report(progress, "uploading", "Ensuring Document B is uploaded to OpenAI.")
             OpenAIFileUploadService(
                 self.database,
                 self.settings,
@@ -95,7 +111,7 @@ class DocumentBProcessingService:
                 self.database,
                 self.settings,
                 client,
-            ).process(DOCUMENT_B_KEY, version)
+            ).process(DOCUMENT_B_KEY, version, progress=progress)
         except (
             DocumentBVectorStoreError,
             DocumentBVectorStoreNotAllowedError,
@@ -105,3 +121,12 @@ class DocumentBProcessingService:
             ReferenceAssetVersionNotFoundError,
         ) as error:
             raise DocumentBProcessingError(str(error)) from error
+
+
+def _report(
+    reporter: DocumentBProgressReporter | None,
+    stage: str,
+    message: str,
+) -> None:
+    if reporter is not None:
+        reporter(DocumentBProcessingProgress(stage=stage, message=message))

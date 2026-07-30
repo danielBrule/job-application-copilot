@@ -104,6 +104,23 @@ def test_persists_complete_structured_assessment(migrated_database: Database) ->
     assert stored.model_name == "gpt-test-2026-07-01"
 
 
+def test_persists_completed_assessment_without_secondary_role_family(
+    migrated_database: Database,
+) -> None:
+    job = add_job(migrated_database)
+    with migrated_database.session() as session:
+        session.add(completed_assessment(job, secondary_role_family=None))
+        session.flush()
+
+
+def test_rejects_blank_secondary_role_family(migrated_database: Database) -> None:
+    job = add_job(migrated_database)
+    with pytest.raises(IntegrityError, match="secondary_role_family_not_blank"):
+        with migrated_database.session() as session:
+            session.add(completed_assessment(job, secondary_role_family=" "))
+            session.flush()
+
+
 def test_persists_failed_initial_assessment(migrated_database: Database) -> None:
     job = add_job(migrated_database)
     with migrated_database.session() as session:
@@ -164,7 +181,6 @@ def test_rejects_invalid_scores_and_failure_state(
         ("role_snapshot", None),
         ("real_mandate", " "),
         ("primary_role_family", None),
-        ("secondary_role_family", ""),
         ("fit_score", None),
         ("priority_score", None),
         ("technical_bar", None),

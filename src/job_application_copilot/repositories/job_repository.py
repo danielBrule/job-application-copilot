@@ -1,6 +1,6 @@
 """Session-scoped persistence operations for jobs."""
 
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from job_application_copilot.domain import JobFilters
@@ -8,7 +8,7 @@ from job_application_copilot.errors import (
     ApplicationNotFoundError,
     ApplicationValidationError,
 )
-from job_application_copilot.repositories.models import Job
+from job_application_copilot.repositories.models import Assessment, BackgroundTask, Job, LlmCall
 
 
 class JobNotFoundError(ApplicationNotFoundError):
@@ -97,3 +97,11 @@ class JobRepository:
 
         self.session.delete(job)
         self.session.flush()
+
+    def delete_with_history(self, job: Job) -> None:
+        """Permanently remove one job and every local record tied to it."""
+
+        self.session.execute(delete(LlmCall).where(LlmCall.job_id == job.id))
+        self.session.execute(delete(BackgroundTask).where(BackgroundTask.job_id == job.id))
+        self.session.execute(delete(Assessment).where(Assessment.job_id == job.id))
+        self.delete(job)

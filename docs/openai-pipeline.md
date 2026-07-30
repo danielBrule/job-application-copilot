@@ -42,9 +42,18 @@ risks and overclaiming guardrails, and any secondary angle.
 The assessment recommends the lane; before Phase 2, the user confirms or changes it. The confirmed
 selected lane controls all subsequent Document B routing.
 
-Primary role family, secondary role family and recommended lane use the same identifiers. The
-assessment structured-output schema restricts all three to the lane keys from the active validated
-routing set; local Pydantic validation repeats that membership check.
+Primary role family, optional secondary role family and recommended lane use the same identifiers.
+The assessment structured-output schema restricts non-null values to the lane keys from the active
+validated routing set; local Pydantic validation repeats that membership check.
+
+The assessment request is assembled as an exact reusable prefix followed by variable job content.
+Stable assessment instructions, the canonical structured-output schema and the complete active
+Document A file precede job metadata and the full job description. Traceability records the
+Document A hash/version, prompt hash/version, schema version/hash, routing-set identity and requested
+model, together with the configured reasoning effort. The privacy-safe cache identity is derived
+from the stable input identifiers and hashes; it never contains prompt text, document content, job
+content or model output. Reasoning effort is explicit request metadata but does not alter the
+reusable input prefix.
 
 ### Phase 2 — select Document B content and approve the CV brief
 

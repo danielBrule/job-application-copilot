@@ -1,6 +1,7 @@
 """Application domain types."""
 
 from job_application_copilot.domain.assessment import (
+    ASSESSMENT_SCHEMA_VERSION,
     AssessmentDecision,
     AssessmentEvidenceAnchor,
     AssessmentOutput,
@@ -65,6 +66,7 @@ from job_application_copilot.domain.reference_asset_overview import (
 )
 
 __all__ = [
+    "ASSESSMENT_SCHEMA_VERSION",
     "AssessmentDecision",
     "AssessmentEvidenceAnchor",
     "AssessmentOutput",

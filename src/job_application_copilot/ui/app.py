@@ -14,6 +14,11 @@ from job_application_copilot.observability import (
     get_logger,
     log_event,
 )
+from job_application_copilot.repositories import create_database
+from job_application_copilot.services import (
+    DefaultAssessmentPromptError,
+    DefaultAssessmentPromptService,
+)
 from job_application_copilot.services.database_bootstrap import (
     DatabaseHealthError,
     DatabaseMigrationError,
@@ -40,9 +45,15 @@ def main() -> None:
         ensure_local_directories(settings)
         configure_logging(settings, LogComponent.UI)
         initialize_database(settings.database_path)
+        database = create_database(settings.database_path)
+        try:
+            DefaultAssessmentPromptService(database, settings).ensure()
+        finally:
+            database.dispose()
     except (
         DatabaseHealthError,
         DatabaseMigrationError,
+        DefaultAssessmentPromptError,
         LocalDirectoryError,
         LoggingConfigurationError,
         ValidationError,

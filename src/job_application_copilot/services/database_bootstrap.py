@@ -199,6 +199,15 @@ def main() -> None:
     settings = load_settings()
     ensure_local_directories(settings)
     status = initialize_database(settings.database_path)
+    database = create_database(settings.database_path)
+    try:
+        from job_application_copilot.services.default_assessment_prompt import (
+            DefaultAssessmentPromptService,
+        )
+
+        DefaultAssessmentPromptService(database, settings).ensure()
+    finally:
+        database.dispose()
     previous = status.previous_revision or "none"
     migration_status = "upgraded" if status.migration_was_applied else "up to date"
     print(f"Database: {status.database_path}")

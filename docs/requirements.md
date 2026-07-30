@@ -22,6 +22,11 @@ The prompt list is data-driven: the values above are the initial enabled definit
 application limits. Prompt definitions, pipeline groups and language codes may be added or
 disabled without a schema or enum change.
 
+The application supplies a generic assessment prompt as active version 1 on first startup when no
+assessment prompt version exists. The user may replace it through Settings, creating the next
+immutable active version. Existing retained prompt versions are never overwritten or automatically
+reactivated.
+
 ## 3. Job entry
 
 Required fields:
@@ -39,7 +44,9 @@ Optional fields:
 - Notes
 - Date added, defaulting to the current date but editable
 
-A saved job can be edited without automatically launching or relaunching assessment.
+A saved job can be edited without automatically launching or relaunching assessment. The user may
+permanently delete one or more selected jobs after explicit confirmation. Deletion removes the
+job and all linked local assessment, background-task and model-call history; it is not reversible.
 
 ## 4. Assessment
 
@@ -62,7 +69,8 @@ Stored assessment output:
 
 - Relevance: High / Medium / Low
 - Role snapshot and real mandate behind the title
-- Primary and secondary role family, using the same configured identifiers as CV lanes
+- Primary role family and an optional secondary role family, using the same configured
+  identifiers as CV lanes
 - Go / Caution / Stretch / No-Go recommendation
 - Seniority fit, fit score and priority score, each scored from 0 to 10
 - Interview probability range and confidence, each scored from 0 to 10
@@ -250,6 +258,10 @@ When a new A or B version is uploaded:
 7. mark the previous version inactive.
 
 Old remote vector stores do not need immediate deletion. The MVP provides a manual cleanup action. Local DOCX files and metadata remain available.
+
+Document B processing reports its current stage and section-level completed/total progress while
+indexing. The recovery action is unavailable while that browser session is already processing the
+same candidate.
 
 ## 14. Non-functional requirements
 

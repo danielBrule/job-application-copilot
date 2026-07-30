@@ -21,8 +21,11 @@ from job_application_copilot.services import (
     ReferenceAssetRemoteCleanupResult,
     ReferenceAssetRemoteCleanupService,
 )
+from job_application_copilot.services.document_b_progress import DocumentBProcessingProgress
 from job_application_copilot.ui.components.document_b_processing import (
     DOCUMENT_B_PROCESSING_BUTTON_KEY,
+    DOCUMENT_B_PROCESSING_IN_PROGRESS_KEY,
+    DOCUMENT_B_PROCESSING_PROGRESS_KEY,
 )
 from job_application_copilot.ui.components.reference_asset_remote_cleanup import (
     REMOTE_CLEANUP_BUTTON_KEY,
@@ -73,14 +76,23 @@ def test_settings_page_displays_seeded_prompt_completeness(
             "generation/english",
             "generation/french",
         ]
-        assert overview_table["Status"].tolist() == ["MISSING"] * 8
+        assert overview_table["Status"].tolist() == [
+            "MISSING",
+            "MISSING",
+            "MISSING",
+            "MISSING",
+            "MISSING",
+            "READY",
+            "MISSING",
+            "MISSING",
+        ]
         assert [expander.label for expander in app.expander] == [
             "Upload or replace Document A",
             "Upload or replace Document B",
             "Upload or replace English CV template",
             "Upload or replace French CV template",
             "Manage French CV examples",
-            "1. Assessment prompt — Missing",
+            "1. Assessment prompt — v1 READY",
             "1. English generation prompt 1 — Missing",
             "2. English generation prompt 2 — Missing",
             "3. English generation prompt 3 — Missing",
@@ -115,9 +127,9 @@ def test_settings_page_saves_prompt_text_as_active_version(
         ).click().run()
 
         assert not app.exception
-        assert app.expander[5].label == "1. Assessment prompt — v1 READY"
+        assert app.expander[5].label == "1. Assessment prompt — v2 READY"
         assert (
-            data_dir / "reference" / "prompts" / "assessment" / "assessment-v0001.txt"
+            data_dir / "reference" / "prompts" / "assessment" / "assessment-v0002.txt"
         ).read_text(encoding="utf-8") == "Assessment instructions.\n"
     finally:
         reset_logging()
@@ -385,7 +397,10 @@ def test_settings_page_processes_and_activates_pending_document_b(
     def activate(
         service: DocumentBProcessingService,
         version: int,
+        *,
+        progress: object = None,
     ) -> ReferenceAsset:
+        del progress
         with service.database.session() as session:
             candidate = ReferenceAssetRepository(session).require_version(
                 "document-b",
@@ -449,8 +464,10 @@ def test_settings_page_reports_document_b_processing_failure_without_activation(
     def fail_processing(
         service: DocumentBProcessingService,
         version: int,
+        *,
+        progress: object = None,
     ) -> ReferenceAsset:
-        del service, version
+        del service, version, progress
         raise DocumentBProcessingError("OpenAI could not be reached after the configured retries.")
 
     monkeypatch.setattr(DocumentBProcessingService, "process", fail_processing)
@@ -471,6 +488,50 @@ def test_settings_page_reports_document_b_processing_failure_without_activation(
             )
             assert candidate.processing_status is ReferenceAssetProcessingStatus.PENDING
             assert not candidate.is_active
+    finally:
+        reset_logging()
+
+
+def test_settings_page_disables_document_b_recovery_while_session_is_processing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(
+        str(APP_PATH),
+        default_timeout=SETTINGS_APP_TIMEOUT,
+    ).run()
+    database = get_database(data_dir / "database" / "job_application_copilot.db")
+    with database.session() as session:
+        session.add(
+            ReferenceAsset(
+                asset_key="document-b",
+                asset_type=ReferenceAssetType.DOCUMENT,
+                name="Document B",
+                version=1,
+                file_path="document_b/document-b-v0001.docx",
+                file_hash="hash-document-b",
+                processing_status=ReferenceAssetProcessingStatus.PROCESSING,
+            )
+        )
+
+    try:
+        app.session_state[DOCUMENT_B_PROCESSING_IN_PROGRESS_KEY] = True
+        app.session_state[DOCUMENT_B_PROCESSING_PROGRESS_KEY] = DocumentBProcessingProgress(
+            stage="indexing",
+            message="Indexed Document B section 67 of 252.",
+            completed_sections=67,
+            total_sections=252,
+        )
+        app.switch_page("pages/settings.py").run()
+
+        assert app.button(key=DOCUMENT_B_PROCESSING_BUTTON_KEY).disabled
+        assert any("already running" in message.value for message in app.info)
+        assert any(
+            caption.value == "Indexed Document B section 67 of 252." for caption in app.caption
+        )
     finally:
         reset_logging()
 

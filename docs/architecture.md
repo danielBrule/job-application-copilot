@@ -20,7 +20,9 @@ SQLite / Alembic
 
 The local task queue, worker, retained attempts, recovery and configurable concurrency are
 implemented execution foundations for assessment and CV generation. Settings reference-asset
-flows remain synchronous after an explicit user action.
+flows remain synchronous after an explicit user action. Document B processing emits
+presentation-neutral progress events so Settings can report its current phase and indexed-section
+count without moving reference-asset activation into the background queue.
 
 ## 2. Technology choices
 
@@ -247,6 +249,11 @@ crash window is documented in the reference-versioning section above.
 - Record model, response ID, tokens, duration and reference versions.
 - Do not depend on hidden chat state.
 
+Assessment context composition remains provider-neutral and inspectable before execution. It emits
+the stable prompt/schema/complete-Document-A prefix before variable job metadata and the full job
+description, together with version traceability and a privacy-safe cache identity. The OpenAI
+adapter owns conversion of that validated context into the final Responses API request.
+
 Official references:
 
 - https://platform.openai.com/docs/quickstart
@@ -282,6 +289,11 @@ state; `reference_assets` records each UTF-8 text version, hash and active state
 missing required prompts and completeness to be reported even when no prompt file exists.
 Adding another prompt group or language requires data changes only. Prompt execution remains a
 later pipeline responsibility.
+
+The repository contains one generic, non-private assessment prompt template. Startup copies it
+through the normal prompt service into private storage as active version 1 only when no retained
+assessment prompt version exists. The operation is idempotent and never overwrites or reactivates
+an installation's prompt history.
 
 The Settings asset overview is a read-only aggregation over the reference-asset repository
 and prompt-definition service. Stable non-prompt pipeline roles use canonical asset keys,

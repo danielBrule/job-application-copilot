@@ -246,7 +246,8 @@ version and **Replace and activate with OpenAI** afterward. Document A validates
 complete DOCX, uploads it and activates it in that single workflow. Document B additionally waits
 for vector-store indexing and validates retrieval before refreshing the overview after activation.
 When the latest Document B remains pending, processing or failed, Settings additionally shows
-**Process and activate** as a recovery action. While processing, the page shows a spinner. A safe
+**Process and activate** as a recovery action. While processing, the page shows the current stage
+and section-level completed/total progress, and disables the action in that browser session. A safe
 actionable error is shown on failure and the prior active version remains in use. After an
 application restart, `PROCESSING` candidates remain eligible for recovery and resume from the
 last OpenAI identifier saved locally.
@@ -258,6 +259,9 @@ last OpenAI identifier saved locally.
 - Prompt text editor and retained versions
 - Versions and processing state
 - Replace/edit actions
+
+A new installation starts with the packaged generic assessment prompt copied into private storage
+as active version 1. Editing it through Settings creates the next immutable active version.
 
 ### CV generation
 

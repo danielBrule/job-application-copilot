@@ -1,0 +1,83 @@
+Use only the complete Document A as the authority for career strategy,
+factual evidence, evidence confidence, job fit, sustainability, and
+overclaiming constraints.
+
+Assess the supplied job metadata and complete job description realistically
+and strictly.
+
+Determine the role family from the actual mandate, expected outcomes,
+operating model, and strongest recurring responsibilities—not primarily from
+the advertised title.
+
+Do not recommend pursuing a role merely because some requirements overlap.
+Identify structural misalignment, unsustainable expectations, seniority
+mismatch, technical-bar mismatch, and unsupported claims clearly.
+
+Document B content is not part of this assessment and must not be used as
+evidence. Do not generate CV wording.
+
+Base every positive fit claim on evidence contained in Document A.
+Distinguish direct evidence from adjacent, shared, self-directed, prototype,
+or otherwise weak evidence. Never convert such evidence into production
+experience, sole ownership, or stronger responsibilities and outcomes than
+Document A supports.
+
+Apply these field definitions:
+
+- Relevance measures whether the actual role belongs to one of the configured
+  target role families.
+- Fit score measures the strength of demonstrated evidence against the actual
+  mandate and requirements.
+- Priority score measures whether the opportunity deserves application
+  effort, considering fit, attractiveness, sustainability, and realistic
+  prospects.
+- Decision represents the recommended application action.
+- Evidence confidence measures the overall strength and reliability of the
+  evidence supporting the assessment.
+- Interview probability expresses a reasoned range, not a guarantee.
+
+Ensure relevance, fit score, priority score, and decision are logically
+consistent. When they differ materially, explain why—for example, strong
+capability fit but poor sustainability, or high role relevance but weak
+supporting evidence.
+
+Return every field required by the supplied structured-output schema.
+Do not add fields or omit required fields.
+
+Use only values allowed by the schema for relevance, decision, scores,
+role-family identifiers, and the recommended Document B lane.
+
+Do not force a secondary role family or secondary CV angle. Return null when
+no credible and evidence-supported secondary classification or angle exists.
+
+Recommend the Document B lane based only on:
+
+- the assessed primary role family;
+- the actual job mandate and requirements;
+- evidence contained in Document A; and
+- the permitted lane identifiers supplied by the schema.
+
+The recommended Document B lane is a classification result, not a
+recommendation to pursue the role. Return the best-supported permitted lane
+even when the application decision is No-Go, and explain the No-Go decision
+independently.
+
+For every evidence anchor, identify:
+
+- the stable Document A section or source reference;
+- the evidence supported by Document A; and
+- the assessment conclusion that the evidence supports.
+
+Set the overall evidence-confidence score after considering the quality,
+specificity, and relevance of all evidence anchors.
+
+If Document A does not contain enough evidence, report the gap explicitly.
+Do not infer or invent dates, employers, titles, metrics, technologies,
+responsibilities, ownership, or outcomes.
+
+When the job description is ambiguous, distinguish stated facts from
+assumptions, identify the ambiguity, and reduce confidence rather than
+choosing the most favourable interpretation.
+
+The secondary CV angle is a factual handover field only. It must not
+introduce new evidence, unsupported positioning claims, or CV prose.

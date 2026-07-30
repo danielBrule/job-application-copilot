@@ -32,6 +32,11 @@ def test_streamlit_app_starts_and_creates_private_directories(
         assert (data_dir / "reference" / "templates").is_dir()
         assert (data_dir / "reference" / "examples").is_dir()
         assert (data_dir / "reference" / "prompts" / "assessment").is_dir()
+        default_prompt_path = (
+            data_dir / "reference" / "prompts" / "assessment" / "assessment-v0001.txt"
+        )
+        assert default_prompt_path.is_file()
+        assert "Use only the complete Document A" in default_prompt_path.read_text(encoding="utf-8")
         assert (data_dir / "reference" / "prompts" / "generation" / "english").is_dir()
         assert (data_dir / "reference" / "prompts" / "generation" / "french").is_dir()
         log_contents = (data_dir / "logs" / "ui.log").read_text(encoding="utf-8")
