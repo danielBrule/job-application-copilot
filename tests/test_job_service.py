@@ -153,6 +153,51 @@ def test_update_can_change_and_clear_relevance_override(
 
 
 @pytest.mark.parametrize(
+    "user_decision",
+    tuple(UserDecision),
+)
+def test_update_human_review_persists_user_values_without_changing_model_assessment(
+    database_and_service: tuple[Database, JobService],
+    user_decision: UserDecision,
+) -> None:
+    database, service = database_and_service
+    created = service.create(create_command())
+    with database.session() as session:
+        assessment = Assessment(
+            job_id=created.id,
+            status=AssessmentStatus.ASSESSED,
+            model_relevance=Relevance.HIGH,
+            role_snapshot="Role snapshot",
+            real_mandate="Real mandate",
+            primary_role_family="ARCHITECTURE",
+            seniority_fit=8,
+            technical_bar="Technical bar",
+            fit_score=8,
+            priority_score=8,
+            decision=AssessmentDecision.GO,
+            decision_reason="Strong fit.",
+            recommended_document_b_lane="ARCHITECTURE",
+            assessed_at=created.assessment_input_updated_at,
+            source_job_updated_at=created.assessment_input_updated_at,
+        )
+        session.add(assessment)
+
+    updated = service.update_human_review(
+        created.id,
+        user_decision=user_decision,
+        assessment_notes="  Follow up on team structure.  ",
+    )
+
+    assert updated.job.user_decision is user_decision
+    assert updated.job.assessment_input_updated_at == created.assessment_input_updated_at
+    assert updated.assessment is not None
+    assert updated.assessment.assessment_notes == "Follow up on team structure."
+    assert updated.assessment.decision is AssessmentDecision.GO
+    assert updated.assessment.decision_reason == "Strong fit."
+    assert updated.is_stale is False
+
+
+@pytest.mark.parametrize(
     ("field", "value"),
     [
         ("company", "Changed Ltd"),

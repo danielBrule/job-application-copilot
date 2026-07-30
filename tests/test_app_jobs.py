@@ -691,6 +691,63 @@ def test_job_details_assessment_tab_displays_assessed_handover_and_stale_warning
         reset_logging()
 
 
+def test_job_details_saves_human_decision_and_notes_without_changing_model_recommendation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+
+    try:
+        database_path = data_dir / "database" / "job_application_copilot.db"
+        service = get_job_service(database_path)
+        job = _create_job_for_edit(service)
+        with get_database(database_path).session() as session:
+            AssessmentRepository(session).add(
+                Assessment(
+                    job_id=job.id,
+                    status=AssessmentStatus.ASSESSED,
+                    model_relevance=Relevance.HIGH,
+                    role_snapshot="Lead platform architecture.",
+                    real_mandate="Improve engineering delivery.",
+                    primary_role_family="ARCHITECTURE",
+                    seniority_fit=8,
+                    technical_bar="Strong architecture judgement.",
+                    fit_score=8,
+                    priority_score=7,
+                    decision=AssessmentDecision.GO,
+                    decision_reason="Evidence supports the mandate.",
+                    recommended_document_b_lane="ARCHITECTURE",
+                    assessed_at=job.assessment_input_updated_at,
+                    source_job_updated_at=job.assessment_input_updated_at,
+                )
+            )
+
+        app.query_params["job_id"] = str(job.id)
+        app.switch_page("pages/job_details.py").run()
+        next(select for select in app.selectbox if select.label == "User decision").select(
+            UserDecision.DO_NOT_PURSUE
+        ).run()
+        next(
+            text_area for text_area in app.text_area if text_area.label == "Assessment notes"
+        ).input("Discuss team structure").run()
+        app.button(key=f"FormSubmitter:human_review_{job.id}_form-Save human review").click().run()
+
+        assert not app.exception
+        detail = service.assessment_detail(job.id)
+        assert detail.job.user_decision is UserDecision.DO_NOT_PURSUE
+        assert detail.assessment is not None
+        assert detail.assessment.assessment_notes == "Discuss team structure"
+        assert detail.assessment.decision is AssessmentDecision.GO
+        assert any(
+            metric.label == "Recommendation" and metric.value == "Go" for metric in app.metric
+        )
+    finally:
+        reset_logging()
+
+
 def test_job_deleted_before_save_rerun_shows_useful_load_error(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
