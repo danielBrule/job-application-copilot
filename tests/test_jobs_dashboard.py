@@ -44,9 +44,17 @@ def test_shape_job_rows_preserves_order_and_core_values() -> None:
         source="LinkedIn",
         date_added=date(2026, 7, 24),
         updated_at=datetime(2026, 7, 24, 12, 30, 45),
+        assessment_stale=False,
     )
     assert tuple(rows[0].display_record()) == TABLE_COLUMN_ORDER
     assert "job_id" not in rows[0].display_record()
+
+
+def test_shape_job_rows_displays_stale_assessment_state() -> None:
+    (row,) = shape_job_rows([make_job(2, "Second")], {2: True})
+
+    assert row.assessment_stale is True
+    assert row.display_record()["assessment_stale"] == "Yes"
 
 
 def test_selected_positions_map_to_stable_job_ids() -> None:

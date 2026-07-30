@@ -9,6 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from job_application_copilot.domain import (
+    AssessmentDecision,
+    AssessmentStatus,
     BackgroundOperation,
     CreateJob,
     JobFilters,
@@ -150,8 +152,20 @@ def test_update_can_change_and_clear_relevance_override(
     assert cleared.relevance_override is None
 
 
-def test_only_assessment_input_edits_advance_stale_source_timestamp(
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("company", "Changed Ltd"),
+        ("job_title", "Changed title"),
+        ("location", Location.FR),
+        ("language", Language.FR),
+        ("job_description", "Materially changed description."),
+    ],
+)
+def test_each_assessment_input_edit_advances_stale_source_timestamp(
     database_and_service: tuple[Database, JobService],
+    field: str,
+    value: object,
 ) -> None:
     _, service = database_and_service
     created = service.create(create_command())
@@ -174,11 +188,75 @@ def test_only_assessment_input_edits_advance_stale_source_timestamp(
     unchanged = service.update(created.id, administrative_update)
     assert unchanged.assessment_input_updated_at == original_timestamp
 
-    changed = service.update(
-        created.id,
-        replace(administrative_update, job_description="Materially changed description."),
-    )
+    changed = service.update(created.id, replace(administrative_update, **{field: value}))
     assert changed.assessment_input_updated_at > original_timestamp
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("job_url", None),
+        ("source", "Company website"),
+        ("general_notes", "Changed note"),
+    ],
+)
+def test_non_assessment_input_edits_do_not_advance_stale_source_timestamp(
+    database_and_service: tuple[Database, JobService],
+    field: str,
+    value: object,
+) -> None:
+    _, service = database_and_service
+    created = service.create(create_command())
+    original_timestamp = created.assessment_input_updated_at
+    administrative_update = replace(
+        update_command(),
+        company=created.company,
+        job_title=created.job_title,
+        location=created.location,
+        language=created.language,
+        job_description=created.job_description,
+    )
+    unchanged = service.update(created.id, replace(administrative_update, **{field: value}))
+
+    assert unchanged.assessment_input_updated_at == original_timestamp
+
+
+def test_assessment_staleness_marks_relevant_edit_without_replacing_assessment(
+    database_and_service: tuple[Database, JobService],
+) -> None:
+    database, service = database_and_service
+    created = service.create(create_command())
+    with database.session() as session:
+        session.add(
+            Assessment(
+                job_id=created.id,
+                status=AssessmentStatus.ASSESSED,
+                model_relevance=Relevance.HIGH,
+                role_snapshot="Role snapshot",
+                real_mandate="Real mandate",
+                primary_role_family="FICTIONAL_ARCHITECTURE_LEAD",
+                seniority_fit=8,
+                technical_bar="Technical bar",
+                fit_score=8,
+                priority_score=8,
+                decision=AssessmentDecision.GO,
+                decision_reason="Strong fit.",
+                recommended_document_b_lane="FICTIONAL_ARCHITECTURE_LEAD",
+                assessed_at=created.created_at,
+                source_job_updated_at=created.assessment_input_updated_at,
+            )
+        )
+
+    updated = service.update(
+        created.id,
+        replace(update_command(), job_description="Materially changed description."),
+    )
+
+    assert service.assessment_staleness((updated,)) == {created.id: True}
+    with database.session() as session:
+        assessment = session.scalar(select(Assessment).where(Assessment.job_id == created.id))
+        assert assessment is not None
+        assert assessment.status is AssessmentStatus.ASSESSED
 
 
 def test_list_delegates_filters(database_and_service: tuple[Database, JobService]) -> None:

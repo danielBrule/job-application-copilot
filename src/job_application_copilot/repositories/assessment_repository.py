@@ -43,6 +43,13 @@ class AssessmentRepository:
 
         return self.session.scalar(select(Assessment).where(Assessment.job_id == job_id))
 
+    def list_for_jobs(self, job_ids: tuple[int, ...]) -> list[Assessment]:
+        """Return current assessments for the requested jobs."""
+
+        if not job_ids:
+            return []
+        return list(self.session.scalars(select(Assessment).where(Assessment.job_id.in_(job_ids))))
+
     def require_for_job(self, job_id: int) -> Assessment:
         """Return a current assessment or raise an actionable lookup error."""
 
