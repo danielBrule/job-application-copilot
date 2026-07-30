@@ -8,14 +8,23 @@ from job_application_copilot.domain import (
     AssessmentDecision,
     AssessmentStatus,
     CreateJob,
+    DocumentBRoutingSetStatus,
     Language,
     Location,
+    ReferenceAssetProcessingStatus,
+    ReferenceAssetType,
     Relevance,
     UserDecision,
 )
 from job_application_copilot.observability import reset_logging
 from job_application_copilot.repositories import AssessmentRepository, BackgroundTaskRepository
-from job_application_copilot.repositories.models import Assessment, Job
+from job_application_copilot.repositories.models import (
+    Assessment,
+    DocumentBLaneRoute,
+    DocumentBRoutingSet,
+    Job,
+    ReferenceAsset,
+)
 from job_application_copilot.services import (
     JobService,
 )
@@ -748,6 +757,46 @@ def test_job_details_saves_human_decision_and_notes_without_changing_model_recom
         reset_logging()
 
 
+def test_job_details_defaults_and_persists_selected_cv_lane(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+
+    try:
+        database_path = data_dir / "database" / "job_application_copilot.db"
+        service = get_job_service(database_path)
+        job = _create_job_for_edit(service)
+        _add_assessed_job_with_cv_lanes(database_path, job)
+
+        app.query_params["job_id"] = str(job.id)
+        app.switch_page("pages/job_details.py").run()
+        selected_lane = next(
+            select for select in app.selectbox if select.label == "Selected CV lane"
+        )
+        assert selected_lane.value == "ARCHITECTURE"
+        assert selected_lane.options == ["AI_DEPLOYMENT", "ARCHITECTURE"]
+
+        selected_lane.select("AI_DEPLOYMENT").run()
+        app.button(key=f"FormSubmitter:human_review_{job.id}_form-Save human review").click().run()
+
+        detail = service.assessment_detail(job.id)
+        assert detail.assessment is not None
+        assert detail.assessment.selected_cv_lane == "AI_DEPLOYMENT"
+        assert detail.assessment.recommended_document_b_lane == "ARCHITECTURE"
+
+        app.switch_page("pages/job_details.py").run()
+        selected_lane = next(
+            select for select in app.selectbox if select.label == "Selected CV lane"
+        )
+        assert selected_lane.value == "AI_DEPLOYMENT"
+    finally:
+        reset_logging()
+
+
 def test_job_deleted_before_save_rerun_shows_useful_load_error(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -821,3 +870,60 @@ def _create_job_for_edit(service: JobService) -> Job:
             salary_expectation="GBP 150,000",
         )
     )
+
+
+def _add_assessed_job_with_cv_lanes(database_path: Path, job: Job) -> None:
+    with get_database(database_path).session() as session:
+        session.add(
+            Assessment(
+                job_id=job.id,
+                status=AssessmentStatus.ASSESSED,
+                model_relevance=Relevance.HIGH,
+                role_snapshot="Lead platform architecture.",
+                real_mandate="Improve engineering delivery.",
+                primary_role_family="ARCHITECTURE",
+                seniority_fit=8,
+                technical_bar="Strong architecture judgement.",
+                fit_score=8,
+                priority_score=7,
+                decision=AssessmentDecision.GO,
+                decision_reason="Evidence supports the mandate.",
+                recommended_document_b_lane="ARCHITECTURE",
+                assessed_at=job.assessment_input_updated_at,
+                source_job_updated_at=job.assessment_input_updated_at,
+            )
+        )
+        document_b = ReferenceAsset(
+            asset_key="document-b",
+            asset_type=ReferenceAssetType.DOCUMENT,
+            name="Document B",
+            version=1,
+            file_path="document_b/document-b-v0001.docx",
+            file_hash="sha256:" + ("b" * 64),
+            is_active=True,
+            processing_status=ReferenceAssetProcessingStatus.READY,
+        )
+        session.add(document_b)
+        session.flush()
+        routing_set = DocumentBRoutingSet(
+            reference_asset_id=document_b.id,
+            routing_config_version="routing-v1",
+            routing_config_sha256="sha256:" + ("c" * 64),
+            document_b_file_sha256="sha256:" + ("b" * 64),
+            extracted_section_catalog_sha256="sha256:" + ("d" * 64),
+            status=DocumentBRoutingSetStatus.VALIDATED,
+            is_current=True,
+        )
+        session.add(routing_set)
+        session.flush()
+        session.add_all(
+            [
+                DocumentBLaneRoute(
+                    routing_set_id=routing_set.id,
+                    lane_id=lane,
+                    ordered_route_json="{}",
+                    secondary_lane_constraints_json="{}",
+                )
+                for lane in ("ARCHITECTURE", "AI_DEPLOYMENT")
+            ]
+        )
