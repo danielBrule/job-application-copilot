@@ -34,10 +34,12 @@ class AssessmentExecutionResult:
     """Validated output or a safe terminal failure for one job assessment."""
 
     job_id: int
+    context: AssessmentContext
     output: AssessmentOutput | None
     error_message: str | None
     failure_category: LlmFailureCategory | None
     attempts: int
+    model_name: str | None = None
 
     @property
     def succeeded(self) -> bool:
@@ -109,7 +111,14 @@ class AssessmentExecutionService:
                 duration,
                 request_id=error.request_id,
             )
-            return AssessmentExecutionResult(job_id, None, str(error), category, retry_number + 1)
+            return AssessmentExecutionResult(
+                job_id,
+                context,
+                None,
+                str(error),
+                category,
+                retry_number + 1,
+            )
 
         completed_at, duration = self._completed(started_at, started_monotonic)
         if response.incomplete_reason is not None or not response.output_text.strip():
@@ -125,10 +134,12 @@ class AssessmentExecutionService:
             )
             return AssessmentExecutionResult(
                 job_id,
+                context,
                 None,
                 "OpenAI returned an incomplete assessment response.",
                 LlmFailureCategory.INCOMPLETE_RESPONSE,
                 retry_number + 1,
+                response.model,
             )
         try:
             output = AssessmentOutput.model_validate_json(
@@ -148,15 +159,25 @@ class AssessmentExecutionService:
             )
             return AssessmentExecutionResult(
                 job_id,
+                context,
                 None,
                 "OpenAI returned an assessment that did not match the required structure.",
                 LlmFailureCategory.SCHEMA_VALIDATION,
                 retry_number + 1,
+                response.model,
             )
         self._record_success(
             job_id, context, retry_number, started_at, completed_at, duration, response
         )
-        return AssessmentExecutionResult(job_id, output, None, None, retry_number + 1)
+        return AssessmentExecutionResult(
+            job_id,
+            context,
+            output,
+            None,
+            None,
+            retry_number + 1,
+            response.model,
+        )
 
     def _completed(self, started_at: datetime, started_monotonic: float) -> tuple[datetime, float]:
         duration = max(0.0, self.monotonic() - started_monotonic)

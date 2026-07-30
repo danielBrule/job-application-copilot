@@ -229,7 +229,7 @@ def test_add_job_form_uses_configured_defaults(
         assert app.text_input(key="add_job_0_source").value == "Company website"
         assert app.selectbox(key="add_job_0_location").value == "FR"
         assert app.selectbox(key="add_job_0_language").value == "FR"
-        assert app.selectbox(key="add_job_0_relevance_override").value is None
+        assert "add_job_0_relevance_override" not in {selectbox.key for selectbox in app.selectbox}
         assert app.date_input(key="add_job_0_date_added").value == date.today()
     finally:
         reset_logging()
@@ -252,7 +252,6 @@ def test_valid_add_job_submission_persists_and_returns_to_jobs(
         app.text_input(key="add_job_0_job_url").input("https://example.com/job")
         app.text_area(key="add_job_0_job_description").input("Build and operate reliable systems.")
         app.text_area(key="add_job_0_general_notes").input("Initial note")
-        app.selectbox(key="add_job_0_relevance_override").select(Relevance.HIGH)
         app.button(key="FormSubmitter:add_job_0_form-Save").click().run()
 
         assert not app.exception
@@ -266,7 +265,7 @@ def test_valid_add_job_submission_persists_and_returns_to_jobs(
         assert jobs[0].job_title == "Platform Engineer"
         assert jobs[0].source == "LinkedIn"
         assert jobs[0].date_added == date.today()
-        assert jobs[0].relevance_override is Relevance.HIGH
+        assert jobs[0].relevance_override is None
     finally:
         reset_logging()
 

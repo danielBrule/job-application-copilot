@@ -186,6 +186,7 @@ def render_add_job_form(settings: AppSettings, service: JobService) -> None:
         initial=JobFormInitialValues.for_add(settings),
         key_prefix=key_prefix,
         include_save_and_add_another=True,
+        include_relevance_override=False,
     )
 
     if cancel:
@@ -223,6 +224,7 @@ def render_edit_job_form(job: Job, service: JobService) -> None:
         initial=JobFormInitialValues.from_job(job),
         key_prefix=f"edit_job_{job.id}",
         include_save_and_add_another=False,
+        include_relevance_override=True,
     )
 
     if cancel:
@@ -257,6 +259,7 @@ def _render_form(
     initial: JobFormInitialValues,
     key_prefix: str,
     include_save_and_add_another: bool,
+    include_relevance_override: bool,
 ) -> tuple[dict[str, object], bool, bool, bool]:
     with st.form(key=f"{key_prefix}_form"):
         values: dict[str, object] = {
@@ -281,17 +284,6 @@ def _render_form(
                 options=list(Language),
                 index=list(Language).index(initial.language),
                 key=f"{key_prefix}_language",
-            ),
-            "relevance_override": st.selectbox(
-                "Relevance override",
-                options=[None, *Relevance],
-                index=[None, *Relevance].index(initial.relevance_override),
-                format_func=_relevance_override_label,
-                help=(
-                    "Your value takes precedence over assessment relevance. "
-                    "Choose 'Use assessment relevance' to clear the override."
-                ),
-                key=f"{key_prefix}_relevance_override",
             ),
             "source": st.text_input(
                 "Source",
@@ -320,6 +312,18 @@ def _render_form(
                 key=f"{key_prefix}_general_notes",
             ),
         }
+        if include_relevance_override:
+            values["relevance_override"] = st.selectbox(
+                "Relevance override",
+                options=[None, *Relevance],
+                index=[None, *Relevance].index(initial.relevance_override),
+                format_func=_relevance_override_label,
+                help=(
+                    "Your value takes precedence over assessment relevance. "
+                    "Choose 'Use assessment relevance' to clear the override."
+                ),
+                key=f"{key_prefix}_relevance_override",
+            )
 
         save_column, secondary_column, cancel_column = st.columns(3)
         with save_column:
