@@ -313,6 +313,8 @@ class BackgroundRunRepository:
             statement = statement.where(BackgroundTask.batch_id == filters.batch_id)
         if filters.job_id is not None:
             statement = statement.where(BackgroundTask.job_id == filters.job_id)
+        if not filters.include_completed:
+            statement = statement.where(BackgroundTask.status != BackgroundTaskStatus.COMPLETED)
         statement = statement.order_by(
             BackgroundBatch.created_at.desc(),
             BackgroundTask.id.desc(),

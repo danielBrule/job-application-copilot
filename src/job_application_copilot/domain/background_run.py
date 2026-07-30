@@ -17,6 +17,7 @@ class BackgroundRunFilters:
     status: BackgroundTaskStatus | None = None
     batch_id: int | None = None
     job_id: int | None = None
+    include_completed: bool = False
 
 
 @dataclass(frozen=True, slots=True)

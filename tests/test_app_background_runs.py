@@ -25,6 +25,7 @@ from job_application_copilot.ui.components.background_runs import (
     FILTER_JOB_KEY,
     FILTER_OPERATION_KEY,
     FILTER_STATUS_KEY,
+    INCLUDE_COMPLETED_KEY,
     REFRESH_BUTTON_KEY,
 )
 from tests.app_test_support import APP_PATH
@@ -67,6 +68,38 @@ def seed_failed_task(database_path: Path) -> int:
         database.dispose()
 
 
+def seed_completed_task(database_path: Path) -> int:
+    database = create_database(database_path)
+    try:
+        with database.session() as session:
+            job = Job(
+                company="Completed Ltd",
+                job_title="Platform Engineer",
+                location=Location.UK,
+                language=Language.EN,
+                source="LinkedIn",
+                job_description="Build reliable systems.",
+                date_added=date(2026, 7, 29),
+            )
+            session.add(job)
+            session.flush()
+            batch = BackgroundBatchRepository(session).add(
+                BackgroundBatch(operation=BackgroundOperation.ASSESSMENT)
+            )
+            task = BackgroundTaskRepository(session).add(
+                BackgroundTask(
+                    batch_id=batch.id,
+                    job_id=job.id,
+                    operation=BackgroundOperation.ASSESSMENT,
+                )
+            )
+            BackgroundTaskRepository(session).transition(task, BackgroundTaskStatus.RUNNING)
+            BackgroundTaskRepository(session).transition(task, BackgroundTaskStatus.COMPLETED)
+            return task.id
+    finally:
+        database.dispose()
+
+
 def test_background_runs_filters_history_and_retry(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -75,6 +108,7 @@ def test_background_runs_filters_history_and_retry(
     database_path = data_dir / "database" / "job_application_copilot.db"
     database_path.parent.mkdir(parents=True)
     task_id = seed_failed_task(database_path)
+    seed_completed_task(database_path)
     monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
     monkeypatch.chdir(tmp_path)
 
@@ -101,8 +135,15 @@ def test_background_runs_filters_history_and_retry(
         ]
         assert len(app.selectbox(key=FILTER_BATCH_KEY).options) == 2
         assert len(app.selectbox(key=FILTER_JOB_KEY).options) == 2
+        assert app.checkbox(key=INCLUDE_COMPLETED_KEY).value is False
+        assert not any("Completed Ltd" in markdown.value for markdown in app.markdown)
         assert any("Attempt history (1)" in expander.label for expander in app.expander)
         assert any(error.value == "Visible local task error." for error in app.error)
+
+        app.checkbox(key=INCLUDE_COMPLETED_KEY).set_value(True).run()
+
+        assert not app.exception
+        assert any("Completed Ltd" in markdown.value for markdown in app.markdown)
 
         app.button(key=f"background_run_retry_{task_id}").click().run()
 

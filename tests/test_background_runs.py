@@ -104,7 +104,9 @@ def test_lists_newest_batches_with_job_and_attempt_history(
         batch_created_at=datetime(2026, 7, 29, 9, 0),
     )
 
-    runs = BackgroundRunService(migrated_database).list()
+    runs = BackgroundRunService(migrated_database).list(
+        BackgroundRunFilters(include_completed=True)
+    )
 
     assert [run.task_id for run in runs] == [newer_id, older_id]
     assert runs[0].company == "Newer"
@@ -112,6 +114,62 @@ def test_lists_newest_batches_with_job_and_attempt_history(
     assert runs[0].attempts[0].attempt_number == 1
     assert runs[0].attempts[0].status is BackgroundTaskStatus.FAILED
     assert runs[0].attempts[0].error_message == "Handler failed."
+
+
+def test_hides_completed_tasks_by_default_and_includes_them_on_request(
+    migrated_database: Database,
+) -> None:
+    completed_id = add_task(
+        migrated_database,
+        company="Completed",
+        operation=BackgroundOperation.CV_GENERATION,
+        status=BackgroundTaskStatus.COMPLETED,
+        batch_created_at=datetime(2026, 7, 29, 8, 0),
+    )
+    failed_id = add_task(
+        migrated_database,
+        company="Failed",
+        operation=BackgroundOperation.ASSESSMENT,
+        status=BackgroundTaskStatus.FAILED,
+        batch_created_at=datetime(2026, 7, 29, 9, 0),
+    )
+    interrupted_id = add_task(
+        migrated_database,
+        company="Interrupted",
+        operation=BackgroundOperation.ASSESSMENT,
+        status=BackgroundTaskStatus.INTERRUPTED,
+        batch_created_at=datetime(2026, 7, 29, 10, 0),
+    )
+    running_id = add_task(
+        migrated_database,
+        company="Running",
+        operation=BackgroundOperation.ASSESSMENT,
+        status=BackgroundTaskStatus.RUNNING,
+        batch_created_at=datetime(2026, 7, 29, 11, 0),
+    )
+    pending_id = add_task(
+        migrated_database,
+        company="Pending",
+        operation=BackgroundOperation.ASSESSMENT,
+        status=BackgroundTaskStatus.PENDING,
+        batch_created_at=datetime(2026, 7, 29, 12, 0),
+    )
+
+    service = BackgroundRunService(migrated_database)
+
+    assert [run.task_id for run in service.list()] == [
+        pending_id,
+        running_id,
+        interrupted_id,
+        failed_id,
+    ]
+    assert [run.task_id for run in service.list(BackgroundRunFilters(include_completed=True))] == [
+        pending_id,
+        running_id,
+        interrupted_id,
+        failed_id,
+        completed_id,
+    ]
 
 
 def test_applies_all_exact_monitoring_filters(migrated_database: Database) -> None:
@@ -137,6 +195,7 @@ def test_applies_all_exact_monitoring_filters(migrated_database: Database) -> No
             status=BackgroundTaskStatus.FAILED,
             batch_id=matching.batch_id,
             job_id=matching.job_id,
+            include_completed=True,
         )
     )
 
@@ -179,7 +238,7 @@ def test_retry_preserves_failed_attempt_and_does_not_change_completed_sibling(
         completed_id = completed.id
 
     result = service.retry_task(failed_id)
-    runs = {run.task_id: run for run in service.list()}
+    runs = {run.task_id: run for run in service.list(BackgroundRunFilters(include_completed=True))}
 
     assert result.status is BackgroundTaskStatus.PENDING
     assert runs[failed_id].status is BackgroundTaskStatus.PENDING
