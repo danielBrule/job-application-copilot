@@ -95,10 +95,12 @@ def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
             "language",
             "source",
             "date_added",
+            "assessment_stale",
             "updated_at",
         ]
         assert list(table["company"]) == ["Older Ltd", "Original Ltd"]
         assert table["job_url"].iloc[1] == "https://example.com/original"
+        assert list(table["assessment_stale"]) == ["No", "No"]
         assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
         assert app.get("page_link")[-1].disabled
 

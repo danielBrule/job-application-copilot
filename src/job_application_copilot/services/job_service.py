@@ -3,7 +3,7 @@
 from datetime import timedelta
 
 from job_application_copilot.domain import CreateJob, JobFilters, UpdateJob
-from job_application_copilot.repositories import Database
+from job_application_copilot.repositories import AssessmentRepository, Database
 from job_application_copilot.repositories.job_repository import (
     DuplicateJobUrlError,
     JobRepository,
@@ -97,6 +97,23 @@ class JobService:
 
         with self.database.session() as session:
             return JobRepository(session).list(filters)
+
+    def assessment_staleness(self, jobs: tuple[Job, ...]) -> dict[int, bool]:
+        """Return derived stale state for the supplied persisted jobs."""
+
+        if not jobs:
+            return {}
+        with self.database.session() as session:
+            assessments = AssessmentRepository(session)
+            assessments_by_job_id = {
+                assessment.job_id: assessment
+                for assessment in assessments.list_for_jobs(tuple(job.id for job in jobs))
+            }
+            return {
+                job.id: (assessment is not None and assessments.is_stale(assessment, job))
+                for job in jobs
+                for assessment in (assessments_by_job_id.get(job.id),)
+            }
 
     def delete(self, job_id: int) -> None:
         """Permanently delete one job and its linked local history."""

@@ -40,6 +40,7 @@ TABLE_COLUMN_ORDER = (
     "language",
     "source",
     "date_added",
+    "assessment_stale",
     "updated_at",
 )
 
@@ -57,9 +58,10 @@ class JobDashboardRow:
     source: str
     date_added: date
     updated_at: datetime
+    assessment_stale: bool
 
     @classmethod
-    def from_job(cls, job: Job) -> "JobDashboardRow":
+    def from_job(cls, job: Job, *, assessment_stale: bool = False) -> "JobDashboardRow":
         """Shape a persisted job for the dashboard."""
 
         return cls(
@@ -72,6 +74,7 @@ class JobDashboardRow:
             source=job.source,
             date_added=job.date_added,
             updated_at=job.updated_at,
+            assessment_stale=assessment_stale,
         )
 
     def display_record(self) -> dict[str, object]:
@@ -85,14 +88,21 @@ class JobDashboardRow:
             "language": self.language,
             "source": self.source,
             "date_added": self.date_added,
+            "assessment_stale": "Yes" if self.assessment_stale else "No",
             "updated_at": self.updated_at,
         }
 
 
-def shape_job_rows(jobs: Iterable[Job]) -> tuple[JobDashboardRow, ...]:
+def shape_job_rows(
+    jobs: Iterable[Job],
+    assessment_staleness: dict[int, bool] | None = None,
+) -> tuple[JobDashboardRow, ...]:
     """Preserve service ordering while shaping dashboard rows."""
 
-    return tuple(JobDashboardRow.from_job(job) for job in jobs)
+    staleness = assessment_staleness or {}
+    return tuple(
+        JobDashboardRow.from_job(job, assessment_stale=staleness.get(job.id, False)) for job in jobs
+    )
 
 
 def selected_job_ids(
@@ -151,7 +161,15 @@ def render_jobs_dashboard(
         st.error(LOAD_ERROR_MESSAGE)
         return
 
-    rows = shape_job_rows(jobs)
+    try:
+        assessment_staleness = service.assessment_staleness(tuple(jobs))
+    except SQLAlchemyError:
+        logger.exception("jobs_dashboard_assessment_staleness_load_failed")
+        st.session_state[SELECTED_JOB_IDS_KEY] = ()
+        st.error(LOAD_ERROR_MESSAGE)
+        return
+
+    rows = shape_job_rows(jobs, assessment_staleness)
     if not rows:
         st.session_state[SELECTED_JOB_IDS_KEY] = ()
         st.info("No jobs match the current filters.")
@@ -178,6 +196,7 @@ def render_jobs_dashboard(
                 "Date added",
                 format="YYYY-MM-DD",
             ),
+            "assessment_stale": st.column_config.TextColumn("Assessment stale", width="small"),
             "updated_at": st.column_config.DatetimeColumn(
                 "Updated",
                 help="UTC",
