@@ -70,7 +70,7 @@ from job_application_copilot.services.document_b_vector_store import (
     DocumentBVectorStoreNotAllowedError,
     DocumentBVectorStoreService,
 )
-from job_application_copilot.services.job_service import JobService
+from job_application_copilot.services.job_service import JobAssessmentDetail, JobService
 from job_application_copilot.services.openai_file_upload import (
     OpenAIFileUploadError,
     OpenAIFileUploadNotAllowedError,
@@ -153,6 +153,7 @@ __all__ = [
     "ResolvedRouting",
     "RoutingSetSummary",
     "JobNotFoundError",
+    "JobAssessmentDetail",
     "JobService",
     "OpenAIFileUploadError",
     "OpenAIFileUploadNotAllowedError",

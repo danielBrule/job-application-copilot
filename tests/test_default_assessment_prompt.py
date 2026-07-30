@@ -54,6 +54,16 @@ def test_root_template_matches_packaged_fallback() -> None:
     assert root_template.read_text(encoding="utf-8") == _packaged_prompt_text()
 
 
+def test_packaged_prompt_defines_decision_boundaries() -> None:
+    prompt = _packaged_prompt_text()
+
+    assert "- GO: Strong direct evidence" in prompt
+    assert "- CAUTION: Credible overall fit" in prompt
+    assert "- STRETCH: The role is relevant" in prompt
+    assert "- NO_GO: The dominant mandate is structurally misaligned" in prompt
+    assert "Do not return NO_GO solely" in prompt
+
+
 def test_uses_configured_template_directory_when_present(
     prompt_setup: tuple[Database, AppSettings],
     tmp_path: Path,

@@ -41,6 +41,20 @@ class AssessmentDecision(StrEnum):
 
 Score = Annotated[StrictInt, Field(ge=0, le=10)]
 LANE_ID_ADAPTER = TypeAdapter(LaneId)
+DECISION_DESCRIPTION = (
+    "Recommended application action. GO: strong direct evidence for the dominant mandate; "
+    "gaps are limited and manageable. CAUTION: credible overall fit, but attractiveness, "
+    "sustainability, authority, scope, or operating-model concerns require clarification. "
+    "STRETCH: the role is relevant and a credible application can be made without overclaiming, "
+    "but one or more material requirements are weakly evidenced or adjacent; interview success "
+    "is uncertain but plausible. NO_GO: the dominant mandate is structurally misaligned, several "
+    "non-negotiable requirements are absent, or a credible application would require material "
+    "overclaiming. Do not choose NO_GO solely for one or two weakly evidenced requirements when "
+    "the dominant role family is relevant and a credible application remains possible; prefer "
+    "STRETCH. When team structure, specialist support, or division of responsibilities is "
+    "unknown, report the ambiguity and prefer CAUTION or STRETCH rather than assuming the least "
+    "favourable operating model."
+)
 
 
 class AssessmentEvidenceAnchor(BaseModel):
@@ -77,7 +91,7 @@ class AssessmentOutput(BaseModel):
     tech_bar_fit: Score
     fit_score: Score
     priority_score: Score
-    decision: AssessmentDecision
+    decision: Annotated[AssessmentDecision, Field(description=DECISION_DESCRIPTION)]
     decision_reason: str
     interview_probability_low: Score
     interview_probability_high: Score

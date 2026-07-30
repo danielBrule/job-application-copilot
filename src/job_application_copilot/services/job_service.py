@@ -1,5 +1,6 @@
 """Transaction-owning application service for job CRUD operations."""
 
+from dataclasses import dataclass
 from datetime import timedelta
 
 from job_application_copilot.domain import CreateJob, JobFilters, UpdateJob
@@ -8,8 +9,17 @@ from job_application_copilot.repositories.job_repository import (
     DuplicateJobUrlError,
     JobRepository,
 )
-from job_application_copilot.repositories.models import Job
+from job_application_copilot.repositories.models import Assessment, Job
 from job_application_copilot.repositories.models.common import utc_now
+
+
+@dataclass(frozen=True, slots=True)
+class JobAssessmentDetail:
+    """Current job and assessment values required by the Job Details view."""
+
+    job: Job
+    assessment: Assessment | None
+    is_stale: bool
 
 
 class JobService:
@@ -114,6 +124,18 @@ class JobService:
                 for job in jobs
                 for assessment in (assessments_by_job_id.get(job.id),)
             }
+
+    def assessment_detail(self, job_id: int) -> JobAssessmentDetail:
+        """Return one job with its current assessment and derived stale state."""
+
+        with self.database.session() as session:
+            job = JobRepository(session).require(job_id)
+            assessment = AssessmentRepository(session).get_for_job(job.id)
+            return JobAssessmentDetail(
+                job=job,
+                assessment=assessment,
+                is_stale=assessment is not None and AssessmentRepository.is_stale(assessment, job),
+            )
 
     def delete(self, job_id: int) -> None:
         """Permanently delete one job and its linked local history."""

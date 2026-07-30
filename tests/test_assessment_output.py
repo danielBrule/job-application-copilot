@@ -177,6 +177,18 @@ def test_provider_schema_uses_configured_lanes_as_exact_enums() -> None:
     ] == sorted(ALLOWED_LANES)
 
 
+def test_provider_schema_describes_decision_boundaries() -> None:
+    schema = assessment_output_json_schema(ALLOWED_LANES)
+
+    description = schema["properties"]["decision"]["description"]
+
+    assert "GO:" in description
+    assert "CAUTION:" in description
+    assert "STRETCH:" in description
+    assert "NO_GO:" in description
+    assert "Do not choose NO_GO solely" in description
+
+
 def test_provider_schema_rejects_empty_or_invalid_lane_catalogue() -> None:
     with pytest.raises(ValueError, match="at least one"):
         assessment_output_json_schema(set())

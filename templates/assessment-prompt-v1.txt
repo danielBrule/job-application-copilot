@@ -31,7 +31,18 @@ Apply these field definitions:
 - Priority score measures whether the opportunity deserves application
   effort, considering fit, attractiveness, sustainability, and realistic
   prospects.
-- Decision represents the recommended application action.
+- Decision represents the recommended application action:
+  - GO: Strong direct evidence for the dominant mandate. Gaps are limited and
+    manageable.
+  - CAUTION: Credible overall fit, but attractiveness, sustainability,
+    authority, scope or operating-model concerns require clarification.
+  - STRETCH: The role is relevant and a credible application can be made
+    without overclaiming, but one or more material requirements are weakly
+    evidenced or adjacent. Interview success is uncertain but plausible.
+  - NO_GO: The dominant mandate is structurally misaligned, several
+    non-negotiable requirements are absent, or a credible application would
+    require material overclaiming. Clarification or specialist team support
+    would not reasonably resolve the mismatch.
 - Evidence confidence measures the overall strength and reliability of the
   evidence supporting the assessment.
 - Interview probability expresses a reasoned range, not a guarantee.
@@ -40,6 +51,14 @@ Ensure relevance, fit score, priority score, and decision are logically
 consistent. When they differ materially, explain why—for example, strong
 capability fit but poor sustainability, or high role relevance but weak
 supporting evidence.
+
+Do not return NO_GO solely because one or two material requirements are weakly
+evidenced when the dominant role family is relevant and a credible application
+can be made without overclaiming. In that situation, prefer STRETCH.
+
+When the decision depends on unknown team structure, specialist support or
+division of responsibilities, report the ambiguity and prefer CAUTION or
+STRETCH rather than assuming the least favourable operating model.
 
 Return every field required by the supplied structured-output schema.
 Do not add fields or omit required fields.
