@@ -99,11 +99,23 @@ class JobService:
             return JobRepository(session).list(filters)
 
     def delete(self, job_id: int) -> None:
-        """Delete an existing job in one transaction."""
+        """Permanently delete one job and its linked local history."""
+
+        self.delete_many((job_id,))
+
+    def delete_many(self, job_ids: tuple[int, ...]) -> int:
+        """Permanently delete selected jobs and their linked local history atomically."""
+
+        unique_job_ids = tuple(dict.fromkeys(job_ids))
+        if not unique_job_ids:
+            return 0
 
         with self.database.session() as session:
             repository = JobRepository(session)
-            repository.delete(repository.require(job_id))
+            jobs = tuple(repository.require(job_id) for job_id in unique_job_ids)
+            for job in jobs:
+                repository.delete_with_history(job)
+            return len(jobs)
 
     @staticmethod
     def _ensure_url_available(

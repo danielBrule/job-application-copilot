@@ -8,6 +8,7 @@ import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
 
 from job_application_copilot.observability import get_logger
+from job_application_copilot.repositories.job_repository import JobNotFoundError
 from job_application_copilot.repositories.models import Job
 from job_application_copilot.services import JobService
 from job_application_copilot.ui.components.job_filters import (
@@ -20,6 +21,10 @@ from job_application_copilot.ui.components.job_form import SAVED_MESSAGE_KEY
 logger = get_logger(__name__)
 JOBS_TABLE_KEY = "jobs_dashboard_table"
 SELECTED_JOB_IDS_KEY = "selected_job_ids"
+DELETE_CONFIRMATION_IDS_KEY = "delete_confirmation_job_ids"
+DELETE_CONFIRMATION_KEY = "confirm_delete_selected_jobs"
+DELETE_SUCCESS_KEY = "delete_selected_jobs_success"
+CLEAR_TABLE_SELECTION_ON_RERUN_KEY = "clear_jobs_dashboard_table_selection_on_rerun"
 LOAD_ERROR_MESSAGE = "The jobs could not be loaded. See the private UI log for details."
 TABLE_COLUMN_ORDER = (
     "company",
@@ -104,6 +109,8 @@ def render_jobs_dashboard(service: JobService) -> None:
     st.title("Jobs")
     if saved_message := st.session_state.pop(SAVED_MESSAGE_KEY, None):
         st.success(saved_message)
+    if deleted_message := st.session_state.pop(DELETE_SUCCESS_KEY, None):
+        st.success(deleted_message)
     st.page_link("pages/add_job.py", label="Add job")
 
     try:
@@ -137,6 +144,7 @@ def render_jobs_dashboard(service: JobService) -> None:
         st.info("No jobs match the current filters.")
         return
 
+    _clear_table_selection_if_requested()
     table_state = st.dataframe(
         [row.display_record() for row in rows],
         key=JOBS_TABLE_KEY,
@@ -182,10 +190,66 @@ def render_jobs_dashboard(service: JobService) -> None:
         disabled=selected_job_id is None,
         query_params={"job_id": str(selected_job_id)} if selected_job_id is not None else None,
     )
+    _render_delete_selected_jobs(service, selected_ids)
+
+
+def _render_delete_selected_jobs(service: JobService, selected_ids: tuple[int, ...]) -> None:
+    """Require an explicit, selection-bound confirmation before permanent deletion."""
+
+    if not selected_ids:
+        return
+    if st.session_state.get(DELETE_CONFIRMATION_IDS_KEY) != selected_ids:
+        st.session_state[DELETE_CONFIRMATION_IDS_KEY] = selected_ids
+        st.session_state[DELETE_CONFIRMATION_KEY] = False
+
+    count = len(selected_ids)
+    noun = "job" if count == 1 else "jobs"
+    st.divider()
+    st.warning(
+        f"Permanently delete {count} selected {noun}, including local assessment, "
+        "background-task, and model-call history. This cannot be undone."
+    )
+    confirmed = st.checkbox(
+        f"I understand that these {count} {noun} and their linked local history will be deleted.",
+        key=DELETE_CONFIRMATION_KEY,
+    )
+    if not st.button(
+        f"Delete selected {noun}",
+        key="delete_selected_jobs",
+        type="secondary",
+        disabled=not confirmed,
+    ):
+        return
+    try:
+        deleted = service.delete_many(selected_ids)
+    except JobNotFoundError:
+        logger.exception("jobs_dashboard_delete_missing_job job_ids=%s", selected_ids)
+        st.error("One or more selected jobs no longer exist. Refresh the selection and try again.")
+        return
+    except SQLAlchemyError:
+        logger.exception("jobs_dashboard_delete_failed job_ids=%s", selected_ids)
+        st.error("The selected jobs could not be deleted. See the private UI log for details.")
+        return
+
+    st.session_state[DELETE_SUCCESS_KEY] = f"Deleted {deleted} {noun} and linked local history."
+    clear_dashboard_selection()
+    st.rerun()
 
 
 def clear_dashboard_selection() -> None:
     """Clear stable IDs and Streamlit's row-position selection."""
 
-    st.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": []}}
+    # Streamlit forbids changing a widget's state after it has been created in
+    # the current script run. Defer the table reset until the following rerun,
+    # before ``st.dataframe`` is instantiated again.
+    st.session_state[CLEAR_TABLE_SELECTION_ON_RERUN_KEY] = True
     st.session_state[SELECTED_JOB_IDS_KEY] = ()
+    st.session_state[DELETE_CONFIRMATION_IDS_KEY] = ()
+    st.session_state[DELETE_CONFIRMATION_KEY] = False
+
+
+def _clear_table_selection_if_requested() -> None:
+    """Reset the dataframe selection before its widget is created on a rerun."""
+
+    if st.session_state.pop(CLEAR_TABLE_SELECTION_ON_RERUN_KEY, False):
+        st.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": []}}

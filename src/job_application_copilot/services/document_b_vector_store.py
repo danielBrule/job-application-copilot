@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 
+from sqlalchemy.exc import IntegrityError
+
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import (
     DOCUMENT_B_KEY,
@@ -30,6 +32,10 @@ from job_application_copilot.repositories.models.document_b_retrieval import (
 )
 from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
+)
+from job_application_copilot.services.document_b_progress import (
+    DocumentBProcessingProgress,
+    DocumentBProgressReporter,
 )
 from job_application_copilot.services.document_b_routing import (
     DocumentBRoutingError,
@@ -66,7 +72,13 @@ class DocumentBVectorStoreService:
         self.settings = settings
         self.client = client
 
-    def process(self, asset_key: str, version: int) -> ReferenceAsset:
+    def process(
+        self,
+        asset_key: str,
+        version: int,
+        *,
+        progress: DocumentBProgressReporter | None = None,
+    ) -> ReferenceAsset:
         """Index and activate one uploaded Document B candidate."""
 
         if asset_key != DOCUMENT_B_KEY:
@@ -78,6 +90,7 @@ class DocumentBVectorStoreService:
                 self.database,
                 self.settings,
             )
+            _report(progress, "preparing", "Extracting Document B sections and routing guidance.")
             section_service.extract_and_store(version)
             DocumentBRoutingManifestService(
                 self.database,
@@ -97,10 +110,19 @@ class DocumentBVectorStoreService:
             )
         vector_store_id = prepared.openai_vector_store_id
         if vector_store_id is None:
+            _report(progress, "vector_store", "Creating the Document B vector store.")
             vector_store_id = self._create_and_record_store(prepared)
+        else:
+            _report(progress, "vector_store", "Resuming the existing Document B vector store.")
 
         try:
-            usage_bytes = self._index_sections(version, prepared.id, vector_store_id)
+            usage_bytes = self._index_sections(
+                version,
+                prepared.id,
+                vector_store_id,
+                progress=progress,
+            )
+            _report(progress, "validating", "Validating indexed Document B content with OpenAI.")
             results = self.client.search_vector_store(
                 vector_store_id=vector_store_id,
                 query=DOCUMENT_B_VALIDATION_QUERY,
@@ -111,6 +133,7 @@ class DocumentBVectorStoreService:
                 },
             )
             self._validate_search_results(results, version)
+            _report(progress, "activating", "Activating the validated Document B version.")
             return self._activate(
                 asset_key,
                 version,
@@ -211,13 +234,34 @@ class DocumentBVectorStoreService:
             f"status '{indexed_file.status.value}'{detail}."
         )
 
-    def _index_sections(self, version: int, reference_asset_id: int, vector_store_id: str) -> int:
+    def _index_sections(
+        self,
+        version: int,
+        reference_asset_id: int,
+        vector_store_id: str,
+        *,
+        progress: DocumentBProgressReporter | None,
+    ) -> int:
         """Upload and attach every extracted section; never attach the full DOCX."""
 
         total_usage = 0
-        for section in DocumentBSectionService(self.database, self.settings).list_sections(version):
-            if section.heading_level == 0:
-                continue
+        sections = tuple(
+            section
+            for section in DocumentBSectionService(self.database, self.settings).list_sections(
+                version
+            )
+            if section.heading_level > 0
+        )
+        total_sections = len(sections)
+        completed_sections = 0
+        _report(
+            progress,
+            "indexing",
+            f"Preparing {total_sections} Document B sections for indexing.",
+            completed_sections=completed_sections,
+            total_sections=total_sections,
+        )
+        for section in sections:
             with self.database.session() as session:
                 existing = DocumentBRetrievalRepository(session).get_vector_record(
                     reference_asset_id, section.section_id
@@ -227,6 +271,14 @@ class DocumentBVectorStoreService:
                     raise DocumentBVectorStoreError(
                         f"Document B section '{section.section_id}' belongs to another vector store."
                     )
+                completed_sections += 1
+                _report(
+                    progress,
+                    "indexing",
+                    f"Recovered indexed Document B section {completed_sections} of {total_sections}.",
+                    completed_sections=completed_sections,
+                    total_sections=total_sections,
+                )
                 continue
             content = _section_source(section).encode()
             uploaded = self.client.upload_text(
@@ -246,18 +298,54 @@ class DocumentBVectorStoreService:
                 timeout_seconds=self.settings.openai_vector_store_timeout_seconds,
             )
             self._require_completed(indexed_file)
-            total_usage += indexed_file.usage_bytes
-            with self.database.session() as session:
-                DocumentBRetrievalRepository(session).add_vector_record(
-                    DocumentBVectorRecord(
-                        reference_asset_id=reference_asset_id,
-                        section_id=section.section_id,
-                        content_hash="sha256:" + hashlib.sha256(content).hexdigest(),
-                        openai_file_id=uploaded.file_id,
-                        vector_store_id=vector_store_id,
-                    )
-                )
+            record = DocumentBVectorRecord(
+                reference_asset_id=reference_asset_id,
+                section_id=section.section_id,
+                content_hash="sha256:" + hashlib.sha256(content).hexdigest(),
+                openai_file_id=uploaded.file_id,
+                vector_store_id=vector_store_id,
+            )
+            if self._record_indexed_section(record):
+                total_usage += indexed_file.usage_bytes
+            else:
+                # Another local process completed this section after the initial
+                # existence check. Its record is the authoritative one; remove
+                # the losing remote file rather than retaining an orphan.
+                self._compensate_uploaded_file(uploaded.file_id)
+            completed_sections += 1
+            _report(
+                progress,
+                "indexing",
+                f"Indexed Document B section {completed_sections} of {total_sections}.",
+                completed_sections=completed_sections,
+                total_sections=total_sections,
+            )
         return total_usage
+
+    def _record_indexed_section(self, record: DocumentBVectorRecord) -> bool:
+        """Persist one completed section, tolerating a compatible concurrent winner."""
+
+        try:
+            with self.database.session() as session:
+                DocumentBRetrievalRepository(session).add_vector_record(record)
+            return True
+        except IntegrityError as error:
+            with self.database.session() as session:
+                existing = DocumentBRetrievalRepository(session).get_vector_record(
+                    record.reference_asset_id, record.section_id
+                )
+            if existing is None:
+                raise DocumentBVectorStoreError(
+                    f"Document B section '{record.section_id}' could not be recorded locally."
+                ) from error
+            if (
+                existing.vector_store_id != record.vector_store_id
+                or existing.content_hash != record.content_hash
+            ):
+                raise DocumentBVectorStoreError(
+                    f"Document B section '{record.section_id}' conflicts with an existing index record."
+                ) from error
+            return False
 
     @staticmethod
     def _validate_search_results(
@@ -339,6 +427,15 @@ class DocumentBVectorStoreService:
                 vector_store_id,
             )
 
+    def _compensate_uploaded_file(self, file_id: str) -> None:
+        try:
+            self.client.delete_file(file_id)
+        except OpenAIClientError:
+            logger.exception(
+                "document_b_vector_file_compensation_failed file_id=%s",
+                file_id,
+            )
+
 
 def _vector_store_name(version: int) -> str:
     return f"job-application-copilot-document-b-v{version:04d}"
@@ -353,3 +450,22 @@ def _section_source(section: DocumentBSectionRecord) -> str:
     heading = section.heading_title
     text = section.section_text
     return f"{heading}\n\n{text}".strip()
+
+
+def _report(
+    reporter: DocumentBProgressReporter | None,
+    stage: str,
+    message: str,
+    *,
+    completed_sections: int | None = None,
+    total_sections: int | None = None,
+) -> None:
+    if reporter is not None:
+        reporter(
+            DocumentBProcessingProgress(
+                stage=stage,
+                message=message,
+                completed_sections=completed_sections,
+                total_sections=total_sections,
+            )
+        )

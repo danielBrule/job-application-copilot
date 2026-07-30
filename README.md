@@ -95,6 +95,8 @@ The `.env` file and all private data remain excluded from Git.
 | `JAC_CV_FOLDER` | `<JAC_DATA_DIR>/cvs` |
 | `JAC_LOGS_FOLDER` | `<JAC_DATA_DIR>/logs` |
 | `JAC_REFERENCE_FOLDER` | `<JAC_DATA_DIR>/reference` |
+| `JAC_ASSESSMENT_MODEL` | `gpt-5.6-sol` |
+| `JAC_ASSESSMENT_REASONING_EFFORT` | `medium` |
 | `JAC_ASSESSMENT_WORKER_COUNT` | `1` |
 | `JAC_CV_WORKER_COUNT` | `1` |
 | `JAC_LOG_LEVEL` | `INFO` |
@@ -143,11 +145,16 @@ are not committed.
 
 ### Settings and asset readiness
 
-The Settings page manages data-driven prompt definitions and private UTF-8 text versions. The
-initial configuration contains one assessment prompt, four English-generation stages and two
-French-extension stages, but enabled definitions determine the required counts at runtime.
-Saving edited text creates a new immutable active version; earlier versions remain available
-for explicit rollback.
+The Settings page manages data-driven prompt definitions and private UTF-8 text versions. On first
+application or database-command startup, the application copies the committed generic assessment
+prompt template into private storage as active version 1. It does this only when no retained
+assessment prompt version exists and never overwrites or reactivates user-managed versions.
+Set `JAC_TEMPLATE_DIR` to use a visible external template directory; for a source checkout,
+`JAC_TEMPLATE_DIR=templates` uses the committed root template. Installed deployments otherwise use
+the packaged equivalent.
+The initial configuration also contains four English-generation stages and two French-extension
+stages, but enabled definitions determine the required counts at runtime. Saving edited text
+creates a new immutable active version; earlier versions remain available for explicit rollback.
 
 The same page provides a read-only readiness overview for Documents A and B, the English
 and French templates, French CV examples and every enabled prompt group. It shows active

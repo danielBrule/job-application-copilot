@@ -1,5 +1,6 @@
 """Integration-style tests for the Document B vector-store lifecycle."""
 
+import hashlib
 from io import BytesIO
 from pathlib import Path
 from typing import cast
@@ -25,7 +26,13 @@ from job_application_copilot.llm import (
     UploadedOpenAIFile,
 )
 from job_application_copilot.repositories import Database, create_database
+from job_application_copilot.repositories.document_b_retrieval_repository import (
+    DocumentBRetrievalRepository,
+)
 from job_application_copilot.repositories.models import ReferenceAsset
+from job_application_copilot.repositories.models.document_b_retrieval import (
+    DocumentBVectorRecord,
+)
 from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
 )
@@ -37,6 +44,7 @@ from job_application_copilot.services import (
     ReferenceAssetStorageService,
 )
 from job_application_copilot.services.database_bootstrap import initialize_database
+from job_application_copilot.services.document_b_progress import DocumentBProcessingProgress
 
 
 def make_docx(text: str) -> bytes:
@@ -239,6 +247,27 @@ def test_completed_lifecycle_is_idempotent(
     client.search_vector_store.assert_called_once()
 
 
+def test_reports_section_level_progress(
+    vector_store_context: tuple[
+        DocumentBVectorStoreService,
+        ReferenceAssetStorageService,
+        Database,
+        Mock,
+    ],
+) -> None:
+    service, storage, _, _ = vector_store_context
+    candidate = stored_candidate(storage, service.database)
+    events: list[DocumentBProcessingProgress] = []
+
+    service.process(candidate.asset_key, candidate.version, progress=events.append)
+
+    indexing = [event for event in events if event.stage == "indexing"]
+    assert events[0].stage == "preparing"
+    assert indexing[0].completed_sections == 0
+    assert indexing[-1].completed_sections == indexing[-1].total_sections
+    assert events[-1].stage == "activating"
+
+
 def test_reuses_persisted_store_when_retrying_validation(
     vector_store_context: tuple[
         DocumentBVectorStoreService,
@@ -272,6 +301,73 @@ def test_reuses_persisted_store_when_retrying_validation(
     assert result.is_active
     client.create_vector_store.assert_not_called()
     assert client.wait_for_vector_store_file.call_count > 1
+
+
+def test_recovers_when_another_process_records_section_during_indexing(
+    vector_store_context: tuple[
+        DocumentBVectorStoreService,
+        ReferenceAssetStorageService,
+        Database,
+        Mock,
+    ],
+) -> None:
+    service, storage, database, client = vector_store_context
+    candidate = stored_candidate(storage, database)
+    section = next(
+        item
+        for item in DocumentBSectionService(database, service.settings).extract_and_store(
+            candidate.version
+        )
+        if item.heading_level > 0
+    )
+    injected = False
+
+    def upload_with_concurrent_winner(*, filename: str, content: bytes) -> UploadedOpenAIFile:
+        nonlocal injected
+        if not injected:
+            injected = True
+            with database.session() as session:
+                DocumentBRetrievalRepository(session).add_vector_record(
+                    DocumentBVectorRecord(
+                        reference_asset_id=candidate.id,
+                        section_id=section.section_id,
+                        content_hash="sha256:" + hashlib.sha256(content).hexdigest(),
+                        openai_file_id="file_concurrent_winner",
+                        vector_store_id="vs_candidate",
+                    )
+                )
+            return UploadedOpenAIFile(
+                file_id="file_concurrent_loser",
+                filename=filename,
+                size_bytes=len(content),
+                request_id="req_upload",
+            )
+        return UploadedOpenAIFile(
+            file_id=f"file_section_{client.upload_text.call_count}",
+            filename=filename,
+            size_bytes=len(content),
+            request_id="req_upload",
+        )
+
+    client.upload_text.side_effect = upload_with_concurrent_winner
+
+    result = service.process(candidate.asset_key, candidate.version)
+
+    assert result.is_active
+    client.delete_file.assert_called_once_with("file_concurrent_loser")
+    with database.session() as session:
+        records = (
+            session.query(DocumentBVectorRecord).filter_by(reference_asset_id=candidate.id).all()
+        )
+    assert len(records) == len(
+        [
+            item
+            for item in DocumentBSectionService(database, service.settings).list_sections(
+                candidate.version
+            )
+            if item.heading_level > 0
+        ]
+    )
 
 
 def test_processing_without_store_id_resumes_interrupted_creation(

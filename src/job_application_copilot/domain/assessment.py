@@ -18,6 +18,8 @@ from pydantic import (
 from job_application_copilot.domain.document_b_routing import LaneId
 from job_application_copilot.domain.job import Relevance
 
+ASSESSMENT_SCHEMA_VERSION = 1
+
 
 class AssessmentStatus(StrEnum):
     """Lifecycle of the single current assessment for a job."""
@@ -69,7 +71,7 @@ class AssessmentOutput(BaseModel):
     role_snapshot: str
     real_mandate: str
     primary_role_family: LaneId
-    secondary_role_family: LaneId
+    secondary_role_family: LaneId | None
     seniority_fit: Score
     technical_bar: str
     tech_bar_fit: Score
@@ -141,6 +143,8 @@ class AssessmentOutput(BaseModel):
             "recommended_document_b_lane",
         ):
             lane = getattr(self, field_name)
+            if lane is None:
+                continue
             if lane not in allowed_lanes:
                 raise ValueError(f"{field_name} '{lane}' is not configured")
         return self
@@ -155,10 +159,11 @@ def assessment_output_json_schema(allowed_lane_ids: Iterable[object]) -> dict[st
 
     schema = AssessmentOutput.model_json_schema()
     properties = schema["properties"]
-    for field_name in (
-        "primary_role_family",
-        "secondary_role_family",
-        "recommended_document_b_lane",
-    ):
+    for field_name in ("primary_role_family", "recommended_document_b_lane"):
         properties[field_name]["enum"] = lanes
+    secondary_options = properties["secondary_role_family"]["anyOf"]
+    secondary_lane_schema = next(
+        option for option in secondary_options if option.get("type") == "string"
+    )
+    secondary_lane_schema["enum"] = lanes
     return schema

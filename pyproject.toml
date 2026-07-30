@@ -21,6 +21,9 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 packages = [{ include = "job_application_copilot", from = "src" }]
+include = [
+    { path = "src/job_application_copilot/assets/assessment-prompt-v1.txt", format = ["sdist", "wheel"] },
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

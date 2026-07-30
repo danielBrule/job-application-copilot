@@ -58,7 +58,7 @@ Key fields:
 - `role_snapshot`
 - `real_mandate`
 - `primary_role_family`: configured lane identifier
-- `secondary_role_family`: configured lane identifier
+- `secondary_role_family`: optional configured lane identifier
 - `seniority_fit`: 0 to 10
 - `technical_bar`
 - `tech_bar_fit`: 0 to 10

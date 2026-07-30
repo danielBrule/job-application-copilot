@@ -9,6 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from job_application_copilot.domain import Language, Location
 
 LogLevelName = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+AssessmentReasoningEffort = Literal["none", "low", "medium", "high", "xhigh", "max"]
 
 
 class AppSettings(BaseSettings):
@@ -29,6 +30,7 @@ class AppSettings(BaseSettings):
     cv_folder: Path = Field(default_factory=lambda data: data["data_dir"] / "cvs")
     logs_folder: Path = Field(default_factory=lambda data: data["data_dir"] / "logs")
     reference_folder: Path = Field(default_factory=lambda data: data["data_dir"] / "reference")
+    template_dir: Path | None = None
     document_b_routing_config_path: Path = Field(
         default_factory=lambda data: (
             data["reference_folder"] / "routing" / "document-b-lane-routes.yaml"
@@ -38,6 +40,8 @@ class AppSettings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("OPENAI_API_KEY", "JAC_OPENAI_API_KEY"),
     )
+    assessment_model: str = "gpt-5.6-sol"
+    assessment_reasoning_effort: AssessmentReasoningEffort = "medium"
     assessment_worker_count: int = Field(default=1, ge=1, le=5)
     cv_worker_count: int = Field(default=1, ge=1, le=5)
     log_level: LogLevelName = "INFO"

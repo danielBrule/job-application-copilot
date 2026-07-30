@@ -4,7 +4,20 @@ from job_application_copilot.repositories import (
     DuplicateJobUrlError,
     JobNotFoundError,
 )
+from job_application_copilot.services.assessment_context import (
+    AssessmentCacheIdentity,
+    AssessmentContext,
+    AssessmentContextBuilder,
+    AssessmentContextError,
+    AssessmentFileInput,
+    AssessmentTextInput,
+    AssessmentTraceability,
+)
 from job_application_copilot.services.background_runs import BackgroundRunService
+from job_application_copilot.services.default_assessment_prompt import (
+    DefaultAssessmentPromptError,
+    DefaultAssessmentPromptService,
+)
 from job_application_copilot.services.document_a_input import (
     DocumentAInput,
     DocumentAInputService,
@@ -79,6 +92,13 @@ from job_application_copilot.services.reference_asset_storage import (
 )
 
 __all__ = [
+    "AssessmentCacheIdentity",
+    "AssessmentContext",
+    "AssessmentContextBuilder",
+    "AssessmentContextError",
+    "AssessmentFileInput",
+    "AssessmentTextInput",
+    "AssessmentTraceability",
     "BackgroundRunService",
     "DocumentAInput",
     "DocumentAInputService",
@@ -92,6 +112,8 @@ __all__ = [
     "DocumentBVectorStoreError",
     "DocumentBVectorStoreNotAllowedError",
     "DocumentBVectorStoreService",
+    "DefaultAssessmentPromptError",
+    "DefaultAssessmentPromptService",
     "DocumentBProcessingError",
     "DocumentBProcessingService",
     "DocumentBSectionError",

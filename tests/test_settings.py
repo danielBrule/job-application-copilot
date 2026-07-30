@@ -14,6 +14,8 @@ SETTING_ENVIRONMENT_VARIABLES = (
     "JAC_LOGS_FOLDER",
     "JAC_REFERENCE_FOLDER",
     "JAC_DOCUMENT_B_ROUTING_CONFIG_PATH",
+    "JAC_ASSESSMENT_MODEL",
+    "JAC_ASSESSMENT_REASONING_EFFORT",
     "JAC_ASSESSMENT_WORKER_COUNT",
     "JAC_CV_WORKER_COUNT",
     "JAC_LOG_LEVEL",
@@ -62,6 +64,8 @@ def test_defaults_are_safe_and_typed() -> None:
         "data/reference/prompts/generation/french"
     )
     assert settings.openai_api_key is None
+    assert settings.assessment_model == "gpt-5.6-sol"
+    assert settings.assessment_reasoning_effort == "medium"
     assert settings.assessment_worker_count == 1
     assert settings.cv_worker_count == 1
     assert settings.log_level == "INFO"
@@ -101,6 +105,8 @@ def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None
         "JAC_DOCUMENT_B_ROUTING_CONFIG_PATH",
         "private/routing/custom-document-b-routes.yaml",
     )
+    monkeypatch.setenv("JAC_ASSESSMENT_MODEL", "gpt-test")
+    monkeypatch.setenv("JAC_ASSESSMENT_REASONING_EFFORT", "high")
     monkeypatch.setenv("JAC_ASSESSMENT_WORKER_COUNT", "3")
     monkeypatch.setenv("JAC_CV_WORKER_COUNT", "5")
     monkeypatch.setenv("JAC_LOG_LEVEL", "DEBUG")
@@ -123,6 +129,8 @@ def test_environment_overrides_defaults(monkeypatch: pytest.MonkeyPatch) -> None
     assert settings.document_b_routing_config_path == Path(
         "private/routing/custom-document-b-routes.yaml"
     )
+    assert settings.assessment_model == "gpt-test"
+    assert settings.assessment_reasoning_effort == "high"
     assert settings.assessment_worker_count == 3
     assert settings.cv_worker_count == 5
     assert settings.log_level == "DEBUG"
@@ -165,6 +173,15 @@ def test_rejects_invalid_worker_counts(
     monkeypatch.setenv(variable, value)
 
     with pytest.raises(ValidationError, match="worker_count"):
+        AppSettings(_env_file=None)
+
+
+def test_rejects_invalid_assessment_reasoning_effort(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("JAC_ASSESSMENT_REASONING_EFFORT", "extreme")
+
+    with pytest.raises(ValidationError, match="assessment_reasoning_effort"):
         AppSettings(_env_file=None)
 
 
