@@ -27,6 +27,9 @@ DELETE_SUCCESS_KEY = "delete_selected_jobs_success"
 ASSESSMENT_CONFIRMATION_IDS_KEY = "assessment_confirmation_job_ids"
 ASSESSMENT_CONFIRMATION_KEY = "confirm_assess_selected_jobs"
 ASSESSMENT_SUCCESS_KEY = "assess_selected_jobs_success"
+REASSESSMENT_CONFIRMATION_IDS_KEY = "reassessment_confirmation_job_ids"
+REASSESSMENT_CONFIRMATION_KEY = "confirm_reassess_selected_jobs"
+REASSESSMENT_SUCCESS_KEY = "reassess_selected_jobs_success"
 CLEAR_TABLE_SELECTION_ON_RERUN_KEY = "clear_jobs_dashboard_table_selection_on_rerun"
 LOAD_ERROR_MESSAGE = "The jobs could not be loaded. See the private UI log for details."
 TABLE_COLUMN_ORDER = (
@@ -119,6 +122,8 @@ def render_jobs_dashboard(
         st.success(deleted_message)
     if assessment_message := st.session_state.pop(ASSESSMENT_SUCCESS_KEY, None):
         st.success(assessment_message)
+    if reassessment_message := st.session_state.pop(REASSESSMENT_SUCCESS_KEY, None):
+        st.success(reassessment_message)
     st.page_link("pages/add_job.py", label="Add job")
 
     try:
@@ -199,6 +204,7 @@ def render_jobs_dashboard(
         query_params={"job_id": str(selected_job_id)} if selected_job_id is not None else None,
     )
     _render_assess_selected_jobs(assessment_batch_service, selected_ids)
+    _render_reassess_selected_jobs(assessment_batch_service, selected_ids)
     _render_delete_selected_jobs(service, selected_ids)
 
 
@@ -257,6 +263,60 @@ def _render_assess_selected_jobs(
     st.rerun()
 
 
+def _render_reassess_selected_jobs(
+    service: AssessmentBatchService,
+    selected_ids: tuple[int, ...],
+) -> None:
+    """Require explicit confirmation before queuing stale or failed reassessments."""
+
+    if not selected_ids:
+        return
+    if st.session_state.get(REASSESSMENT_CONFIRMATION_IDS_KEY) != selected_ids:
+        st.session_state[REASSESSMENT_CONFIRMATION_IDS_KEY] = selected_ids
+        st.session_state[REASSESSMENT_CONFIRMATION_KEY] = False
+
+    count = len(selected_ids)
+    noun = "job" if count == 1 else "jobs"
+    st.divider()
+    st.info(f"Queue reassessments for {count} selected {noun} with failed or stale assessments.")
+    confirmed = st.checkbox(
+        f"I want to reassess these {count} selected {noun}.",
+        key=REASSESSMENT_CONFIRMATION_KEY,
+    )
+    if not st.button(
+        f"Reassess selected {noun}",
+        key="reassess_selected_jobs",
+        disabled=not confirmed,
+    ):
+        return
+
+    try:
+        result = service.queue_reassessment_selected(selected_ids)
+    except JobNotFoundError:
+        logger.exception("jobs_dashboard_reassessment_missing_job job_ids=%s", selected_ids)
+        st.error("One or more selected jobs no longer exist. Refresh the selection and try again.")
+        return
+    except SQLAlchemyError:
+        logger.exception("jobs_dashboard_reassessment_queue_failed job_ids=%s", selected_ids)
+        st.error(
+            "The selected reassessments could not be queued. See the private UI log for details."
+        )
+        return
+
+    if result.batch_id is None:
+        st.warning("None of the selected jobs are eligible for reassessment.")
+        return
+
+    queued_count = len(result.queued_job_ids)
+    queued_noun = "job" if queued_count == 1 else "jobs"
+    message = f"Queued {queued_count} {queued_noun} for reassessment in batch {result.batch_id}."
+    if result.skipped:
+        message += f" Skipped {len(result.skipped)} ineligible selected jobs."
+    st.session_state[REASSESSMENT_SUCCESS_KEY] = message
+    clear_dashboard_selection()
+    st.rerun()
+
+
 def _render_delete_selected_jobs(service: JobService, selected_ids: tuple[int, ...]) -> None:
     """Require an explicit, selection-bound confirmation before permanent deletion."""
 
@@ -309,9 +369,8 @@ def clear_dashboard_selection() -> None:
     st.session_state[CLEAR_TABLE_SELECTION_ON_RERUN_KEY] = True
     st.session_state[SELECTED_JOB_IDS_KEY] = ()
     st.session_state[DELETE_CONFIRMATION_IDS_KEY] = ()
-    st.session_state[DELETE_CONFIRMATION_KEY] = False
     st.session_state[ASSESSMENT_CONFIRMATION_IDS_KEY] = ()
-    st.session_state[ASSESSMENT_CONFIRMATION_KEY] = False
+    st.session_state[REASSESSMENT_CONFIRMATION_IDS_KEY] = ()
 
 
 def _clear_table_selection_if_requested() -> None:

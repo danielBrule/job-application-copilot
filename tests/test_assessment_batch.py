@@ -1,6 +1,6 @@
 """Integration tests for selected-job initial assessment queueing."""
 
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
@@ -17,6 +17,7 @@ from job_application_copilot.repositories import (
     BackgroundBatchRepository,
     BackgroundTaskRepository,
     Database,
+    JobRepository,
     create_database,
 )
 from job_application_copilot.repositories.job_repository import JobNotFoundError
@@ -67,6 +68,32 @@ def add_assessment(database: Database, job_id: int) -> None:
                 job_id=job_id,
                 status=AssessmentStatus.FAILED,
                 error_message="Timed out.",
+            )
+        )
+
+
+def add_successful_assessment(database: Database, job_id: int, *, stale: bool) -> None:
+    with database.session() as session:
+        job = JobRepository(session).require(job_id)
+        AssessmentRepository(session).add(
+            Assessment(
+                job_id=job_id,
+                status=AssessmentStatus.ASSESSED,
+                model_relevance="HIGH",
+                role_snapshot="Role snapshot",
+                real_mandate="Real mandate",
+                primary_role_family="FICTIONAL_ARCHITECTURE_LEAD",
+                seniority_fit=8,
+                technical_bar="Technical bar",
+                fit_score=8,
+                priority_score=8,
+                decision="GO",
+                decision_reason="Good fit.",
+                recommended_document_b_lane="FICTIONAL_ARCHITECTURE_LEAD",
+                assessed_at=job.created_at,
+                source_job_updated_at=(
+                    datetime(2000, 1, 1, tzinfo=UTC) if stale else job.assessment_input_updated_at
+                ),
             )
         )
 
@@ -139,6 +166,60 @@ def test_missing_job_rolls_back_without_creating_a_partial_batch(database: Datab
 
     with pytest.raises(JobNotFoundError):
         AssessmentBatchService(database).queue_selected((eligible_id, 999))
+
+    with database.session() as session:
+        assert BackgroundTaskRepository(session).list() == []
+
+
+def test_queues_failed_and_stale_assessments_together(database: Database) -> None:
+    stale_id = add_job(database, "Stale")
+    failed_id = add_job(database, "Failed")
+    current_id = add_job(database, "Current")
+    unassessed_id = add_job(database, "Unassessed")
+    queued_id = add_job(database, "Queued")
+    add_successful_assessment(database, stale_id, stale=True)
+    add_assessment(database, failed_id)
+    add_successful_assessment(database, current_id, stale=False)
+    add_assessment(database, queued_id)
+    add_active_task(database, queued_id)
+
+    result = AssessmentBatchService(database).queue_reassessment_selected(
+        (stale_id, failed_id, current_id, unassessed_id, queued_id)
+    )
+
+    assert result.batch_id is not None
+    assert result.queued_job_ids == (stale_id, failed_id)
+    assert [(item.job_id, item.reason) for item in result.skipped] == [
+        (current_id, AssessmentQueueSkipReason.ASSESSMENT_NOT_STALE),
+        (unassessed_id, AssessmentQueueSkipReason.NO_ASSESSMENT),
+        (queued_id, AssessmentQueueSkipReason.ASSESSMENT_ALREADY_QUEUED),
+    ]
+    with database.session() as session:
+        tasks = BackgroundTaskRepository(session).list(batch_id=result.batch_id)
+        assert [task.job_id for task in tasks] == [stale_id, failed_id]
+
+
+def test_reassessment_deduplicates_and_does_not_create_an_empty_batch(database: Database) -> None:
+    current_id = add_job(database, "Current")
+    add_successful_assessment(database, current_id, stale=False)
+
+    result = AssessmentBatchService(database).queue_reassessment_selected((current_id, current_id))
+
+    assert result.batch_id is None
+    assert result.queued_job_ids == ()
+    assert [(item.job_id, item.reason) for item in result.skipped] == [
+        (current_id, AssessmentQueueSkipReason.ASSESSMENT_NOT_STALE),
+    ]
+
+
+def test_missing_job_rolls_back_reassessment_without_creating_a_partial_batch(
+    database: Database,
+) -> None:
+    stale_id = add_job(database, "Stale")
+    add_successful_assessment(database, stale_id, stale=True)
+
+    with pytest.raises(JobNotFoundError):
+        AssessmentBatchService(database).queue_reassessment_selected((stale_id, 999))
 
     with database.session() as session:
         assert BackgroundTaskRepository(session).list() == []
