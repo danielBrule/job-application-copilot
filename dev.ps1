@@ -19,6 +19,8 @@ $ErrorActionPreference = "Stop"
 $script:ProjectRoot = $PSScriptRoot
 $script:VirtualEnvironment = Join-Path $script:ProjectRoot ".venv"
 $script:IsDotSourced = $MyInvocation.InvocationName -eq "."
+$script:UiWorkerStartupAttempts = 3
+$script:UiWorkerStartupDelaySeconds = 1
 
 function Write-Usage {
     Write-Output @"
@@ -99,6 +101,66 @@ function Invoke-ProjectTool {
     if ($exitCode -ne 0) {
         throw "'$Executable' failed with exit code $exitCode."
     }
+}
+
+function Test-ActiveWorkerLease {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$DataDirectory
+    )
+
+    $leasePath = Join-Path $DataDirectory "logs\worker.lock"
+    try {
+        $metadata = Get-Content -LiteralPath $leasePath -Raw -ErrorAction Stop | ConvertFrom-Json
+        $process = Get-Process -Id ([int]$metadata.process_id) -ErrorAction Stop
+        return $null -ne $process
+    }
+    catch {
+        return $false
+    }
+}
+
+function Start-UiWorker {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Python,
+
+        [Parameter(Mandatory = $true)]
+        [string]$StopFile,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DataDirectory
+    )
+
+    for ($attempt = 1; $attempt -le $script:UiWorkerStartupAttempts; $attempt++) {
+        $worker = Start-Process -FilePath $Python -ArgumentList @(
+            "-m",
+            "job_application_copilot.services.background_worker",
+            "--stop-file",
+            $StopFile
+        ) -WorkingDirectory $script:ProjectRoot -WindowStyle Hidden -PassThru
+        Start-Sleep -Seconds $script:UiWorkerStartupDelaySeconds
+        if (-not $worker.HasExited) {
+            return $worker
+        }
+
+        if ($attempt -lt $script:UiWorkerStartupAttempts) {
+            Write-Warning (
+                "Background worker exited during startup; retrying " +
+                "($attempt of $script:UiWorkerStartupAttempts)."
+            )
+        }
+    }
+
+    if (Test-ActiveWorkerLease -DataDirectory $DataDirectory) {
+        Write-Warning "A background worker is already active; the UI will use that worker."
+        return $null
+    }
+
+    throw (
+        "The background worker could not start after $script:UiWorkerStartupAttempts attempts. " +
+        "Check data/logs/worker.log before starting the UI again."
+    )
 }
 
 function Initialize-Environment {
@@ -268,22 +330,19 @@ function Start-UserInterface {
     $stopFile = Join-Path $dataDirectory ("worker-stop-" + [Guid]::NewGuid().ToString("N") + ".signal")
 
     New-Item -ItemType Directory -Path $dataDirectory -Force | Out-Null
-    $worker = Start-Process -FilePath $python -ArgumentList @(
-        "-m",
-        "job_application_copilot.services.background_worker",
-        "--stop-file",
-        $stopFile
-    ) -WorkingDirectory $script:ProjectRoot -WindowStyle Hidden -PassThru
+    $worker = Start-UiWorker -Python $python -StopFile $stopFile -DataDirectory $dataDirectory
     try {
         Invoke-ProjectTool -Executable $streamlit -Arguments @("run", $application)
     }
     finally {
-        New-Item -ItemType File -Path $stopFile -Force | Out-Null
-        if (-not $worker.WaitForExit(65000)) {
-            Write-Warning "The background worker is still finishing its current task."
-        }
-        elseif (Test-Path -LiteralPath $stopFile -PathType Leaf) {
-            Remove-Item -LiteralPath $stopFile -Force
+        if ($null -ne $worker) {
+            New-Item -ItemType File -Path $stopFile -Force | Out-Null
+            if (-not $worker.WaitForExit(65000)) {
+                Write-Warning "The background worker is still finishing its current task."
+            }
+            elseif (Test-Path -LiteralPath $stopFile -PathType Leaf) {
+                Remove-Item -LiteralPath $stopFile -Force
+            }
         }
     }
 }
