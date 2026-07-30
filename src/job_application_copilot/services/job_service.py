@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 
 from job_application_copilot.domain import (
     DOCUMENT_B_KEY,
+    AssessmentStatus,
     CreateJob,
+    CvSelectionStatus,
     DocumentBRoutingSetStatus,
     JobFilters,
     LaneId,
@@ -38,12 +40,24 @@ class JobAssessmentDetail:
     is_stale: bool
 
 
+@dataclass(frozen=True, slots=True)
+class AssessmentReviewNavigation:
+    """Adjacent jobs in the deterministic assessed-undecided review queue."""
+
+    previous_job_id: int | None
+    next_job_id: int | None
+
+
 class CvLaneConfigurationError(ApplicationOperationError):
     """Raised when no active validated CV-lane catalogue is available."""
 
 
 class InvalidCvLaneSelectionError(ApplicationValidationError):
     """Raised when a selected CV lane is outside the active catalogue."""
+
+
+class AssessmentReviewNotEligibleError(ApplicationValidationError):
+    """Raised when a pursue-and-select decision cannot safely select a CV."""
 
 
 class JobService:
@@ -182,16 +196,39 @@ class JobService:
                     raise InvalidCvLaneSelectionError(
                         f"CV lane '{selected_cv_lane}' is not configured for the active Document B."
                     )
+            if user_decision is UserDecision.PURSUE:
+                self._validate_pursue_and_select(
+                    assessment, job, assessment_repository, selected_cv_lane
+                )
             job.user_decision = user_decision
             assessment.assessment_notes = normalized_notes or None
             if selected_cv_lane is not None:
                 assessment.selected_cv_lane = selected_cv_lane
+            if user_decision is UserDecision.PURSUE:
+                job.cv_selection_status = CvSelectionStatus.SELECTED
+            else:
+                job.cv_selection_status = CvSelectionStatus.NOT_SELECTED
             session.flush()
             return JobAssessmentDetail(
                 job=job,
                 assessment=assessment,
                 is_stale=assessment_repository.is_stale(assessment, job),
             )
+
+    def assessment_review_navigation(self, job_id: int) -> AssessmentReviewNavigation:
+        """Return neighbouring assessed, undecided jobs for sequential review."""
+
+        with self.database.session() as session:
+            queue = JobRepository(session).list_assessed_undecided()
+        job_ids = tuple(job.id for job in queue)
+        try:
+            position = job_ids.index(job_id)
+        except ValueError:
+            return AssessmentReviewNavigation(None, None)
+        return AssessmentReviewNavigation(
+            previous_job_id=job_ids[position - 1] if position > 0 else None,
+            next_job_id=job_ids[position + 1] if position + 1 < len(job_ids) else None,
+        )
 
     def delete(self, job_id: int) -> None:
         """Permanently delete one job and its linked local history."""
@@ -253,3 +290,25 @@ class JobService:
                 "The active Document B routing set contains no selectable CV lanes."
             )
         return lanes
+
+    @staticmethod
+    def _validate_pursue_and_select(
+        assessment: Assessment,
+        job: Job,
+        assessment_repository: AssessmentRepository,
+        selected_cv_lane: LaneId | None,
+    ) -> None:
+        """Reject a decision that would select a CV from an unsafe assessment."""
+
+        if selected_cv_lane is None:
+            raise AssessmentReviewNotEligibleError(
+                "Select a confirmed CV lane before pursuing this job for CV generation."
+            )
+        if assessment.status is not AssessmentStatus.ASSESSED:
+            raise AssessmentReviewNotEligibleError(
+                "Only successfully completed assessments can be selected for CV generation."
+            )
+        if assessment_repository.is_stale(assessment, job):
+            raise AssessmentReviewNotEligibleError(
+                "This assessment is stale. Reassess the job before selecting it for CV generation."
+            )

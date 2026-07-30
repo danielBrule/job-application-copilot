@@ -1,15 +1,18 @@
 """Job Details page-content component."""
 
 import logging
+import re
 
 import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
+from streamlit.delta_generator import DeltaGenerator
 
 from job_application_copilot.domain import UserDecision
 from job_application_copilot.observability import get_logger, log_event
 from job_application_copilot.repositories.assessment_repository import AssessmentNotFoundError
 from job_application_copilot.repositories.job_repository import JobNotFoundError
 from job_application_copilot.services import (
+    AssessmentReviewNotEligibleError,
     CvLaneConfigurationError,
     InvalidCvLaneSelectionError,
     JobAssessmentDetail,
@@ -38,7 +41,6 @@ def parse_job_id(value: str | None) -> int:
 def render_job_details(service: JobService) -> None:
     """Load and render the editable Job Details page."""
 
-    st.title("Job details")
     try:
         job_id = parse_job_id(st.query_params.get("job_id"))
     except ValueError as error:
@@ -59,6 +61,7 @@ def render_job_details(service: JobService) -> None:
         st.page_link("pages/jobs.py", label="Back to Jobs")
         return
 
+    st.title(f"Job details — {detail.job.job_title} ({detail.job.company})")
     job_tab, assessment_tab = st.tabs(["Job", "Assessment"])
     with job_tab:
         render_edit_job_form(detail.job, service)
@@ -75,32 +78,35 @@ def render_assessment_detail(detail: JobAssessmentDetail, service: JobService) -
         st.info("This job has not been assessed yet.")
         return
 
-    st.caption(f"Status: {_label(assessment.status.value)}")
     if detail.is_stale:
         st.warning(
             "This assessment is stale because assessment-relevant job details changed after it "
             "was completed. The previous valid result remains available until reassessment succeeds."
         )
     if assessment.status.value == "FAILED":
+        st.caption(f"Status: {_label(assessment.status.value)}")
         st.error(assessment.error_message or "Assessment did not complete.")
         return
     if assessment.status.value != "ASSESSED":
+        st.caption(f"Status: {_label(assessment.status.value)}")
         st.info("Assessment output will appear here after processing completes.")
         return
 
     assert assessment.model_relevance is not None
     assert assessment.decision is not None
+    _render_assessment_navigation(detail, service)
+    st.markdown("#### Your decision")
+    _render_human_review(detail, service)
+
     st.markdown("#### Model assessment")
     model_columns = st.columns(3)
     model_columns[0].metric("Model relevance", _label(assessment.model_relevance.value))
     model_columns[1].metric("Recommendation", _label(assessment.decision.value))
     model_columns[2].metric("Fit score", _score(assessment.fit_score))
-    st.write("**Role snapshot**")
-    st.write(assessment.role_snapshot)
-    st.write("**Real mandate behind the title**")
-    st.write(assessment.real_mandate)
-    st.write("**Recommendation rationale**")
-    st.write(assessment.decision_reason)
+    summary_columns = st.columns(3)
+    _render_summary(summary_columns[0], "Role snapshot", assessment.role_snapshot)
+    _render_summary(summary_columns[1], "Real mandate", assessment.real_mandate)
+    _render_summary(summary_columns[2], "Recommendation rationale", assessment.decision_reason)
 
     st.markdown("#### Role and fit")
     st.write(f"**Primary role family:** {assessment.primary_role_family}")
@@ -138,7 +144,6 @@ def render_assessment_detail(detail: JobAssessmentDetail, service: JobService) -
     st.markdown("#### Human choices")
     st.write(f"**Relevance override:** {_optional_label(detail.job.relevance_override)}")
     st.write(f"**Effective relevance:** {_effective_relevance(detail)}")
-    _render_human_review(detail, service)
 
     st.markdown("#### Traceability")
     st.write(f"**Document A version:** {assessment.document_a_version}")
@@ -160,10 +165,10 @@ def _render_human_review(detail: JobAssessmentDetail, service: JobService) -> No
 
     with st.form(f"human_review_{detail.job.id}_form"):
         user_decision = st.selectbox(
-            "User decision",
+            "Decision",
             options=tuple(UserDecision),
             index=tuple(UserDecision).index(detail.job.user_decision),
-            format_func=_label,
+            format_func=_decision_label,
         )
         assessment_notes = st.text_area(
             "Assessment notes",
@@ -182,7 +187,7 @@ def _render_human_review(detail: JobAssessmentDetail, service: JobService) -> No
                 index=cv_lanes.index(default_lane),
                 help="This controls later Document B routing for CV generation.",
             )
-        save = st.form_submit_button("Save human review")
+        save = st.form_submit_button("Save decision")
 
     if not save:
         return
@@ -194,7 +199,7 @@ def _render_human_review(detail: JobAssessmentDetail, service: JobService) -> No
             assessment_notes=assessment_notes,
             selected_cv_lane=selected_cv_lane,
         )
-    except InvalidCvLaneSelectionError as error:
+    except (AssessmentReviewNotEligibleError, InvalidCvLaneSelectionError) as error:
         st.error(str(error))
     except (JobNotFoundError, AssessmentNotFoundError):
         st.error("The assessment is no longer available. Refresh the page and try again.")
@@ -202,7 +207,70 @@ def _render_human_review(detail: JobAssessmentDetail, service: JobService) -> No
         logger.exception("human_review_save_failed job_id=%s", detail.job.id)
         st.error("The human review could not be saved. See the private UI log for details.")
     else:
-        st.success("Human review saved.")
+        st.success("Decision saved.")
+
+
+def _render_assessment_navigation(detail: JobAssessmentDetail, service: JobService) -> None:
+    """Render deterministic neighbours in the assessed-undecided review queue."""
+
+    try:
+        navigation = service.assessment_review_navigation(detail.job.id)
+    except SQLAlchemyError:
+        logger.exception("assessment_review_navigation_load_failed job_id=%s", detail.job.id)
+        st.warning("Review navigation is temporarily unavailable. Refresh the page and try again.")
+        return
+
+    previous_column, next_column, _ = st.columns((1, 1, 4))
+    with previous_column:
+        st.page_link(
+            "pages/job_details.py",
+            label="Previous",
+            disabled=navigation.previous_job_id is None,
+            query_params=(
+                {"job_id": str(navigation.previous_job_id)}
+                if navigation.previous_job_id is not None
+                else None
+            ),
+        )
+    with next_column:
+        st.page_link(
+            "pages/job_details.py",
+            label="Next",
+            disabled=navigation.next_job_id is None,
+            query_params=(
+                {"job_id": str(navigation.next_job_id)}
+                if navigation.next_job_id is not None
+                else None
+            ),
+        )
+
+
+def _render_summary(column: DeltaGenerator, label: str, value: str | None) -> None:
+    """Present model text as a capped bullet list without changing its stored value."""
+
+    with column:
+        st.write(f"**{label}**")
+        bullets = summary_bullets(value)
+        if bullets:
+            st.markdown("\n".join(f"- {bullet}" for bullet in bullets))
+        else:
+            st.caption("Not reported.")
+
+
+def summary_bullets(value: str | None) -> tuple[str, ...]:
+    """Normalize presentation-only summary lines and cap them at ten bullets."""
+
+    if value is None:
+        return ()
+    bullets: list[str] = []
+    for line in value.splitlines():
+        normalized = re.sub(r"^\s*(?:[-*â€¢]|\d+[.)])\s*", "", line).strip()
+        normalized = " ".join(normalized.split())
+        if normalized:
+            bullets.append(normalized)
+    if not bullets and (normalized_value := " ".join(value.split())):
+        bullets.append(normalized_value)
+    return tuple(bullets[:10])
 
 
 def _render_items(label: str, values: list[str]) -> None:
@@ -237,3 +305,9 @@ def _score(value: int | None) -> str:
 
 def _label(value: str) -> str:
     return value.replace("_", " ").title()
+
+
+def _decision_label(value: UserDecision) -> str:
+    if value is UserDecision.PURSUE:
+        return "Pursue and select for CV generation"
+    return _label(value.value)
