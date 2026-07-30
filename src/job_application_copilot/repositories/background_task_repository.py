@@ -195,6 +195,28 @@ class BackgroundTaskRepository:
             return None
         return self.transition(task, BackgroundTaskStatus.RUNNING)
 
+    def get_running_attempt(self, task_id: int) -> BackgroundTaskAttempt | None:
+        """Return the active retained attempt for one claimed task."""
+
+        return self.session.scalar(
+            select(BackgroundTaskAttempt)
+            .where(
+                BackgroundTaskAttempt.task_id == task_id,
+                BackgroundTaskAttempt.status == BackgroundTaskStatus.RUNNING,
+            )
+            .order_by(BackgroundTaskAttempt.attempt_number.desc())
+            .limit(1)
+        )
+
+    def set_pipeline_step(self, task: BackgroundTask, pipeline_step: str) -> BackgroundTask:
+        """Persist the current handler-owned pipeline step for a running task."""
+
+        if task.status is not BackgroundTaskStatus.RUNNING:
+            raise InvalidBackgroundTaskTransitionError(task.status, task.status)
+        task.pipeline_step = pipeline_step
+        self.session.flush()
+        return task
+
     def transition(
         self,
         task: BackgroundTask,
