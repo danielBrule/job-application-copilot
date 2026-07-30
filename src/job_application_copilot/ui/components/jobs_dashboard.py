@@ -10,7 +10,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from job_application_copilot.observability import get_logger
 from job_application_copilot.repositories.job_repository import JobNotFoundError
 from job_application_copilot.repositories.models import Job
-from job_application_copilot.services import AssessmentBatchService, JobService
+from job_application_copilot.services import (
+    AssessmentBatchService,
+    CvSelectionResult,
+    CvSelectionService,
+    CvSelectionSkipReason,
+    JobService,
+)
 from job_application_copilot.ui.components.job_filters import (
     available_sources,
     has_active_filters,
@@ -30,6 +36,9 @@ ASSESSMENT_SUCCESS_KEY = "assess_selected_jobs_success"
 REASSESSMENT_CONFIRMATION_IDS_KEY = "reassessment_confirmation_job_ids"
 REASSESSMENT_CONFIRMATION_KEY = "confirm_reassess_selected_jobs"
 REASSESSMENT_SUCCESS_KEY = "reassess_selected_jobs_success"
+CV_SELECTION_CONFIRMATION_IDS_KEY = "cv_selection_confirmation_job_ids"
+CV_SELECTION_CONFIRMATION_KEY = "confirm_select_for_cv_generation"
+CV_SELECTION_SUCCESS_KEY = "select_for_cv_generation_success"
 CLEAR_TABLE_SELECTION_ON_RERUN_KEY = "clear_jobs_dashboard_table_selection_on_rerun"
 LOAD_ERROR_MESSAGE = "The jobs could not be loaded. See the private UI log for details."
 TABLE_COLUMN_ORDER = (
@@ -122,6 +131,7 @@ def selected_job_ids(
 def render_jobs_dashboard(
     service: JobService,
     assessment_batch_service: AssessmentBatchService,
+    cv_selection_service: CvSelectionService,
 ) -> None:
     """Load and render the initial Jobs dashboard."""
 
@@ -134,6 +144,8 @@ def render_jobs_dashboard(
         st.success(assessment_message)
     if reassessment_message := st.session_state.pop(REASSESSMENT_SUCCESS_KEY, None):
         st.success(reassessment_message)
+    if cv_selection_message := st.session_state.pop(CV_SELECTION_SUCCESS_KEY, None):
+        st.success(cv_selection_message)
     st.page_link("pages/add_job.py", label="Add job")
 
     try:
@@ -224,6 +236,7 @@ def render_jobs_dashboard(
     )
     _render_assess_selected_jobs(assessment_batch_service, selected_ids)
     _render_reassess_selected_jobs(assessment_batch_service, selected_ids)
+    _render_select_for_cv_generation(cv_selection_service, selected_ids)
     _render_delete_selected_jobs(service, selected_ids)
 
 
@@ -336,6 +349,75 @@ def _render_reassess_selected_jobs(
     st.rerun()
 
 
+def _render_select_for_cv_generation(
+    service: CvSelectionService,
+    selected_ids: tuple[int, ...],
+) -> None:
+    """Require explicit confirmation before marking jobs ready for later generation."""
+
+    if not selected_ids:
+        return
+    if st.session_state.get(CV_SELECTION_CONFIRMATION_IDS_KEY) != selected_ids:
+        st.session_state[CV_SELECTION_CONFIRMATION_IDS_KEY] = selected_ids
+        st.session_state[CV_SELECTION_CONFIRMATION_KEY] = False
+
+    count = len(selected_ids)
+    noun = "job" if count == 1 else "jobs"
+    st.divider()
+    st.info(
+        f"Mark {count} selected {noun} as ready for CV generation. This does not start generation."
+    )
+    confirmed = st.checkbox(
+        f"I want to select these {count} {noun} for CV generation.",
+        key=CV_SELECTION_CONFIRMATION_KEY,
+    )
+    if not st.button(
+        f"Select {noun} for CV generation",
+        key="select_for_cv_generation",
+        disabled=not confirmed,
+    ):
+        return
+
+    try:
+        result = service.select_jobs(selected_ids)
+    except JobNotFoundError:
+        logger.exception("jobs_dashboard_cv_selection_missing_job job_ids=%s", selected_ids)
+        st.error("One or more selected jobs no longer exist. Refresh the selection and try again.")
+        return
+    except SQLAlchemyError:
+        logger.exception("jobs_dashboard_cv_selection_failed job_ids=%s", selected_ids)
+        st.error("The selected jobs could not be marked for CV generation. See the private UI log.")
+        return
+
+    if not result.selected_job_ids:
+        st.warning(_cv_selection_skip_summary(result))
+        return
+
+    selected_count = len(result.selected_job_ids)
+    selected_noun = "job" if selected_count == 1 else "jobs"
+    message = f"Selected {selected_count} {selected_noun} for later CV generation."
+    if result.skipped:
+        message += f" {_cv_selection_skip_summary(result)}"
+    st.session_state[CV_SELECTION_SUCCESS_KEY] = message
+    clear_dashboard_selection()
+    st.rerun()
+
+
+def _cv_selection_skip_summary(result: CvSelectionResult) -> str:
+    """Translate durable skip reasons into an actionable concise UI message."""
+
+    labels = {
+        CvSelectionSkipReason.NOT_PURSUED: "not marked Pursue",
+        CvSelectionSkipReason.MISSING_ASSESSMENT: "missing an assessment",
+        CvSelectionSkipReason.ASSESSMENT_NOT_READY: "assessment is not successfully completed",
+        CvSelectionSkipReason.ASSESSMENT_STALE: "assessment is stale",
+        CvSelectionSkipReason.MISSING_CV_LANE: "missing a confirmed CV lane",
+        CvSelectionSkipReason.ALREADY_SELECTED: "already selected",
+    }
+    details = "; ".join(f"job {skip.job_id}: {labels[skip.reason]}" for skip in result.skipped)
+    return f"Skipped {len(result.skipped)} ineligible selected jobs ({details})."
+
+
 def _render_delete_selected_jobs(service: JobService, selected_ids: tuple[int, ...]) -> None:
     """Require an explicit, selection-bound confirmation before permanent deletion."""
 
@@ -390,6 +472,7 @@ def clear_dashboard_selection() -> None:
     st.session_state[DELETE_CONFIRMATION_IDS_KEY] = ()
     st.session_state[ASSESSMENT_CONFIRMATION_IDS_KEY] = ()
     st.session_state[REASSESSMENT_CONFIRMATION_IDS_KEY] = ()
+    st.session_state[CV_SELECTION_CONFIRMATION_IDS_KEY] = ()
 
 
 def _clear_table_selection_if_requested() -> None:

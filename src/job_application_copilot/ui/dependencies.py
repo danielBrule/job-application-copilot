@@ -9,6 +9,7 @@ from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.services import (
     AssessmentBatchService,
     BackgroundRunService,
+    CvSelectionService,
     DocumentAProcessingService,
     DocumentBProcessingService,
     JobService,
@@ -40,6 +41,12 @@ def get_assessment_batch_service(database_path: Path) -> AssessmentBatchService:
     """Build assessment batching over the UI process's shared database facade."""
 
     return AssessmentBatchService(get_database(database_path))
+
+
+def get_cv_selection_service(database_path: Path) -> CvSelectionService:
+    """Build CV selection over the UI process's shared database facade."""
+
+    return CvSelectionService(get_database(database_path))
 
 
 def get_background_run_service(database_path: Path) -> BackgroundRunService:

@@ -304,6 +304,7 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
             "general_notes",
             "relevance_override",
             "user_decision",
+            "cv_selection_status",
             "application_status",
             "application_date",
             "next_action",
@@ -321,6 +322,7 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
             assert not columns[field]["nullable"]
             assert columns[field]["default"] is None
         assert columns["user_decision"]["default"] is not None
+        assert columns["cv_selection_status"]["default"] is not None
         assert columns["relevance_override"]["nullable"]
         assert columns["created_at"]["default"] is not None
         assert columns["updated_at"]["default"] is not None

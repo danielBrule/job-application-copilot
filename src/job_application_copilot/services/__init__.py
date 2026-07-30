@@ -29,6 +29,12 @@ from job_application_copilot.services.assessment_worker_handler import (
     AssessmentWorkerHandler,
 )
 from job_application_copilot.services.background_runs import BackgroundRunService
+from job_application_copilot.services.cv_selection import (
+    CvSelectionResult,
+    CvSelectionService,
+    CvSelectionSkip,
+    CvSelectionSkipReason,
+)
 from job_application_copilot.services.default_assessment_prompt import (
     DefaultAssessmentPromptError,
     DefaultAssessmentPromptService,
@@ -159,6 +165,10 @@ __all__ = [
     "RoutingSetSummary",
     "JobNotFoundError",
     "CvLaneConfigurationError",
+    "CvSelectionResult",
+    "CvSelectionService",
+    "CvSelectionSkip",
+    "CvSelectionSkipReason",
     "InvalidCvLaneSelectionError",
     "JobAssessmentDetail",
     "JobService",
