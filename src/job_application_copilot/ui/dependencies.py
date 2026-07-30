@@ -7,6 +7,7 @@ import streamlit as st
 from job_application_copilot.config import AppSettings
 from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.services import (
+    AssessmentBatchService,
     BackgroundRunService,
     DocumentAProcessingService,
     DocumentBProcessingService,
@@ -33,6 +34,12 @@ def get_job_service(database_path: Path) -> JobService:
     """Build a job service using the UI process's shared database facade."""
 
     return JobService(get_database(database_path))
+
+
+def get_assessment_batch_service(database_path: Path) -> AssessmentBatchService:
+    """Build assessment batching over the UI process's shared database facade."""
+
+    return AssessmentBatchService(get_database(database_path))
 
 
 def get_background_run_service(database_path: Path) -> BackgroundRunService:

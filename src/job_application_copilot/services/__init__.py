@@ -4,6 +4,12 @@ from job_application_copilot.repositories import (
     DuplicateJobUrlError,
     JobNotFoundError,
 )
+from job_application_copilot.services.assessment_batch import (
+    AssessmentBatchQueueResult,
+    AssessmentBatchService,
+    AssessmentQueueSkip,
+    AssessmentQueueSkipReason,
+)
 from job_application_copilot.services.assessment_context import (
     AssessmentCacheIdentity,
     AssessmentContext,
@@ -102,6 +108,8 @@ from job_application_copilot.services.reference_asset_storage import (
 
 __all__ = [
     "AssessmentCacheIdentity",
+    "AssessmentBatchQueueResult",
+    "AssessmentBatchService",
     "AssessmentContext",
     "AssessmentContextBuilder",
     "AssessmentContextError",
@@ -109,6 +117,8 @@ __all__ = [
     "AssessmentExecutionService",
     "AssessmentPersistenceService",
     "AssessmentTaskFailedError",
+    "AssessmentQueueSkip",
+    "AssessmentQueueSkipReason",
     "AssessmentWorkerHandler",
     "AssessmentFileInput",
     "AssessmentTextInput",

@@ -10,7 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from job_application_copilot.observability import get_logger
 from job_application_copilot.repositories.job_repository import JobNotFoundError
 from job_application_copilot.repositories.models import Job
-from job_application_copilot.services import JobService
+from job_application_copilot.services import AssessmentBatchService, JobService
 from job_application_copilot.ui.components.job_filters import (
     available_sources,
     has_active_filters,
@@ -24,6 +24,9 @@ SELECTED_JOB_IDS_KEY = "selected_job_ids"
 DELETE_CONFIRMATION_IDS_KEY = "delete_confirmation_job_ids"
 DELETE_CONFIRMATION_KEY = "confirm_delete_selected_jobs"
 DELETE_SUCCESS_KEY = "delete_selected_jobs_success"
+ASSESSMENT_CONFIRMATION_IDS_KEY = "assessment_confirmation_job_ids"
+ASSESSMENT_CONFIRMATION_KEY = "confirm_assess_selected_jobs"
+ASSESSMENT_SUCCESS_KEY = "assess_selected_jobs_success"
 CLEAR_TABLE_SELECTION_ON_RERUN_KEY = "clear_jobs_dashboard_table_selection_on_rerun"
 LOAD_ERROR_MESSAGE = "The jobs could not be loaded. See the private UI log for details."
 TABLE_COLUMN_ORDER = (
@@ -103,7 +106,10 @@ def selected_job_ids(
     return tuple(selected_ids)
 
 
-def render_jobs_dashboard(service: JobService) -> None:
+def render_jobs_dashboard(
+    service: JobService,
+    assessment_batch_service: AssessmentBatchService,
+) -> None:
     """Load and render the initial Jobs dashboard."""
 
     st.title("Jobs")
@@ -111,6 +117,8 @@ def render_jobs_dashboard(service: JobService) -> None:
         st.success(saved_message)
     if deleted_message := st.session_state.pop(DELETE_SUCCESS_KEY, None):
         st.success(deleted_message)
+    if assessment_message := st.session_state.pop(ASSESSMENT_SUCCESS_KEY, None):
+        st.success(assessment_message)
     st.page_link("pages/add_job.py", label="Add job")
 
     try:
@@ -190,7 +198,63 @@ def render_jobs_dashboard(service: JobService) -> None:
         disabled=selected_job_id is None,
         query_params={"job_id": str(selected_job_id)} if selected_job_id is not None else None,
     )
+    _render_assess_selected_jobs(assessment_batch_service, selected_ids)
     _render_delete_selected_jobs(service, selected_ids)
+
+
+def _render_assess_selected_jobs(
+    service: AssessmentBatchService,
+    selected_ids: tuple[int, ...],
+) -> None:
+    """Require explicit confirmation before queuing selected initial assessments."""
+
+    if not selected_ids:
+        return
+    if st.session_state.get(ASSESSMENT_CONFIRMATION_IDS_KEY) != selected_ids:
+        st.session_state[ASSESSMENT_CONFIRMATION_IDS_KEY] = selected_ids
+        st.session_state[ASSESSMENT_CONFIRMATION_KEY] = False
+
+    count = len(selected_ids)
+    noun = "job" if count == 1 else "jobs"
+    st.divider()
+    st.info(f"Queue initial assessments for {count} selected {noun}.")
+    confirmed = st.checkbox(
+        f"I want to assess these {count} selected {noun}.",
+        key=ASSESSMENT_CONFIRMATION_KEY,
+    )
+    if not st.button(
+        f"Assess selected {noun}",
+        key="assess_selected_jobs",
+        type="primary",
+        disabled=not confirmed,
+    ):
+        return
+
+    try:
+        result = service.queue_selected(selected_ids)
+    except JobNotFoundError:
+        logger.exception("jobs_dashboard_assessment_missing_job job_ids=%s", selected_ids)
+        st.error("One or more selected jobs no longer exist. Refresh the selection and try again.")
+        return
+    except SQLAlchemyError:
+        logger.exception("jobs_dashboard_assessment_queue_failed job_ids=%s", selected_ids)
+        st.error(
+            "The selected assessments could not be queued. See the private UI log for details."
+        )
+        return
+
+    if result.batch_id is None:
+        st.warning("None of the selected jobs are eligible for an initial assessment.")
+        return
+
+    queued_count = len(result.queued_job_ids)
+    queued_noun = "job" if queued_count == 1 else "jobs"
+    message = f"Queued {queued_count} {queued_noun} for assessment in batch {result.batch_id}."
+    if result.skipped:
+        message += f" Skipped {len(result.skipped)} ineligible selected jobs."
+    st.session_state[ASSESSMENT_SUCCESS_KEY] = message
+    clear_dashboard_selection()
+    st.rerun()
 
 
 def _render_delete_selected_jobs(service: JobService, selected_ids: tuple[int, ...]) -> None:
@@ -246,6 +310,8 @@ def clear_dashboard_selection() -> None:
     st.session_state[SELECTED_JOB_IDS_KEY] = ()
     st.session_state[DELETE_CONFIRMATION_IDS_KEY] = ()
     st.session_state[DELETE_CONFIRMATION_KEY] = False
+    st.session_state[ASSESSMENT_CONFIRMATION_IDS_KEY] = ()
+    st.session_state[ASSESSMENT_CONFIRMATION_KEY] = False
 
 
 def _clear_table_selection_if_requested() -> None:
