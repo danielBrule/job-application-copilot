@@ -9,7 +9,12 @@ from job_application_copilot.domain import UserDecision
 from job_application_copilot.observability import get_logger, log_event
 from job_application_copilot.repositories.assessment_repository import AssessmentNotFoundError
 from job_application_copilot.repositories.job_repository import JobNotFoundError
-from job_application_copilot.services import JobAssessmentDetail, JobService
+from job_application_copilot.services import (
+    CvLaneConfigurationError,
+    InvalidCvLaneSelectionError,
+    JobAssessmentDetail,
+    JobService,
+)
 from job_application_copilot.ui.components.job_form import render_edit_job_form
 
 logger = get_logger(__name__)
@@ -133,7 +138,6 @@ def render_assessment_detail(detail: JobAssessmentDetail, service: JobService) -
     st.markdown("#### Human choices")
     st.write(f"**Relevance override:** {_optional_label(detail.job.relevance_override)}")
     st.write(f"**Effective relevance:** {_effective_relevance(detail)}")
-    st.write(f"**Selected CV lane:** {_optional(assessment.selected_cv_lane)}")
     _render_human_review(detail, service)
 
     st.markdown("#### Traceability")
@@ -148,6 +152,12 @@ def _render_human_review(detail: JobAssessmentDetail, service: JobService) -> No
 
     assert detail.assessment is not None
     st.caption("The model recommendation above remains unchanged when you save this review.")
+    try:
+        cv_lanes = service.available_cv_lanes()
+    except CvLaneConfigurationError as error:
+        cv_lanes = ()
+        st.warning(str(error))
+
     with st.form(f"human_review_{detail.job.id}_form"):
         user_decision = st.selectbox(
             "User decision",
@@ -159,6 +169,19 @@ def _render_human_review(detail: JobAssessmentDetail, service: JobService) -> No
             "Assessment notes",
             value=detail.assessment.assessment_notes or "",
         )
+        selected_cv_lane = None
+        if cv_lanes:
+            default_lane = detail.assessment.selected_cv_lane
+            if default_lane not in cv_lanes:
+                default_lane = detail.assessment.recommended_document_b_lane
+            if default_lane not in cv_lanes:
+                default_lane = cv_lanes[0]
+            selected_cv_lane = st.selectbox(
+                "Selected CV lane",
+                options=cv_lanes,
+                index=cv_lanes.index(default_lane),
+                help="This controls later Document B routing for CV generation.",
+            )
         save = st.form_submit_button("Save human review")
 
     if not save:
@@ -169,7 +192,10 @@ def _render_human_review(detail: JobAssessmentDetail, service: JobService) -> No
             detail.job.id,
             user_decision=user_decision,
             assessment_notes=assessment_notes,
+            selected_cv_lane=selected_cv_lane,
         )
+    except InvalidCvLaneSelectionError as error:
+        st.error(str(error))
     except (JobNotFoundError, AssessmentNotFoundError):
         st.error("The assessment is no longer available. Refresh the page and try again.")
     except SQLAlchemyError:

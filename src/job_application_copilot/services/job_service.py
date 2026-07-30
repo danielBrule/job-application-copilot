@@ -3,8 +3,24 @@
 from dataclasses import dataclass
 from datetime import timedelta
 
-from job_application_copilot.domain import CreateJob, JobFilters, UpdateJob, UserDecision
-from job_application_copilot.repositories import AssessmentRepository, Database
+from sqlalchemy.orm import Session
+
+from job_application_copilot.domain import (
+    DOCUMENT_B_KEY,
+    CreateJob,
+    DocumentBRoutingSetStatus,
+    JobFilters,
+    LaneId,
+    UpdateJob,
+    UserDecision,
+)
+from job_application_copilot.errors import ApplicationOperationError, ApplicationValidationError
+from job_application_copilot.repositories import (
+    AssessmentRepository,
+    Database,
+    DocumentBRoutingRepository,
+    ReferenceAssetRepository,
+)
 from job_application_copilot.repositories.job_repository import (
     DuplicateJobUrlError,
     JobRepository,
@@ -20,6 +36,14 @@ class JobAssessmentDetail:
     job: Job
     assessment: Assessment | None
     is_stale: bool
+
+
+class CvLaneConfigurationError(ApplicationOperationError):
+    """Raised when no active validated CV-lane catalogue is available."""
+
+
+class InvalidCvLaneSelectionError(ApplicationValidationError):
+    """Raised when a selected CV lane is outside the active catalogue."""
 
 
 class JobService:
@@ -143,6 +167,7 @@ class JobService:
         *,
         user_decision: UserDecision,
         assessment_notes: str | None,
+        selected_cv_lane: LaneId | None = None,
     ) -> JobAssessmentDetail:
         """Persist human assessment review without changing model-owned fields."""
 
@@ -151,8 +176,16 @@ class JobService:
             job = JobRepository(session).require(job_id)
             assessment_repository = AssessmentRepository(session)
             assessment = assessment_repository.require_for_job(job_id)
+            if selected_cv_lane is not None:
+                allowed_lanes = self._current_cv_lanes(session)
+                if selected_cv_lane not in allowed_lanes:
+                    raise InvalidCvLaneSelectionError(
+                        f"CV lane '{selected_cv_lane}' is not configured for the active Document B."
+                    )
             job.user_decision = user_decision
             assessment.assessment_notes = normalized_notes or None
+            if selected_cv_lane is not None:
+                assessment.selected_cv_lane = selected_cv_lane
             session.flush()
             return JobAssessmentDetail(
                 job=job,
@@ -164,6 +197,12 @@ class JobService:
         """Permanently delete one job and its linked local history."""
 
         self.delete_many((job_id,))
+
+    def available_cv_lanes(self) -> tuple[LaneId, ...]:
+        """Return the exact lane catalogue from the active validated Document B route set."""
+
+        with self.database.session() as session:
+            return self._current_cv_lanes(session)
 
     def delete_many(self, job_ids: tuple[int, ...]) -> int:
         """Permanently delete selected jobs and their linked local history atomically."""
@@ -191,3 +230,26 @@ class JobService:
         existing = repository.get_by_url(job_url)
         if existing is not None and existing.id != current_job_id:
             raise DuplicateJobUrlError(existing.id)
+
+    @staticmethod
+    def _current_cv_lanes(session: Session) -> tuple[LaneId, ...]:
+        """Load the only lane IDs eligible for human CV selection."""
+
+        reference_assets = ReferenceAssetRepository(session)
+        document_b = reference_assets.get_active(DOCUMENT_B_KEY)
+        if document_b is None:
+            raise CvLaneConfigurationError(
+                "No active Document B routing configuration is available for CV lane selection."
+            )
+        routing_sets = DocumentBRoutingRepository(session)
+        routing_set = routing_sets.get_current(document_b.id)
+        if routing_set is None or routing_set.status is not DocumentBRoutingSetStatus.VALIDATED:
+            raise CvLaneConfigurationError(
+                "The active Document B version has no current validated routing set."
+            )
+        lanes = tuple(route.lane_id for route in routing_sets.list_routes(routing_set.id))
+        if not lanes:
+            raise CvLaneConfigurationError(
+                "The active Document B routing set contains no selectable CV lanes."
+            )
+        return lanes

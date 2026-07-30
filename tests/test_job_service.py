@@ -13,10 +13,13 @@ from job_application_copilot.domain import (
     AssessmentStatus,
     BackgroundOperation,
     CreateJob,
+    DocumentBRoutingSetStatus,
     JobFilters,
     Language,
     LlmCallStatus,
     Location,
+    ReferenceAssetProcessingStatus,
+    ReferenceAssetType,
     Relevance,
     UpdateJob,
     UserDecision,
@@ -29,11 +32,15 @@ from job_application_copilot.repositories.models import (
     Assessment,
     BackgroundBatch,
     BackgroundTask,
+    DocumentBLaneRoute,
+    DocumentBRoutingSet,
     Job,
     LlmCall,
+    ReferenceAsset,
 )
 from job_application_copilot.services import (
     DuplicateJobUrlError,
+    InvalidCvLaneSelectionError,
     JobNotFoundError,
     JobService,
 )
@@ -195,6 +202,100 @@ def test_update_human_review_persists_user_values_without_changing_model_assessm
     assert updated.assessment.decision is AssessmentDecision.GO
     assert updated.assessment.decision_reason == "Strong fit."
     assert updated.is_stale is False
+
+
+def test_update_human_review_persists_only_a_lane_from_active_document_b_routing(
+    database_and_service: tuple[Database, JobService],
+) -> None:
+    database, service = database_and_service
+    created = service.create(create_command())
+    _add_assessed_job(database, created)
+    _add_active_cv_lanes(database, ("ARCHITECTURE", "AI_DEPLOYMENT"))
+
+    updated = service.update_human_review(
+        created.id,
+        user_decision=UserDecision.PURSUE,
+        assessment_notes=None,
+        selected_cv_lane="AI_DEPLOYMENT",
+    )
+
+    assert service.available_cv_lanes() == ("AI_DEPLOYMENT", "ARCHITECTURE")
+    assert updated.assessment is not None
+    assert updated.assessment.selected_cv_lane == "AI_DEPLOYMENT"
+    assert updated.assessment.recommended_document_b_lane == "ARCHITECTURE"
+
+    with pytest.raises(InvalidCvLaneSelectionError, match="not configured"):
+        service.update_human_review(
+            created.id,
+            user_decision=UserDecision.PURSUE,
+            assessment_notes=None,
+            selected_cv_lane="UNSUPPORTED",
+        )
+
+    detail = service.assessment_detail(created.id)
+    assert detail.assessment is not None
+    assert detail.assessment.selected_cv_lane == "AI_DEPLOYMENT"
+
+
+def _add_assessed_job(database: Database, job: Job) -> None:
+    with database.session() as session:
+        session.add(
+            Assessment(
+                job_id=job.id,
+                status=AssessmentStatus.ASSESSED,
+                model_relevance=Relevance.HIGH,
+                role_snapshot="Role snapshot",
+                real_mandate="Real mandate",
+                primary_role_family="ARCHITECTURE",
+                seniority_fit=8,
+                technical_bar="Technical bar",
+                fit_score=8,
+                priority_score=8,
+                decision=AssessmentDecision.GO,
+                decision_reason="Strong fit.",
+                recommended_document_b_lane="ARCHITECTURE",
+                assessed_at=job.assessment_input_updated_at,
+                source_job_updated_at=job.assessment_input_updated_at,
+            )
+        )
+
+
+def _add_active_cv_lanes(database: Database, lanes: tuple[str, ...]) -> None:
+    with database.session() as session:
+        document_b = ReferenceAsset(
+            asset_key="document-b",
+            asset_type=ReferenceAssetType.DOCUMENT,
+            name="Document B",
+            version=1,
+            file_path="document_b/document-b-v0001.docx",
+            file_hash="sha256:" + ("b" * 64),
+            is_active=True,
+            processing_status=ReferenceAssetProcessingStatus.READY,
+        )
+        session.add(document_b)
+        session.flush()
+        routing_set = DocumentBRoutingSet(
+            reference_asset_id=document_b.id,
+            routing_config_version="routing-v1",
+            routing_config_sha256="sha256:" + ("c" * 64),
+            document_b_file_sha256="sha256:" + ("b" * 64),
+            extracted_section_catalog_sha256="sha256:" + ("d" * 64),
+            status=DocumentBRoutingSetStatus.VALIDATED,
+            is_current=True,
+        )
+        session.add(routing_set)
+        session.flush()
+        session.add_all(
+            [
+                DocumentBLaneRoute(
+                    routing_set_id=routing_set.id,
+                    lane_id=lane,
+                    ordered_route_json="{}",
+                    secondary_lane_constraints_json="{}",
+                )
+                for lane in lanes
+            ]
+        )
 
 
 @pytest.mark.parametrize(

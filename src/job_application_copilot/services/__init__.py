@@ -70,7 +70,12 @@ from job_application_copilot.services.document_b_vector_store import (
     DocumentBVectorStoreNotAllowedError,
     DocumentBVectorStoreService,
 )
-from job_application_copilot.services.job_service import JobAssessmentDetail, JobService
+from job_application_copilot.services.job_service import (
+    CvLaneConfigurationError,
+    InvalidCvLaneSelectionError,
+    JobAssessmentDetail,
+    JobService,
+)
 from job_application_copilot.services.openai_file_upload import (
     OpenAIFileUploadError,
     OpenAIFileUploadNotAllowedError,
@@ -153,6 +158,8 @@ __all__ = [
     "ResolvedRouting",
     "RoutingSetSummary",
     "JobNotFoundError",
+    "CvLaneConfigurationError",
+    "InvalidCvLaneSelectionError",
     "JobAssessmentDetail",
     "JobService",
     "OpenAIFileUploadError",
