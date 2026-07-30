@@ -32,6 +32,9 @@ from job_application_copilot.repositories.background_task_repository import (
     BackgroundTaskRepository,
 )
 from job_application_copilot.repositories.models import BackgroundBatch, BackgroundTask
+from job_application_copilot.services.assessment_worker_handler import (
+    AssessmentWorkerHandler,
+)
 from job_application_copilot.services.background_task_recovery import (
     BackgroundTaskRecoveryService,
 )
@@ -348,7 +351,9 @@ def main() -> None:
     DefaultAssessmentPromptService(database, settings).ensure()
     worker = BackgroundWorker(
         database,
-        handlers={},
+        handlers={
+            BackgroundOperation.ASSESSMENT: AssessmentWorkerHandler(database, settings),
+        },
         worker_counts={
             BackgroundOperation.ASSESSMENT: settings.assessment_worker_count,
             BackgroundOperation.CV_GENERATION: settings.cv_worker_count,

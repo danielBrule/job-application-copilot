@@ -18,6 +18,10 @@ from job_application_copilot.services.assessment_execution import (
     AssessmentExecutionService,
 )
 from job_application_copilot.services.assessment_persistence import AssessmentPersistenceService
+from job_application_copilot.services.assessment_worker_handler import (
+    AssessmentTaskFailedError,
+    AssessmentWorkerHandler,
+)
 from job_application_copilot.services.background_runs import BackgroundRunService
 from job_application_copilot.services.default_assessment_prompt import (
     DefaultAssessmentPromptError,
@@ -104,6 +108,8 @@ __all__ = [
     "AssessmentExecutionResult",
     "AssessmentExecutionService",
     "AssessmentPersistenceService",
+    "AssessmentTaskFailedError",
+    "AssessmentWorkerHandler",
     "AssessmentFileInput",
     "AssessmentTextInput",
     "AssessmentTraceability",

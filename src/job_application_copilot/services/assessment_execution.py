@@ -66,12 +66,24 @@ class AssessmentExecutionService:
         self.sleep = sleep
         self.monotonic = monotonic
 
-    def assess(self, job_id: int) -> AssessmentExecutionResult:
+    def assess(
+        self,
+        job_id: int,
+        *,
+        task_id: int | None = None,
+        task_attempt_id: int | None = None,
+    ) -> AssessmentExecutionResult:
         """Build the authoritative context and execute it within the retry budget."""
 
         context = self.context_builder.build(job_id)
         for retry_number in range(self.settings.assessment_max_retries + 1):
-            result = self._attempt(job_id, context, retry_number)
+            result = self._attempt(
+                job_id,
+                context,
+                retry_number,
+                task_id=task_id,
+                task_attempt_id=task_attempt_id,
+            )
             if result.succeeded or retry_number == self.settings.assessment_max_retries:
                 return result
             if result.failure_category not in {
@@ -93,6 +105,9 @@ class AssessmentExecutionService:
         job_id: int,
         context: AssessmentContext,
         retry_number: int,
+        *,
+        task_id: int | None,
+        task_attempt_id: int | None,
     ) -> AssessmentExecutionResult:
         started_at = datetime.now(UTC).replace(tzinfo=None)
         started_monotonic = self.monotonic()
@@ -109,6 +124,8 @@ class AssessmentExecutionService:
                 started_at,
                 completed_at,
                 duration,
+                task_id=task_id,
+                task_attempt_id=task_attempt_id,
                 request_id=error.request_id,
             )
             return AssessmentExecutionResult(
@@ -130,6 +147,8 @@ class AssessmentExecutionService:
                 started_at,
                 completed_at,
                 duration,
+                task_id=task_id,
+                task_attempt_id=task_attempt_id,
                 response=response,
             )
             return AssessmentExecutionResult(
@@ -155,6 +174,8 @@ class AssessmentExecutionService:
                 started_at,
                 completed_at,
                 duration,
+                task_id=task_id,
+                task_attempt_id=task_attempt_id,
                 response=response,
             )
             return AssessmentExecutionResult(
@@ -167,7 +188,15 @@ class AssessmentExecutionService:
                 response.model,
             )
         self._record_success(
-            job_id, context, retry_number, started_at, completed_at, duration, response
+            job_id,
+            context,
+            retry_number,
+            started_at,
+            completed_at,
+            duration,
+            task_id=task_id,
+            task_attempt_id=task_attempt_id,
+            response=response,
         )
         return AssessmentExecutionResult(
             job_id,
@@ -192,6 +221,9 @@ class AssessmentExecutionService:
         completed_at: datetime,
         duration: float,
         response: AssessmentOpenAIResponse,
+        *,
+        task_id: int | None,
+        task_attempt_id: int | None,
     ) -> None:
         self._record(
             job_id,
@@ -202,6 +234,8 @@ class AssessmentExecutionService:
             started_at,
             completed_at,
             duration,
+            task_id=task_id,
+            task_attempt_id=task_attempt_id,
             response=response,
         )
 
@@ -215,6 +249,8 @@ class AssessmentExecutionService:
         completed_at: datetime,
         duration: float,
         *,
+        task_id: int | None,
+        task_attempt_id: int | None,
         response: AssessmentOpenAIResponse | None = None,
         request_id: str | None = None,
     ) -> None:
@@ -227,6 +263,8 @@ class AssessmentExecutionService:
             started_at,
             completed_at,
             duration,
+            task_id=task_id,
+            task_attempt_id=task_attempt_id,
             response=response,
             request_id=request_id,
         )
@@ -242,6 +280,8 @@ class AssessmentExecutionService:
         completed_at: datetime,
         duration: float,
         *,
+        task_id: int | None,
+        task_attempt_id: int | None,
         response: AssessmentOpenAIResponse | None = None,
         request_id: str | None = None,
     ) -> None:
@@ -268,6 +308,8 @@ class AssessmentExecutionService:
             values["provider_request_id"] = request_id
         call = LlmCall(
             job_id=job_id,
+            task_id=task_id,
+            task_attempt_id=task_attempt_id,
             call_sequence=retry_number + 1,
             retry_number=retry_number,
             status=status,
