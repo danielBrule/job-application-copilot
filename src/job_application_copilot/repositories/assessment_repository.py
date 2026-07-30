@@ -1,9 +1,11 @@
 """Session-scoped persistence operations for current job assessments."""
 
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from job_application_copilot.domain import AssessmentStatus
+from job_application_copilot.domain import AssessmentOutput, AssessmentStatus
 from job_application_copilot.errors import (
     ApplicationNotFoundError,
     ApplicationValidationError,
@@ -84,5 +86,52 @@ class AssessmentRepository:
             raise AssessmentNotAllowedError("A failed assessment requires an error message.")
         assessment.status = AssessmentStatus.FAILED
         assessment.error_message = message
+        self.session.flush()
+        return assessment
+
+    def replace_with_success(
+        self,
+        assessment: Assessment,
+        output: AssessmentOutput,
+        *,
+        document_a_version: int,
+        prompt_version: int,
+        model_name: str,
+        assessed_at: datetime,
+        source_job_updated_at: datetime,
+    ) -> Assessment:
+        """Replace only model-owned current-result fields with one validated output."""
+
+        assessment.status = AssessmentStatus.ASSESSED
+        assessment.model_relevance = output.model_relevance
+        assessment.role_snapshot = output.role_snapshot
+        assessment.real_mandate = output.real_mandate
+        assessment.primary_role_family = output.primary_role_family
+        assessment.secondary_role_family = output.secondary_role_family
+        assessment.seniority_fit = output.seniority_fit
+        assessment.technical_bar = output.technical_bar
+        assessment.tech_bar_fit = output.tech_bar_fit
+        assessment.fit_score = output.fit_score
+        assessment.priority_score = output.priority_score
+        assessment.decision = output.decision
+        assessment.decision_reason = output.decision_reason
+        assessment.interview_probability_low = output.interview_probability_low
+        assessment.interview_probability_high = output.interview_probability_high
+        assessment.interview_probability_confidence = output.interview_probability_confidence
+        assessment.strong_fit_signals = list(output.strong_fit_signals)
+        assessment.red_flags = list(output.red_flags)
+        assessment.sustainability_risks = list(output.sustainability_risks)
+        assessment.evidence_gaps = list(output.evidence_gaps)
+        assessment.evidence_anchors = [anchor.model_dump() for anchor in output.evidence_anchors]
+        assessment.evidence_confidence = output.evidence_confidence
+        assessment.recommended_document_b_lane = output.recommended_document_b_lane
+        assessment.secondary_cv_angle = output.secondary_cv_angle
+        assessment.overclaiming_risks = list(output.overclaiming_risks)
+        assessment.document_a_version = document_a_version
+        assessment.prompt_version = prompt_version
+        assessment.model_name = model_name
+        assessment.assessed_at = assessed_at
+        assessment.source_job_updated_at = source_job_updated_at
+        assessment.error_message = None
         self.session.flush()
         return assessment
