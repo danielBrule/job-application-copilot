@@ -40,6 +40,7 @@ class AssessmentExecutionResult:
     failure_category: LlmFailureCategory | None
     attempts: int
     model_name: str | None = None
+    retryable: bool = False
 
     @property
     def succeeded(self) -> bool:
@@ -84,7 +85,11 @@ class AssessmentExecutionService:
                 task_id=task_id,
                 task_attempt_id=task_attempt_id,
             )
-            if result.succeeded or retry_number == self.settings.assessment_max_retries:
+            if (
+                result.succeeded
+                or not result.retryable
+                or retry_number == self.settings.assessment_max_retries
+            ):
                 return result
             if result.failure_category not in {
                 LlmFailureCategory.TIMEOUT,
@@ -135,6 +140,7 @@ class AssessmentExecutionService:
                 str(error),
                 category,
                 retry_number + 1,
+                retryable=error.retryable,
             )
 
         completed_at, duration = self._completed(started_at, started_monotonic)
@@ -159,6 +165,7 @@ class AssessmentExecutionService:
                 LlmFailureCategory.INCOMPLETE_RESPONSE,
                 retry_number + 1,
                 response.model,
+                retryable=True,
             )
         try:
             output = AssessmentOutput.model_validate_json(
@@ -186,6 +193,7 @@ class AssessmentExecutionService:
                 LlmFailureCategory.SCHEMA_VALIDATION,
                 retry_number + 1,
                 response.model,
+                retryable=True,
             )
         self._record_success(
             job_id,

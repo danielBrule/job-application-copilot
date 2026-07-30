@@ -432,3 +432,60 @@ def test_translates_status_errors(
     assert raised.value.retryable is retryable
     assert raised.value.request_id == "req_failure"
     assert "sensitive provider response" not in str(raised.value)
+
+
+def test_exposes_only_safe_provider_error_identifiers() -> None:
+    client, sdk_client = make_client()
+    response_client = Mock()
+    sdk_client.with_options.return_value = response_client
+    request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+    response = httpx.Response(400, request=request, headers={"x-request-id": "req_failure"})
+    response_client.responses.create.side_effect = APIStatusError(
+        "private provider message",
+        response=response,
+        body={
+            "error": {
+                "message": "Private request content must not be displayed.",
+                "type": "invalid_request_error",
+                "code": "invalid_json_schema",
+                "param": "text.format.schema",
+            }
+        },
+    )
+
+    with pytest.raises(OpenAIClientError) as raised:
+        client.assess(assessment_context())
+
+    message = str(raised.value)
+    assert "invalid_request_error" in message
+    assert "invalid_json_schema" in message
+    assert "text.format.schema" in message
+    assert "private provider message" not in message
+    assert "Private request content" not in message
+
+
+def test_exposes_safe_identifiers_from_a_top_level_provider_error() -> None:
+    client, sdk_client = make_client()
+    response_client = Mock()
+    sdk_client.with_options.return_value = response_client
+    request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+    response = httpx.Response(400, request=request, headers={"x-request-id": "req_failure"})
+    response_client.responses.create.side_effect = APIStatusError(
+        "private provider message",
+        response=response,
+        body={
+            "message": "Private request content must not be displayed.",
+            "type": "invalid_request_error",
+            "code": "unsupported_parameter",
+            "param": "prompt_cache_options",
+        },
+    )
+
+    with pytest.raises(OpenAIClientError) as raised:
+        client.assess(assessment_context())
+
+    message = str(raised.value)
+    assert "invalid_request_error" in message
+    assert "unsupported_parameter" in message
+    assert "prompt_cache_options" in message
+    assert "Private request content" not in message

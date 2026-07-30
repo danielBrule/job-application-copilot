@@ -8,7 +8,7 @@ import pytest
 
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import Language, LlmCallStatus, Location
-from job_application_copilot.llm import AssessmentOpenAIResponse
+from job_application_copilot.llm import AssessmentOpenAIResponse, OpenAIClientError
 from job_application_copilot.repositories import Database, LlmCallRepository, create_database
 from job_application_copilot.repositories.models import Job
 from job_application_copilot.services import (
@@ -33,13 +33,16 @@ class StaticContextBuilder:
 
 
 class FakeClient:
-    def __init__(self, responses: list[AssessmentOpenAIResponse]) -> None:
+    def __init__(self, responses: list[AssessmentOpenAIResponse | OpenAIClientError]) -> None:
         self.responses = iter(responses)
         self.calls = 0
 
     def assess(self, context: AssessmentContext) -> AssessmentOpenAIResponse:
         self.calls += 1
-        return next(self.responses)
+        response = next(self.responses)
+        if isinstance(response, OpenAIClientError):
+            raise response
+        return response
 
 
 @pytest.fixture
@@ -169,3 +172,33 @@ def test_retries_schema_failure_and_retains_each_attempt(database: Database) -> 
     with database.session() as session:
         calls = LlmCallRepository(session).list(job_id=job_id)
     assert [call.status for call in calls] == [LlmCallStatus.FAILED, LlmCallStatus.SUCCEEDED]
+
+
+def test_does_not_retry_a_non_retryable_provider_failure(database: Database) -> None:
+    job_id = add_job(database)
+    client = FakeClient(
+        [
+            OpenAIClientError(
+                "OpenAI rejected the request with HTTP status 400.",
+                operation="assessment",
+                retryable=False,
+                request_id="req_failure",
+            )
+        ]
+    )
+    service = AssessmentExecutionService(
+        database,
+        AppSettings(_env_file=None, assessment_retry_base_delay_seconds=0),
+        client,
+        context_builder=StaticContextBuilder(context()),
+        monotonic=iter((0.0, 1.0)).__next__,
+    )
+
+    result = service.assess(job_id)
+
+    assert not result.succeeded
+    assert result.attempts == 1
+    assert client.calls == 1
+    with database.session() as session:
+        calls = LlmCallRepository(session).list(job_id=job_id)
+    assert len(calls) == 1
