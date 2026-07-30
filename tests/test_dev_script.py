@@ -305,3 +305,24 @@ def test_openai_target_has_explicit_opt_in_and_restoration_contract() -> None:
     assert 'Set-Item -LiteralPath "Env:$flagName" -Value "1"' in script
     assert 'Remove-Item -LiteralPath "Env:$flagName"' in script
     assert 'Set-Item -LiteralPath "Env:$flagName" -Value $existingFlag.Value' in script
+
+
+def test_ui_launcher_retries_transient_worker_startup_failure() -> None:
+    script = DEV_SCRIPT.read_text(encoding="utf-8")
+
+    assert "$script:UiWorkerStartupAttempts = 3" in script
+    assert "function Start-UiWorker" in script
+    assert "Background worker exited during startup; retrying" in script
+    assert "if (-not $worker.HasExited)" in script
+    assert (
+        "Start-UiWorker -Python $python -StopFile $stopFile -DataDirectory $dataDirectory" in script
+    )
+
+
+def test_ui_launcher_preserves_the_single_worker_lease() -> None:
+    script = DEV_SCRIPT.read_text(encoding="utf-8")
+
+    assert "function Test-ActiveWorkerLease" in script
+    assert '"logs\\worker.lock"' in script
+    assert "A background worker is already active; the UI will use that worker." in script
+    assert "The background worker could not start after" in script
