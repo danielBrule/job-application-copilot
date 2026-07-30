@@ -23,6 +23,7 @@ FILTER_OPERATION_KEY = "background_runs_operation"
 FILTER_STATUS_KEY = "background_runs_status"
 FILTER_BATCH_KEY = "background_runs_batch"
 FILTER_JOB_KEY = "background_runs_job"
+INCLUDE_COMPLETED_KEY = "background_runs_include_completed"
 LOAD_ERROR_MESSAGE = "Background runs could not be loaded. See the private UI log for details."
 RETRY_ERROR_MESSAGE = "The task could not be retried. See the private UI log for details."
 AUTO_REFRESH_SECONDS = 60
@@ -124,11 +125,16 @@ def _render_filters(runs: list[BackgroundRunSummary]) -> BackgroundRunFilters:
             format_func=lambda value: "All jobs" if value is None else jobs[value],
             key=FILTER_JOB_KEY,
         )
+    include_completed = st.checkbox(
+        "Include completed tasks",
+        key=INCLUDE_COMPLETED_KEY,
+    )
     return BackgroundRunFilters(
         operation=operation,
         status=status,
         batch_id=batch_id,
         job_id=job_id,
+        include_completed=include_completed,
     )
 
 
@@ -212,6 +218,7 @@ def _has_active_filters(filters: BackgroundRunFilters) -> bool:
             filters.status,
             filters.batch_id,
             filters.job_id,
+            filters.include_completed,
         )
     )
 
