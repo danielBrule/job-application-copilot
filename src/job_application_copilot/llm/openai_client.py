@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from openai import (
     APIConnectionError,
@@ -16,6 +16,9 @@ from openai import (
 )
 
 from job_application_copilot.config import AppSettings
+
+if TYPE_CHECKING:
+    from job_application_copilot.services.assessment_context import AssessmentContext
 
 OPENAI_FILE_PURPOSE: Literal["user_data"] = "user_data"
 OPENAI_FILE_UPLOAD_MAX_RETRIES = 2
@@ -33,6 +36,26 @@ class UploadedOpenAIFile:
     filename: str
     size_bytes: int
     request_id: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class AssessmentOpenAIResponse:
+    """Privacy-safe application view of one Responses API assessment result."""
+
+    response_id: str
+    request_id: str | None
+    model: str | None
+    output_text: str
+    incomplete_reason: str | None
+    service_tier: str | None
+    input_tokens: int | None
+    cached_input_tokens: int | None
+    cache_write_tokens: int | None
+    output_tokens: int | None
+    reasoning_tokens: int | None
+    total_tokens: int | None
+    cache_mode: str | None
+    cache_ttl: str | None
 
 
 class OpenAIVectorStoreFileStatus(StrEnum):
@@ -137,6 +160,66 @@ class OpenAIClient:
             filename=uploaded.filename,
             size_bytes=uploaded.bytes,
             request_id=uploaded._request_id,
+        )
+
+    def assess(self, context: AssessmentContext) -> AssessmentOpenAIResponse:
+        """Run one structured, evidence-grounded assessment through Responses."""
+
+        input_items: list[dict[str, object]] = []
+        explicit_cache = _supports_explicit_prompt_cache(context.traceability.model_identifier)
+        for item in context.input:
+            rendered = item.model_dump(exclude={"section"})
+            if explicit_cache and item.type == "input_file":
+                rendered["prompt_cache_breakpoint"] = {"mode": "explicit"}
+            input_items.append(rendered)
+        arguments: dict[str, Any] = {
+            "model": context.traceability.model_identifier,
+            "input": [{"role": "user", "content": input_items}],
+            "reasoning": {"effort": context.reasoning_effort},
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "assessment_output",
+                    "strict": True,
+                    "schema": context.response_schema,
+                }
+            },
+            "prompt_cache_key": context.cache_identity.identity_hash,
+        }
+        if explicit_cache:
+            arguments["prompt_cache_options"] = {"mode": "explicit", "ttl": "30m"}
+        try:
+            response = self._sdk_client.with_options(max_retries=0).responses.create(**arguments)
+        except APIError as error:
+            raise _translate_openai_error(error, operation="assessment") from error
+
+        usage = response.usage
+        input_details = usage.input_tokens_details if usage is not None else None
+        output_details = usage.output_tokens_details if usage is not None else None
+        cache_options = getattr(response, "prompt_cache_options", None)
+        return AssessmentOpenAIResponse(
+            response_id=response.id,
+            request_id=response._request_id,
+            model=getattr(response, "model", None),
+            output_text=response.output_text,
+            incomplete_reason=(
+                response.incomplete_details.reason
+                if response.incomplete_details is not None
+                else None
+            ),
+            service_tier=response.service_tier,
+            input_tokens=usage.input_tokens if usage is not None else None,
+            cached_input_tokens=input_details.cached_tokens if input_details is not None else None,
+            cache_write_tokens=input_details.cache_write_tokens
+            if input_details is not None
+            else None,
+            output_tokens=usage.output_tokens if usage is not None else None,
+            reasoning_tokens=output_details.reasoning_tokens
+            if output_details is not None
+            else None,
+            total_tokens=usage.total_tokens if usage is not None else None,
+            cache_mode=cache_options.mode if cache_options is not None else None,
+            cache_ttl=cache_options.ttl if cache_options is not None else None,
         )
 
     def upload_text(self, *, filename: str, content: bytes) -> UploadedOpenAIFile:
@@ -381,3 +464,9 @@ def _translate_openai_error(
         operation=operation,
         retryable=False,
     )
+
+
+def _supports_explicit_prompt_cache(model_identifier: str) -> bool:
+    """Return whether the configured model supports explicit cache breakpoints."""
+
+    return model_identifier.strip().lower().startswith("gpt-5.6")

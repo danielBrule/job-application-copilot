@@ -97,6 +97,8 @@ The `.env` file and all private data remain excluded from Git.
 | `JAC_REFERENCE_FOLDER` | `<JAC_DATA_DIR>/reference` |
 | `JAC_ASSESSMENT_MODEL` | `gpt-5.6-sol` |
 | `JAC_ASSESSMENT_REASONING_EFFORT` | `medium` |
+| `JAC_ASSESSMENT_MAX_RETRIES` | `2` |
+| `JAC_ASSESSMENT_RETRY_BASE_DELAY_SECONDS` | `1` |
 | `JAC_ASSESSMENT_WORKER_COUNT` | `1` |
 | `JAC_CV_WORKER_COUNT` | `1` |
 | `JAC_LOG_LEVEL` | `INFO` |
