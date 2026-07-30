@@ -159,7 +159,10 @@ def test_allows_only_one_current_assessment_per_job(migrated_database: Database)
             {"interview_probability_low": 8, "interview_probability_high": 3},
             "interview_probability_order",
         ),
-        ({"status": AssessmentStatus.FAILED}, "error_matches_status"),
+        (
+            {"status": AssessmentStatus.FAILED, "assessed_at": None},
+            "error_matches_status",
+        ),
     ],
 )
 def test_rejects_invalid_scores_and_failure_state(
