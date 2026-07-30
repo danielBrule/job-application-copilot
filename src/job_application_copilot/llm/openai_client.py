@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -26,6 +27,7 @@ OPENAI_FILE_UPLOAD_TIMEOUT_SECONDS = 120.0
 OPENAI_VECTOR_STORE_POLL_INTERVAL_SECONDS = 1.0
 DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 TEXT_MEDIA_TYPE = "text/plain"
+_SAFE_PROVIDER_ERROR_VALUE = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -453,6 +455,9 @@ def _translate_openai_error(
             message = "OpenAI rate-limited the file request after the configured retries."
         else:
             message = f"OpenAI rejected the request with HTTP status {status_code}."
+        hint = _safe_provider_error_hint(error)
+        if hint is not None:
+            message = f"{message} {hint}"
         return OpenAIClientError(
             message,
             operation=operation,
@@ -464,6 +469,22 @@ def _translate_openai_error(
         operation=operation,
         retryable=False,
     )
+
+
+def _safe_provider_error_hint(error: APIStatusError) -> str | None:
+    """Extract non-content error identifiers without retaining provider messages."""
+
+    body = error.body
+    if not isinstance(body, dict):
+        return None
+    nested_details = body.get("error")
+    details = nested_details if isinstance(nested_details, dict) else body
+    values: list[str] = []
+    for key in ("code", "param", "type"):
+        value = details.get(key)
+        if isinstance(value, str) and _SAFE_PROVIDER_ERROR_VALUE.fullmatch(value):
+            values.append(f"{key}={value}")
+    return f"Provider diagnostic: {', '.join(values)}." if values else None
 
 
 def _supports_explicit_prompt_cache(model_identifier: str) -> bool:

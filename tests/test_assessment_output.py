@@ -180,13 +180,17 @@ def test_provider_schema_uses_configured_lanes_as_exact_enums() -> None:
 def test_provider_schema_describes_decision_boundaries() -> None:
     schema = assessment_output_json_schema(ALLOWED_LANES)
 
-    description = schema["properties"]["decision"]["description"]
+    decision_schema = schema["properties"]["decision"]
+    description = schema["$defs"]["AssessmentDecision"]["description"]
 
+    assert decision_schema == {"$ref": "#/$defs/AssessmentDecision"}
     assert "GO:" in description
     assert "CAUTION:" in description
     assert "STRETCH:" in description
     assert "NO_GO:" in description
-    assert "Do not choose NO_GO solely" in description
+    assert "Prefer STRETCH for one or two weak requirements" in description
+    assert "prefer CAUTION or STRETCH" in description
+    assert len(description) <= 512
 
 
 def test_provider_schema_rejects_empty_or_invalid_lane_catalogue() -> None:
