@@ -262,3 +262,69 @@ def test_failed_reassessment_keeps_the_prior_successful_assessment(database: Dat
             BackgroundTaskRepository(session).require(retry_task.id).status
             is BackgroundTaskStatus.FAILED
         )
+
+
+def test_mixed_reassessment_outcomes_preserve_only_the_failed_jobs_prior_result(
+    database: Database,
+) -> None:
+    first_task, second_task = add_tasks(database, ["First", "Second"])
+    client = FakeClient(
+        [
+            response(),
+            response(),
+            response(),
+            OpenAIClientError(
+                "OpenAI could not be reached.",
+                operation="assessment",
+                retryable=False,
+            ),
+        ]
+    )
+    task_worker = worker(database, client)
+    assert task_worker.process_next_task()
+    assert task_worker.process_next_task()
+
+    with database.session() as session:
+        assessments = AssessmentRepository(session)
+        second_prior = assessments.require_for_job(second_task.job_id)
+        second_prior_values = (
+            second_prior.id,
+            second_prior.model_relevance,
+            second_prior.assessed_at,
+        )
+        batch = BackgroundBatchRepository(session).add(
+            BackgroundBatch(operation=BackgroundOperation.ASSESSMENT)
+        )
+        first_retry = BackgroundTaskRepository(session).add(
+            BackgroundTask(
+                batch_id=batch.id,
+                job_id=first_task.job_id,
+                operation=BackgroundOperation.ASSESSMENT,
+            )
+        )
+        second_retry = BackgroundTaskRepository(session).add(
+            BackgroundTask(
+                batch_id=batch.id,
+                job_id=second_task.job_id,
+                operation=BackgroundOperation.ASSESSMENT,
+            )
+        )
+
+    assert task_worker.process_next_task()
+    assert task_worker.process_next_task()
+
+    with database.session() as session:
+        tasks = BackgroundTaskRepository(session)
+        assert tasks.require(first_retry.id).status is BackgroundTaskStatus.COMPLETED
+        assert tasks.require(second_retry.id).status is BackgroundTaskStatus.FAILED
+        assert (
+            AssessmentRepository(session).require_for_job(first_task.job_id).status
+            is AssessmentStatus.ASSESSED
+        )
+        second_assessment = AssessmentRepository(session).require_for_job(second_task.job_id)
+        assert (
+            second_assessment.id,
+            second_assessment.model_relevance,
+            second_assessment.assessed_at,
+        ) == second_prior_values
+        assert second_assessment.status is AssessmentStatus.ASSESSED

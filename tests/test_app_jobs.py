@@ -5,6 +5,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from job_application_copilot.domain import (
+    AssessmentStatus,
     CreateJob,
     Language,
     Location,
@@ -12,7 +13,8 @@ from job_application_copilot.domain import (
     UserDecision,
 )
 from job_application_copilot.observability import reset_logging
-from job_application_copilot.repositories.models import Job
+from job_application_copilot.repositories import AssessmentRepository, BackgroundTaskRepository
+from job_application_copilot.repositories.models import Assessment, Job
 from job_application_copilot.services import (
     JobService,
 )
@@ -34,7 +36,7 @@ from job_application_copilot.ui.components.jobs_dashboard import (
 from job_application_copilot.ui.components.jobs_dashboard import (
     LOAD_ERROR_MESSAGE as JOBS_LOAD_ERROR_MESSAGE,
 )
-from job_application_copilot.ui.dependencies import get_job_service
+from job_application_copilot.ui.dependencies import get_database, get_job_service
 from tests.app_test_support import APP_PATH
 
 
@@ -108,6 +110,44 @@ def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
         open_selected_job = app.get("page_link")[-1]
         assert not open_selected_job.disabled
         assert open_selected_job.label == "Open selected job"
+    finally:
+        reset_logging()
+
+
+def test_jobs_dashboard_queues_selected_failed_assessment_for_reassessment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+
+    try:
+        database_path = data_dir / "database" / "job_application_copilot.db"
+        service = get_job_service(database_path)
+        job = _create_job_for_edit(service)
+        with get_database(database_path).session() as session:
+            AssessmentRepository(session).add(
+                Assessment(
+                    job_id=job.id,
+                    status=AssessmentStatus.FAILED,
+                    error_message="Timed out.",
+                )
+            )
+
+        app.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": [0]}}
+        app.run()
+        app.checkbox(key="confirm_reassess_selected_jobs").check().run()
+        app.button(key="reassess_selected_jobs").click().run()
+
+        assert not app.exception
+        assert "Queued 1 job for reassessment in batch" in app.success[0].value
+        assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
+        with get_database(database_path).session() as session:
+            tasks = BackgroundTaskRepository(session).list(job_id=job.id)
+            assert len(tasks) == 1
+            assert tasks[0].payload_metadata == {}
     finally:
         reset_logging()
 
