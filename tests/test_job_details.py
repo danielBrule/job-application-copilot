@@ -12,6 +12,7 @@ from job_application_copilot.services.database_bootstrap import initialize_datab
 from job_application_copilot.ui.components.job_details import (
     _effective_relevance,
     parse_job_id,
+    summary_bullets,
 )
 
 
@@ -85,3 +86,10 @@ def test_assessment_detail_returns_current_result_and_detects_staleness(tmp_path
         assert stale.is_stale is True
     finally:
         database.dispose()
+
+
+def test_summary_bullets_normalizes_markers_and_caps_at_ten() -> None:
+    source = "\n".join(f"-  Point {number}  " for number in range(12))
+
+    assert summary_bullets(source) == tuple(f"Point {number}" for number in range(10))
+    assert summary_bullets("A single summary paragraph.") == ("A single summary paragraph.",)

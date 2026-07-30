@@ -1,7 +1,7 @@
 """Integration tests for atomic job application-service operations."""
 
 from dataclasses import replace
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -13,6 +13,7 @@ from job_application_copilot.domain import (
     AssessmentStatus,
     BackgroundOperation,
     CreateJob,
+    CvSelectionStatus,
     DocumentBRoutingSetStatus,
     JobFilters,
     Language,
@@ -39,6 +40,7 @@ from job_application_copilot.repositories.models import (
     ReferenceAsset,
 )
 from job_application_copilot.services import (
+    AssessmentReviewNotEligibleError,
     DuplicateJobUrlError,
     InvalidCvLaneSelectionError,
     JobNotFoundError,
@@ -189,10 +191,16 @@ def test_update_human_review_persists_user_values_without_changing_model_assessm
         )
         session.add(assessment)
 
+    selected_cv_lane = None
+    if user_decision is UserDecision.PURSUE:
+        _add_active_cv_lanes(database, ("ARCHITECTURE",))
+        selected_cv_lane = "ARCHITECTURE"
+
     updated = service.update_human_review(
         created.id,
         user_decision=user_decision,
         assessment_notes="  Follow up on team structure.  ",
+        selected_cv_lane=selected_cv_lane,
     )
 
     assert updated.job.user_decision is user_decision
@@ -235,6 +243,92 @@ def test_update_human_review_persists_only_a_lane_from_active_document_b_routing
     detail = service.assessment_detail(created.id)
     assert detail.assessment is not None
     assert detail.assessment.selected_cv_lane == "AI_DEPLOYMENT"
+
+
+def test_pursue_review_atomically_selects_cv_and_non_pursuit_clears_it(
+    database_and_service: tuple[Database, JobService],
+) -> None:
+    database, service = database_and_service
+    created = service.create(create_command())
+    _add_assessed_job(database, created)
+    _add_active_cv_lanes(database, ("ARCHITECTURE",))
+
+    pursued = service.update_human_review(
+        created.id,
+        user_decision=UserDecision.PURSUE,
+        assessment_notes="Ready to tailor.",
+        selected_cv_lane="ARCHITECTURE",
+    )
+
+    assert pursued.job.cv_selection_status is CvSelectionStatus.SELECTED
+    assert pursued.assessment is not None
+    assert pursued.assessment.selected_cv_lane == "ARCHITECTURE"
+
+    declined = service.update_human_review(
+        created.id,
+        user_decision=UserDecision.DO_NOT_PURSUE,
+        assessment_notes=None,
+        selected_cv_lane="ARCHITECTURE",
+    )
+    assert declined.job.cv_selection_status is CvSelectionStatus.NOT_SELECTED
+    assert declined.assessment is not None
+    assert declined.assessment.selected_cv_lane == "ARCHITECTURE"
+
+
+def test_pursue_review_rejects_stale_assessment_without_partial_update(
+    database_and_service: tuple[Database, JobService],
+) -> None:
+    database, service = database_and_service
+    created = service.create(create_command())
+    _add_assessed_job(database, created)
+    _add_active_cv_lanes(database, ("ARCHITECTURE",))
+    with database.session() as session:
+        job = session.get(Job, created.id)
+        assert job is not None
+        job.assessment_input_updated_at += timedelta(seconds=1)
+
+    with pytest.raises(AssessmentReviewNotEligibleError, match="stale"):
+        service.update_human_review(
+            created.id,
+            user_decision=UserDecision.PURSUE,
+            assessment_notes="Do not persist.",
+            selected_cv_lane="ARCHITECTURE",
+        )
+
+    detail = service.assessment_detail(created.id)
+    assert detail.job.user_decision is UserDecision.UNDECIDED
+    assert detail.job.cv_selection_status is CvSelectionStatus.NOT_SELECTED
+    assert detail.assessment is not None
+    assert detail.assessment.assessment_notes is None
+    assert detail.assessment.selected_cv_lane is None
+
+
+def test_assessment_review_navigation_uses_newest_assessed_undecided_order(
+    database_and_service: tuple[Database, JobService],
+) -> None:
+    database, service = database_and_service
+    oldest = service.create(create_command("Oldest"))
+    middle = service.create(
+        replace(
+            create_command("Middle"),
+            job_url="https://example.com/middle",
+            date_added=date(2026, 7, 25),
+        )
+    )
+    newest = service.create(
+        replace(
+            create_command("Newest"),
+            job_url="https://example.com/newest",
+            date_added=date(2026, 7, 26),
+        )
+    )
+    for job in (oldest, middle, newest):
+        _add_assessed_job(database, job)
+
+    navigation = service.assessment_review_navigation(middle.id)
+
+    assert navigation.previous_job_id == newest.id
+    assert navigation.next_job_id == oldest.id
 
 
 def _add_assessed_job(database: Database, job: Job) -> None:

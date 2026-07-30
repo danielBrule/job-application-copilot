@@ -1,9 +1,11 @@
 """Session-scoped persistence operations for jobs."""
 
+from builtins import list as builtin_list
+
 from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
-from job_application_copilot.domain import JobFilters
+from job_application_copilot.domain import AssessmentStatus, JobFilters, UserDecision
 from job_application_copilot.errors import (
     ApplicationNotFoundError,
     ApplicationValidationError,
@@ -90,6 +92,20 @@ class JobRepository:
                     )
 
         statement = statement.order_by(Job.date_added.desc(), Job.id.desc())
+        return list(self.session.scalars(statement))
+
+    def list_assessed_undecided(self) -> builtin_list[Job]:
+        """Return the deterministic queue of assessed jobs awaiting human review."""
+
+        statement = (
+            select(Job)
+            .join(Assessment, Assessment.job_id == Job.id)
+            .where(
+                Assessment.status == AssessmentStatus.ASSESSED,
+                Job.user_decision == UserDecision.UNDECIDED,
+            )
+            .order_by(Job.date_added.desc(), Job.id.desc())
+        )
         return list(self.session.scalars(statement))
 
     def delete(self, job: Job) -> None:

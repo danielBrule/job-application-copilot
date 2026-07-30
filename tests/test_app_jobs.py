@@ -451,7 +451,7 @@ def test_job_details_form_loads_existing_values_and_persists_edits(
         app.switch_page("pages/job_details.py").run()
 
         assert not app.exception
-        assert app.title[0].value == "Job details"
+        assert app.title[0].value == "Job details — Original title (Original Ltd)"
         assert app.subheader[0].value == "Edit job"
         assert app.text_input(key=f"edit_job_{job.id}_company").value == "Original Ltd"
         assert app.text_input(key=f"edit_job_{job.id}_job_title").value == "Original title"
@@ -553,7 +553,6 @@ def test_job_details_rejects_missing_invalid_or_unknown_job_id(
         app.switch_page("pages/job_details.py").run()
 
         assert not app.exception
-        assert app.title[0].value == "Job details"
         assert app.error[0].value == expected_message
         assert not app.subheader
     finally:
@@ -736,13 +735,13 @@ def test_job_details_saves_human_decision_and_notes_without_changing_model_recom
 
         app.query_params["job_id"] = str(job.id)
         app.switch_page("pages/job_details.py").run()
-        next(select for select in app.selectbox if select.label == "User decision").select(
+        next(select for select in app.selectbox if select.label == "Decision").select(
             UserDecision.DO_NOT_PURSUE
         ).run()
         next(
             text_area for text_area in app.text_area if text_area.label == "Assessment notes"
         ).input("Discuss team structure").run()
-        app.button(key=f"FormSubmitter:human_review_{job.id}_form-Save human review").click().run()
+        app.button(key=f"FormSubmitter:human_review_{job.id}_form-Save decision").click().run()
 
         assert not app.exception
         detail = service.assessment_detail(job.id)
@@ -781,7 +780,7 @@ def test_job_details_defaults_and_persists_selected_cv_lane(
         assert selected_lane.options == ["AI_DEPLOYMENT", "ARCHITECTURE"]
 
         selected_lane.select("AI_DEPLOYMENT").run()
-        app.button(key=f"FormSubmitter:human_review_{job.id}_form-Save human review").click().run()
+        app.button(key=f"FormSubmitter:human_review_{job.id}_form-Save decision").click().run()
 
         detail = service.assessment_detail(job.id)
         assert detail.assessment is not None

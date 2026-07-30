@@ -77,6 +77,8 @@ from job_application_copilot.services.document_b_vector_store import (
     DocumentBVectorStoreService,
 )
 from job_application_copilot.services.job_service import (
+    AssessmentReviewNavigation,
+    AssessmentReviewNotEligibleError,
     CvLaneConfigurationError,
     InvalidCvLaneSelectionError,
     JobAssessmentDetail,
@@ -130,6 +132,8 @@ __all__ = [
     "AssessmentTaskFailedError",
     "AssessmentQueueSkip",
     "AssessmentQueueSkipReason",
+    "AssessmentReviewNavigation",
+    "AssessmentReviewNotEligibleError",
     "AssessmentWorkerHandler",
     "AssessmentFileInput",
     "AssessmentTextInput",
