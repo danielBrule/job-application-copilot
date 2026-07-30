@@ -28,6 +28,13 @@ class UserDecision(StrEnum):
     DO_NOT_PURSUE = "DO_NOT_PURSUE"
 
 
+class CvSelectionStatus(StrEnum):
+    """Whether a job is ready to enter the later CV-generation workflow."""
+
+    NOT_SELECTED = "NOT_SELECTED"
+    SELECTED = "SELECTED"
+
+
 class Relevance(StrEnum):
     """Assessment relevance classification shared by model and user values."""
 

@@ -5,7 +5,13 @@ from datetime import date, datetime
 from sqlalchemy import CheckConstraint, Date, DateTime, Enum, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from job_application_copilot.domain import Language, Location, Relevance, UserDecision
+from job_application_copilot.domain import (
+    CvSelectionStatus,
+    Language,
+    Location,
+    Relevance,
+    UserDecision,
+)
 from job_application_copilot.repositories.base import Base
 from job_application_copilot.repositories.models.common import enum_values, utc_now
 
@@ -76,6 +82,19 @@ class Job(Base):
         nullable=False,
         default=UserDecision.UNDECIDED,
         server_default=UserDecision.UNDECIDED.value,
+    )
+    cv_selection_status: Mapped[CvSelectionStatus] = mapped_column(
+        Enum(
+            CvSelectionStatus,
+            name="job_cv_selection_status",
+            native_enum=False,
+            create_constraint=True,
+            validate_strings=True,
+            values_callable=enum_values,
+        ),
+        nullable=False,
+        default=CvSelectionStatus.NOT_SELECTED,
+        server_default=CvSelectionStatus.NOT_SELECTED.value,
     )
     application_status: Mapped[str | None] = mapped_column(Text)
     application_date: Mapped[date | None] = mapped_column(Date)
