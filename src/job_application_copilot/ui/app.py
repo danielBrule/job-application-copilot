@@ -65,6 +65,11 @@ def main() -> None:
     selected_page = st.navigation(
         [
             st.Page(
+                PAGES_DIRECTORY / "dashboard.py",
+                title="Dashboard",
+                url_path="dashboard",
+            ),
+            st.Page(
                 PAGES_DIRECTORY / "jobs.py",
                 title="Jobs",
                 url_path="jobs",

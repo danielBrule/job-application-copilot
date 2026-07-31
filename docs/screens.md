@@ -2,13 +2,14 @@
 
 ## Navigation
 
+- Dashboard
 - Jobs
 - Background Runs
 - Settings
 
 Job Details opens from the Jobs table.
 
-## 1. Jobs dashboard
+## 1. Dashboard
 
 ### KPI cards
 
@@ -22,6 +23,10 @@ Job Details opens from the Jobs table.
 - Assessment time: total / average
 - CV-generation time: total / average
 - Failed tasks requiring attention
+
+The failed-task KPI links to Background Runs filtered to failed tasks.
+
+## 2. Jobs dashboard
 
 ### Filters
 
@@ -70,7 +75,7 @@ Job Details opens from the Jobs table.
 
 The Open CV action is available directly in the table when a valid file exists.
 
-## 2. Add / edit job
+## 3. Add / edit job
 
 Fields:
 
@@ -93,7 +98,7 @@ Actions:
 
 Editing never launches assessment automatically. Relevant edits may create a stale-assessment warning.
 
-## 3. Job Details
+## 4. Job Details
 
 ### Tab A — Job
 
@@ -179,7 +184,7 @@ Contacts table:
 - Notes
 - Add / edit / delete
 
-## 4. Background Runs
+## 5. Background Runs
 
 Columns:
 
@@ -206,7 +211,7 @@ The batch filter identifies batches by ID and launch time. Each task exposes ret
 attempts so errors and timings from earlier retries remain reviewable. Displayed pending or running
 results refresh every 60 seconds, and an explicit refresh action is always available.
 
-## 5. Settings
+## 6. Settings
 
 ### Reference asset overview
 

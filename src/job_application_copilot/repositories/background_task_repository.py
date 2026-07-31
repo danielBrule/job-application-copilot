@@ -3,7 +3,7 @@
 from collections.abc import Collection
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from job_application_copilot.domain import (
@@ -364,3 +364,14 @@ class BackgroundRunRepository:
             )
             for task, batch, job in rows
         ]
+
+    def count_failed_tasks(self) -> int:
+        """Return failed assessment and CV-generation tasks requiring attention."""
+
+        statement = select(func.count(BackgroundTask.id)).where(
+            BackgroundTask.status == BackgroundTaskStatus.FAILED,
+            BackgroundTask.operation.in_(
+                (BackgroundOperation.ASSESSMENT, BackgroundOperation.CV_GENERATION)
+            ),
+        )
+        return int(self.session.scalar(statement) or 0)

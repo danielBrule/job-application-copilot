@@ -71,6 +71,11 @@ def test_streamlit_app_starts_and_creates_private_directories(
     ("page_path", "expected_title", "expected_message"),
     [
         (
+            "pages/dashboard.py",
+            "Dashboard",
+            None,
+        ),
+        (
             "pages/background_runs.py",
             "Background Runs",
             "No background tasks have been created yet.",
@@ -82,7 +87,7 @@ def test_navigation_reaches_each_primary_page(
     monkeypatch: pytest.MonkeyPatch,
     page_path: str,
     expected_title: str,
-    expected_message: str,
+    expected_message: str | None,
 ) -> None:
     monkeypatch.setenv("JAC_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.chdir(tmp_path)
@@ -94,7 +99,8 @@ def test_navigation_reaches_each_primary_page(
 
         assert not app.exception
         assert app.title[0].value == expected_title
-        assert app.info[0].value == expected_message
+        if expected_message is not None:
+            assert app.info[0].value == expected_message
     finally:
         reset_logging()
 

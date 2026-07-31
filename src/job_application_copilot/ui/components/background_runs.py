@@ -24,6 +24,7 @@ FILTER_STATUS_KEY = "background_runs_status"
 FILTER_BATCH_KEY = "background_runs_batch"
 FILTER_JOB_KEY = "background_runs_job"
 INCLUDE_COMPLETED_KEY = "background_runs_include_completed"
+STATUS_QUERY_PARAMETER = "status"
 LOAD_ERROR_MESSAGE = "Background runs could not be loaded. See the private UI log for details."
 RETRY_ERROR_MESSAGE = "The task could not be retried. See the private UI log for details."
 AUTO_REFRESH_SECONDS = 60
@@ -32,6 +33,7 @@ AUTO_REFRESH_SECONDS = 60
 def render_background_runs(service: BackgroundRunService) -> None:
     """Render filters and current durable background-task state."""
 
+    _apply_status_query_parameter()
     st.title("Background Runs")
     heading_columns = st.columns([1, 5])
     with heading_columns[0]:
@@ -136,6 +138,20 @@ def _render_filters(runs: list[BackgroundRunSummary]) -> BackgroundRunFilters:
         job_id=job_id,
         include_completed=include_completed,
     )
+
+
+def _apply_status_query_parameter() -> None:
+    """Apply one valid linked status filter before its widget is created."""
+
+    value = st.query_params.get(STATUS_QUERY_PARAMETER)
+    if value is None:
+        return
+    try:
+        st.session_state[FILTER_STATUS_KEY] = BackgroundTaskStatus(value)
+    except ValueError:
+        pass
+    finally:
+        st.query_params.clear()
 
 
 def _render_run_rows(

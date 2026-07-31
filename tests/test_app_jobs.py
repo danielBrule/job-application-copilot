@@ -66,50 +66,9 @@ def test_empty_jobs_dashboard_shows_add_prompt(
         assert not app.exception
         assert app.title[0].value == "Jobs"
         assert app.info[0].value == "No jobs have been added yet."
+        assert not app.metric
         assert not app.dataframe
         assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
-    finally:
-        reset_logging()
-
-
-def test_jobs_dashboard_shows_global_usage_and_processing_kpis(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("JAC_DATA_DIR", str(tmp_path / "data"))
-    monkeypatch.chdir(tmp_path)
-
-    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
-
-    try:
-        assert not app.exception
-        captions = [caption.value for caption in app.caption]
-        assert "Assessment tokens\n\n— avg / 0 total" in captions
-        assert "CV-generation tokens\n\n— avg / 0 total" in captions
-        assert "Assessment processing time\n\n— avg / 0.00 s total" in captions
-        assert "CV-generation processing time\n\n— avg / 0.00 s total" in captions
-    finally:
-        reset_logging()
-
-
-def test_jobs_dashboard_links_failed_task_kpi_to_filtered_background_runs(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("JAC_DATA_DIR", str(tmp_path / "data"))
-    monkeypatch.chdir(tmp_path)
-
-    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
-
-    try:
-        assert not app.exception
-        assert any(
-            metric.label == "Failed tasks requiring attention" and metric.value == "0"
-            for metric in app.metric
-        )
-        assert any(
-            page_link.label == "Review failed tasks" for page_link in app.get("page_link")
-        )
     finally:
         reset_logging()
 

@@ -230,7 +230,7 @@ task preserves earlier attempt timings and errors and does not modify completed 
 
 ## 12. KPI dashboard
 
-Simple cards appear above the Jobs table:
+Simple cards appear on the Dashboard page:
 
 - Jobs entered
 - Jobs assessed
