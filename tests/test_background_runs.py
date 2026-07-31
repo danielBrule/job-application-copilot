@@ -116,6 +116,41 @@ def test_lists_newest_batches_with_job_and_attempt_history(
     assert runs[0].attempts[0].error_message == "Handler failed."
 
 
+def test_failed_task_count_includes_only_failed_supported_operations(
+    migrated_database: Database,
+) -> None:
+    add_task(
+        migrated_database,
+        company="Failed assessment",
+        operation=BackgroundOperation.ASSESSMENT,
+        status=BackgroundTaskStatus.FAILED,
+        batch_created_at=datetime(2026, 7, 29, 8, 0),
+    )
+    add_task(
+        migrated_database,
+        company="Failed CV",
+        operation=BackgroundOperation.CV_GENERATION,
+        status=BackgroundTaskStatus.FAILED,
+        batch_created_at=datetime(2026, 7, 29, 9, 0),
+    )
+    add_task(
+        migrated_database,
+        company="Interrupted",
+        operation=BackgroundOperation.ASSESSMENT,
+        status=BackgroundTaskStatus.INTERRUPTED,
+        batch_created_at=datetime(2026, 7, 29, 10, 0),
+    )
+    add_task(
+        migrated_database,
+        company="Completed",
+        operation=BackgroundOperation.CV_GENERATION,
+        status=BackgroundTaskStatus.COMPLETED,
+        batch_created_at=datetime(2026, 7, 29, 11, 0),
+    )
+
+    assert BackgroundRunService(migrated_database).failed_task_count() == 2
+
+
 def test_hides_completed_tasks_by_default_and_includes_them_on_request(
     migrated_database: Database,
 ) -> None:

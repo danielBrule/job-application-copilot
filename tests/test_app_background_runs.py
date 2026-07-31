@@ -158,3 +158,27 @@ def test_background_runs_filters_history_and_retry(
             database.dispose()
     finally:
         reset_logging()
+
+
+def test_background_runs_applies_failed_status_from_navigation_query_parameter(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    database_path = data_dir / "database" / "job_application_copilot.db"
+    database_path.parent.mkdir(parents=True)
+    seed_failed_task(database_path)
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+
+    app = AppTest.from_file(str(APP_PATH), default_timeout=15).run()
+
+    try:
+        app.query_params["status"] = "FAILED"
+        app.switch_page("pages/background_runs.py").run()
+
+        assert not app.exception
+        assert app.selectbox(key=FILTER_STATUS_KEY).value == "FAILED"
+        assert app.query_params.get("status") is None
+    finally:
+        reset_logging()

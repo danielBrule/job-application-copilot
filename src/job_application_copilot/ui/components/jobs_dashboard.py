@@ -16,8 +16,6 @@ from job_application_copilot.services import (
     CvSelectionResult,
     CvSelectionService,
     CvSelectionSkipReason,
-    DashboardKpiService,
-    DashboardUsageKpis,
     JobService,
 )
 from job_application_copilot.services.job_service import JobAssessmentSummary
@@ -204,7 +202,6 @@ def render_jobs_dashboard(
     service: JobService,
     assessment_batch_service: AssessmentBatchService,
     cv_selection_service: CvSelectionService,
-    dashboard_kpi_service: DashboardKpiService,
 ) -> None:
     """Load and render the initial Jobs dashboard."""
 
@@ -219,12 +216,6 @@ def render_jobs_dashboard(
         st.success(reassessment_message)
     if cv_selection_message := st.session_state.pop(CV_SELECTION_SUCCESS_KEY, None):
         st.success(cv_selection_message)
-    try:
-        _render_usage_kpis(dashboard_kpi_service.usage())
-    except SQLAlchemyError:
-        logger.exception("jobs_dashboard_kpi_load_failed")
-        st.error(LOAD_ERROR_MESSAGE)
-        return
     try:
         all_jobs = service.list()
         first_review_job_id = service.first_assessment_review_job_id()
@@ -342,58 +333,6 @@ def render_jobs_dashboard(
     _render_reassess_selected_jobs(assessment_batch_service, selected_ids)
     _render_select_for_cv_generation(cv_selection_service, selected_ids)
     _render_delete_selected_jobs(service, selected_ids)
-
-
-def _render_usage_kpis(kpis: DashboardUsageKpis) -> None:
-    """Render global token and processing-time cards above the Jobs table."""
-
-    st.caption("Usage and processing — average per successful LLM call / total")
-    assessment_tokens, cv_tokens, assessment_duration, cv_duration = st.columns(4)
-    with assessment_tokens:
-        st.caption(
-            "Assessment tokens\n\n"
-            + _total_and_average(
-                kpis.assessment.total_tokens, kpis.assessment.average_tokens_per_successful_call
-            )
-        )
-    with cv_tokens:
-        st.caption(
-            "CV-generation tokens\n\n"
-            + _total_and_average(
-                kpis.cv_generation.total_tokens,
-                kpis.cv_generation.average_tokens_per_successful_call,
-            )
-        )
-    with assessment_duration:
-        st.caption(
-            "Assessment processing time\n\n"
-            + _duration_total_and_average(
-                kpis.assessment.total_duration_seconds,
-                kpis.assessment.average_duration_seconds_per_successful_call,
-            )
-        )
-    with cv_duration:
-        st.caption(
-            "CV-generation processing time\n\n"
-            + _duration_total_and_average(
-                kpis.cv_generation.total_duration_seconds,
-                kpis.cv_generation.average_duration_seconds_per_successful_call,
-            )
-        )
-
-
-def _total_and_average(total: int, average: float | None) -> str:
-    """Format a token total and optional successful-call average."""
-
-    average_display = "—" if average is None else f"{average:,.1f}"
-    return f"{average_display} avg / {total:,} total"
-
-
-def _duration_total_and_average(total: float, average: float | None) -> str:
-    """Format duration values in seconds with an optional successful-call average."""
-
-    average_display = "—" if average is None else f"{average:.2f} s"
-    return f"{average_display} avg / {total:.2f} s total"
 
 
 def _render_assess_selected_jobs(

@@ -20,6 +20,12 @@ class BackgroundRunService:
         with self.database.session() as session:
             return BackgroundRunRepository(session).list(filters)
 
+    def failed_task_count(self) -> int:
+        """Return retryable failed tasks requiring dashboard attention."""
+
+        with self.database.session() as session:
+            return BackgroundRunRepository(session).count_failed_tasks()
+
     def retry_task(self, task_id: int) -> BackgroundTaskRetryResult:
         """Return one failed or interrupted task to the worker queue."""
 
