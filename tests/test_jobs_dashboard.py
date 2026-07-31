@@ -4,7 +4,14 @@ from datetime import date, datetime
 
 import pytest
 
-from job_application_copilot.domain import AssessmentDecision, AssessmentStatus, Language, Location
+from job_application_copilot.domain import (
+    AssessmentDecision,
+    AssessmentStatus,
+    CvSelectionStatus,
+    Language,
+    Location,
+    UserDecision,
+)
 from job_application_copilot.repositories.models import Job
 from job_application_copilot.services.job_service import JobAssessmentSummary
 from job_application_copilot.ui.components.jobs_dashboard import (
@@ -50,6 +57,11 @@ def test_shape_job_rows_preserves_order_and_core_values() -> None:
         fit_score=None,
         interview_probability_low=None,
         interview_probability_high=None,
+        user_decision="Undecided",
+        selected_cv_lane=None,
+        cv_selection_status="Not selected",
+        application_status=None,
+        next_action=None,
     )
     assert tuple(rows[0].display_record()) == TABLE_COLUMN_ORDER
     assert "job_id" not in rows[0].display_record()
@@ -62,13 +74,26 @@ def test_shape_job_rows_displays_current_assessment_values_and_staleness() -> No
         fit_score=8,
         interview_probability_low=4,
         interview_probability_high=6,
+        selected_cv_lane="ARCHITECTURE",
     )
-    (row,) = shape_job_rows([make_job(2, "Second")], {2: summary})
+    job = make_job(2, "Second")
+    job.user_decision = UserDecision.PURSUE
+    job.cv_selection_status = CvSelectionStatus.SELECTED
+    job.application_status = "Applied"
+    job.next_action = "Follow up"
+    (row,) = shape_job_rows([job], {2: summary})
 
     assert row.display_record()["assessment_status"] == "Assessed"
     assert row.display_record()["recommendation"] == "GO"
     assert row.display_record()["fit_score"] == 8
     assert row.display_record()["interview_probability"] == "5 / 10"
+    assert row.display_record()["user_decision"] == "Pursue"
+    assert row.display_record()["selected_cv_lane"] == "ARCHITECTURE"
+    assert row.display_record()["cv_selection_status"] == "Selected for CV generation"
+    assert row.display_record()["cv_status"] == "Not available yet"
+    assert row.display_record()["open_cv"] == "Unavailable"
+    assert row.display_record()["application_status"] == "Applied"
+    assert row.display_record()["next_action"] == "Follow up"
 
 
 def test_selected_positions_map_to_stable_job_ids() -> None:

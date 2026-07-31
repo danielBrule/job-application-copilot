@@ -7,6 +7,7 @@ from datetime import date, datetime
 import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
 
+from job_application_copilot.domain import CvSelectionStatus, UserDecision
 from job_application_copilot.observability import get_logger
 from job_application_copilot.repositories.job_repository import JobNotFoundError
 from job_application_copilot.repositories.models import Job
@@ -54,6 +55,13 @@ TABLE_COLUMN_ORDER = (
     "recommendation",
     "fit_score",
     "interview_probability",
+    "user_decision",
+    "selected_cv_lane",
+    "cv_selection_status",
+    "cv_status",
+    "open_cv",
+    "application_status",
+    "next_action",
     "updated_at",
 )
 
@@ -76,6 +84,11 @@ class JobDashboardRow:
     fit_score: int | None
     interview_probability_low: int | None
     interview_probability_high: int | None
+    user_decision: str
+    selected_cv_lane: str | None
+    cv_selection_status: str
+    application_status: str | None
+    next_action: str | None
 
     @classmethod
     def from_job(
@@ -105,6 +118,15 @@ class JobDashboardRow:
             interview_probability_high=assessment.interview_probability_high
             if assessment
             else None,
+            user_decision=_user_decision_display(job.user_decision),
+            selected_cv_lane=assessment.selected_cv_lane if assessment else None,
+            cv_selection_status=(
+                "Selected for CV generation"
+                if job.cv_selection_status is CvSelectionStatus.SELECTED
+                else "Not selected"
+            ),
+            application_status=job.application_status,
+            next_action=job.next_action,
         )
 
     def display_record(self) -> dict[str, object]:
@@ -122,6 +144,13 @@ class JobDashboardRow:
             "recommendation": self.recommendation or "—",
             "fit_score": self.fit_score,
             "interview_probability": self._interview_probability_display(),
+            "user_decision": self.user_decision,
+            "selected_cv_lane": self.selected_cv_lane or "—",
+            "cv_selection_status": self.cv_selection_status,
+            "cv_status": "Not available yet",
+            "open_cv": "Unavailable",
+            "application_status": self.application_status or "—",
+            "next_action": self.next_action or "—",
             "updated_at": self.updated_at,
         }
 
@@ -130,6 +159,19 @@ class JobDashboardRow:
             return "—"
         average = (self.interview_probability_low + self.interview_probability_high) / 2
         return f"{average:g} / 10"
+
+
+def _user_decision_display(decision: UserDecision | None) -> str:
+    """Return the dashboard label for the persisted human decision."""
+
+    if decision is None:
+        return "Undecided"
+    labels = {
+        UserDecision.UNDECIDED: "Undecided",
+        UserDecision.PURSUE: "Pursue",
+        UserDecision.DO_NOT_PURSUE: "Do not pursue",
+    }
+    return labels[decision]
 
 
 def shape_job_rows(
@@ -255,6 +297,13 @@ def render_jobs_dashboard(
                 "Interview probability",
                 width="small",
             ),
+            "user_decision": st.column_config.TextColumn("User decision", width="small"),
+            "selected_cv_lane": st.column_config.TextColumn("Selected CV lane"),
+            "cv_selection_status": st.column_config.TextColumn("CV selection", width="small"),
+            "cv_status": st.column_config.TextColumn("CV status", width="small"),
+            "open_cv": st.column_config.TextColumn("Open CV", width="small"),
+            "application_status": st.column_config.TextColumn("Application status"),
+            "next_action": st.column_config.TextColumn("Next action"),
             "updated_at": st.column_config.DatetimeColumn(
                 "Updated",
                 help="UTC",

@@ -49,6 +49,7 @@ class JobAssessmentSummary:
     fit_score: int | None
     interview_probability_low: int | None
     interview_probability_high: int | None
+    selected_cv_lane: LaneId | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,6 +198,9 @@ class JobService:
                     ),
                     interview_probability_high=(
                         assessment.interview_probability_high if assessment is not None else None
+                    ),
+                    selected_cv_lane=(
+                        assessment.selected_cv_lane if assessment is not None else None
                     ),
                 )
                 for job in jobs
