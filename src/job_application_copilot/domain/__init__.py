@@ -33,6 +33,7 @@ from job_application_copilot.domain.document_b_routing import (
 from job_application_copilot.domain.job import (
     CreateJob,
     CvSelectionStatus,
+    DashboardAssessmentStatus,
     JobFilters,
     Language,
     Location,
@@ -83,6 +84,7 @@ __all__ = [
     "CreatePromptDefinition",
     "DOCUMENT_A_KEY",
     "DOCUMENT_B_KEY",
+    "DashboardAssessmentStatus",
     "DocumentBRouteRole",
     "DocumentBRoutingSetStatus",
     "DocumentBRetrievalRequest",

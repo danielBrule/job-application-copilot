@@ -17,6 +17,7 @@ from job_application_copilot.services import (
     CvSelectionSkipReason,
     JobService,
 )
+from job_application_copilot.services.job_service import JobAssessmentSummary
 from job_application_copilot.ui.components.job_filters import (
     available_sources,
     has_active_filters,
@@ -49,7 +50,10 @@ TABLE_COLUMN_ORDER = (
     "language",
     "source",
     "date_added",
-    "assessment_stale",
+    "assessment_status",
+    "recommendation",
+    "fit_score",
+    "interview_probability",
     "updated_at",
 )
 
@@ -67,10 +71,19 @@ class JobDashboardRow:
     source: str
     date_added: date
     updated_at: datetime
-    assessment_stale: bool
+    assessment_status: str
+    recommendation: str | None
+    fit_score: int | None
+    interview_probability_low: int | None
+    interview_probability_high: int | None
 
     @classmethod
-    def from_job(cls, job: Job, *, assessment_stale: bool = False) -> "JobDashboardRow":
+    def from_job(
+        cls,
+        job: Job,
+        *,
+        assessment: JobAssessmentSummary | None = None,
+    ) -> "JobDashboardRow":
         """Shape a persisted job for the dashboard."""
 
         return cls(
@@ -83,7 +96,15 @@ class JobDashboardRow:
             source=job.source,
             date_added=job.date_added,
             updated_at=job.updated_at,
-            assessment_stale=assessment_stale,
+            assessment_status=assessment.status.value.title()
+            if assessment and assessment.status
+            else "Not assessed",
+            recommendation=assessment.decision if assessment else None,
+            fit_score=assessment.fit_score if assessment else None,
+            interview_probability_low=assessment.interview_probability_low if assessment else None,
+            interview_probability_high=assessment.interview_probability_high
+            if assessment
+            else None,
         )
 
     def display_record(self) -> dict[str, object]:
@@ -97,21 +118,28 @@ class JobDashboardRow:
             "language": self.language,
             "source": self.source,
             "date_added": self.date_added,
-            "assessment_stale": "Yes" if self.assessment_stale else "No",
+            "assessment_status": self.assessment_status,
+            "recommendation": self.recommendation or "—",
+            "fit_score": self.fit_score,
+            "interview_probability": self._interview_probability_display(),
             "updated_at": self.updated_at,
         }
+
+    def _interview_probability_display(self) -> str:
+        if self.interview_probability_low is None or self.interview_probability_high is None:
+            return "—"
+        average = (self.interview_probability_low + self.interview_probability_high) / 2
+        return f"{average:g} / 10"
 
 
 def shape_job_rows(
     jobs: Iterable[Job],
-    assessment_staleness: dict[int, bool] | None = None,
+    assessment_summaries: dict[int, JobAssessmentSummary] | None = None,
 ) -> tuple[JobDashboardRow, ...]:
     """Preserve service ordering while shaping dashboard rows."""
 
-    staleness = assessment_staleness or {}
-    return tuple(
-        JobDashboardRow.from_job(job, assessment_stale=staleness.get(job.id, False)) for job in jobs
-    )
+    summaries = assessment_summaries or {}
+    return tuple(JobDashboardRow.from_job(job, assessment=summaries.get(job.id)) for job in jobs)
 
 
 def selected_job_ids(
@@ -146,10 +174,9 @@ def render_jobs_dashboard(
         st.success(reassessment_message)
     if cv_selection_message := st.session_state.pop(CV_SELECTION_SUCCESS_KEY, None):
         st.success(cv_selection_message)
-    st.page_link("pages/add_job.py", label="Add job")
-
     try:
         all_jobs = service.list()
+        first_review_job_id = service.first_assessment_review_job_id()
     except SQLAlchemyError:
         logger.exception("jobs_dashboard_load_failed")
         st.session_state[SELECTED_JOB_IDS_KEY] = ()
@@ -160,6 +187,17 @@ def render_jobs_dashboard(
         st.session_state[SELECTED_JOB_IDS_KEY] = ()
         st.info("No jobs have been added yet.")
         return
+
+    add_job_column, review_column, _ = st.columns((1, 1, 4))
+    with add_job_column:
+        st.page_link("pages/add_job.py", label="Add job")
+    if first_review_job_id is not None:
+        with review_column:
+            st.page_link(
+                "pages/job_details.py",
+                label="Review assessed jobs",
+                query_params={"job_id": str(first_review_job_id)},
+            )
 
     filters = render_job_filters(
         available_sources(all_jobs),
@@ -174,14 +212,14 @@ def render_jobs_dashboard(
         return
 
     try:
-        assessment_staleness = service.assessment_staleness(tuple(jobs))
+        assessment_summaries = service.assessment_summaries(tuple(jobs))
     except SQLAlchemyError:
         logger.exception("jobs_dashboard_assessment_staleness_load_failed")
         st.session_state[SELECTED_JOB_IDS_KEY] = ()
         st.error(LOAD_ERROR_MESSAGE)
         return
 
-    rows = shape_job_rows(jobs, assessment_staleness)
+    rows = shape_job_rows(jobs, assessment_summaries)
     if not rows:
         st.session_state[SELECTED_JOB_IDS_KEY] = ()
         st.info("No jobs match the current filters.")
@@ -208,7 +246,15 @@ def render_jobs_dashboard(
                 "Date added",
                 format="YYYY-MM-DD",
             ),
-            "assessment_stale": st.column_config.TextColumn("Assessment stale", width="small"),
+            "assessment_status": st.column_config.TextColumn("Assessment status", width="small"),
+            "recommendation": st.column_config.TextColumn("Model decision", width="small"),
+            "fit_score": st.column_config.NumberColumn(
+                "Fit score", format="%d / 10", width="small"
+            ),
+            "interview_probability": st.column_config.TextColumn(
+                "Interview probability",
+                width="small",
+            ),
             "updated_at": st.column_config.DatetimeColumn(
                 "Updated",
                 help="UTC",

@@ -5,7 +5,12 @@ from builtins import list as builtin_list
 from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
-from job_application_copilot.domain import AssessmentStatus, JobFilters, UserDecision
+from job_application_copilot.domain import (
+    AssessmentStatus,
+    DashboardAssessmentStatus,
+    JobFilters,
+    UserDecision,
+)
 from job_application_copilot.errors import (
     ApplicationNotFoundError,
     ApplicationValidationError,
@@ -90,6 +95,24 @@ class JobRepository:
                             autoescape=True,
                         )
                     )
+            has_assessment_filter = any(
+                value is not None
+                for value in (
+                    filters.assessment_status,
+                    filters.assessment_decision,
+                )
+            )
+            if has_assessment_filter:
+                statement = statement.outerjoin(Assessment, Assessment.job_id == Job.id)
+            if filters.assessment_status is not None:
+                if filters.assessment_status is DashboardAssessmentStatus.NOT_ASSESSED:
+                    statement = statement.where(Assessment.id.is_(None))
+                else:
+                    statement = statement.where(
+                        Assessment.status == AssessmentStatus(filters.assessment_status.value)
+                    )
+            if filters.assessment_decision is not None:
+                statement = statement.where(Assessment.decision == filters.assessment_decision)
 
         statement = statement.order_by(Job.date_added.desc(), Job.id.desc())
         return list(self.session.scalars(statement))

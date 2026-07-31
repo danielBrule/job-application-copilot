@@ -329,6 +329,7 @@ def test_assessment_review_navigation_uses_newest_assessed_undecided_order(
 
     assert navigation.previous_job_id == newest.id
     assert navigation.next_job_id == oldest.id
+    assert service.first_assessment_review_job_id() == newest.id
 
 
 def _add_assessed_job(database: Database, job: Job) -> None:

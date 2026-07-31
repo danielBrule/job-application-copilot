@@ -2,7 +2,13 @@
 
 from datetime import date
 
-from job_application_copilot.domain import Language, Location, UserDecision
+from job_application_copilot.domain import (
+    AssessmentDecision,
+    DashboardAssessmentStatus,
+    Language,
+    Location,
+    UserDecision,
+)
 from job_application_copilot.repositories.models import Job
 from job_application_copilot.ui.components.job_filters import (
     available_sources,
@@ -44,6 +50,8 @@ def test_build_job_filters_trims_text_and_preserves_choices() -> None:
         source="LinkedIn",
         user_decision=UserDecision.PURSUE,
         application_status=" interview ",
+        assessment_status=DashboardAssessmentStatus.ASSESSED,
+        assessment_decision=AssessmentDecision.GO,
     )
 
     assert filters.text == "platform"
@@ -52,6 +60,8 @@ def test_build_job_filters_trims_text_and_preserves_choices() -> None:
     assert filters.source == "LinkedIn"
     assert filters.user_decision is UserDecision.PURSUE
     assert filters.application_status == "interview"
+    assert filters.assessment_status is DashboardAssessmentStatus.ASSESSED
+    assert filters.assessment_decision is AssessmentDecision.GO
     assert has_active_filters(filters)
 
 
