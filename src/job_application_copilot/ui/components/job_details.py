@@ -95,10 +95,8 @@ def render_assessment_detail(detail: JobAssessmentDetail, service: JobService) -
     assert assessment.model_relevance is not None
     assert assessment.decision is not None
     _render_assessment_navigation(detail, service)
-    st.markdown("#### Your decision")
-    _render_human_review(detail, service)
-
-    st.markdown("#### Model assessment")
+    cv_lanes = _available_cv_lanes(service)
+    _render_auto_saving_decision(detail, service, cv_lanes)
     model_columns = st.columns(3)
     model_columns[0].metric("Model relevance", _label(assessment.model_relevance.value))
     model_columns[1].metric("Recommendation", _label(assessment.decision.value))
@@ -150,48 +148,91 @@ def render_assessment_detail(detail: JobAssessmentDetail, service: JobService) -
     st.write(f"**Assessment prompt version:** {assessment.prompt_version}")
     st.write(f"**Model:** {assessment.model_name}")
     st.write(f"**Assessed at:** {assessment.assessed_at}")
+    _render_review_details(detail, service, cv_lanes)
 
 
-def _render_human_review(detail: JobAssessmentDetail, service: JobService) -> None:
-    """Render the user-owned decision and notes separately from model output."""
+def _available_cv_lanes(service: JobService) -> tuple[str, ...]:
+    """Return selectable lanes, reporting unavailable routing safely."""
+
+    try:
+        return service.available_cv_lanes()
+    except CvLaneConfigurationError as error:
+        st.warning(str(error))
+        return ()
+
+
+def _render_auto_saving_decision(
+    detail: JobAssessmentDetail,
+    service: JobService,
+    cv_lanes: tuple[str, ...],
+) -> None:
+    """Save a changed user decision immediately when a CV lane catalogue exists."""
 
     assert detail.assessment is not None
-    st.caption("The model recommendation above remains unchanged when you save this review.")
-    try:
-        cv_lanes = service.available_cv_lanes()
-    except CvLaneConfigurationError as error:
-        cv_lanes = ()
-        st.warning(str(error))
-
-    with st.form(f"human_review_{detail.job.id}_form"):
-        user_decision = st.selectbox(
-            "Decision",
-            options=tuple(UserDecision),
-            index=tuple(UserDecision).index(detail.job.user_decision),
-            format_func=_decision_label,
-        )
-        assessment_notes = st.text_area(
-            "Assessment notes",
-            value=detail.assessment.assessment_notes or "",
-        )
-        selected_cv_lane = None
-        if cv_lanes:
-            default_lane = detail.assessment.selected_cv_lane
-            if default_lane not in cv_lanes:
-                default_lane = detail.assessment.recommended_document_b_lane
-            if default_lane not in cv_lanes:
-                default_lane = cv_lanes[0]
-            selected_cv_lane = st.selectbox(
-                "Selected CV lane",
-                options=cv_lanes,
-                index=cv_lanes.index(default_lane),
-                help="This controls later Document B routing for CV generation.",
-            )
-        save = st.form_submit_button("Save decision")
-
-    if not save:
+    decision = st.selectbox(
+        "Decision",
+        options=tuple(UserDecision),
+        index=tuple(UserDecision).index(detail.job.user_decision),
+        format_func=_decision_label,
+        disabled=not cv_lanes,
+        key=f"human_review_decision_{detail.job.id}",
+    )
+    if decision is detail.job.user_decision or not cv_lanes:
         return
+    _save_human_review(
+        detail,
+        service,
+        decision,
+        detail.assessment.assessment_notes,
+        _default_lane(detail, cv_lanes),
+    )
 
+
+def _render_review_details(
+    detail: JobAssessmentDetail, service: JobService, cv_lanes: tuple[str, ...]
+) -> None:
+    """Render optional notes and lane controls after the assessment details."""
+
+    assert detail.assessment is not None
+    if not cv_lanes:
+        return
+    with st.form(f"human_review_{detail.job.id}_form"):
+        assessment_notes = st.text_area(
+            "Assessment notes", value=detail.assessment.assessment_notes or ""
+        )
+        default_lane = _default_lane(detail, cv_lanes)
+        selected_cv_lane = st.selectbox(
+            "Selected CV lane", options=cv_lanes, index=cv_lanes.index(default_lane)
+        )
+        save = st.form_submit_button("Save review details")
+    if save:
+        _save_human_review(
+            detail, service, detail.job.user_decision, assessment_notes, selected_cv_lane
+        )
+
+
+def _default_lane(detail: JobAssessmentDetail, cv_lanes: tuple[str, ...]) -> str:
+    assert detail.assessment is not None
+    return next(
+        (
+            lane
+            for lane in (
+                detail.assessment.selected_cv_lane,
+                detail.assessment.recommended_document_b_lane,
+            )
+            if lane in cv_lanes
+        ),
+        cv_lanes[0],
+    )
+
+
+def _save_human_review(
+    detail: JobAssessmentDetail,
+    service: JobService,
+    user_decision: UserDecision,
+    assessment_notes: str | None,
+    selected_cv_lane: str,
+) -> None:
     try:
         service.update_human_review(
             detail.job.id,
@@ -207,7 +248,7 @@ def _render_human_review(detail: JobAssessmentDetail, service: JobService) -> No
         logger.exception("human_review_save_failed job_id=%s", detail.job.id)
         st.error("The human review could not be saved. See the private UI log for details.")
     else:
-        st.success("Decision saved.")
+        st.rerun()
 
 
 def _render_assessment_navigation(detail: JobAssessmentDetail, service: JobService) -> None:
@@ -246,12 +287,14 @@ def _render_assessment_navigation(detail: JobAssessmentDetail, service: JobServi
 
 
 def _render_summary(column: DeltaGenerator, label: str, value: str | None) -> None:
-    """Present model text as a capped bullet list without changing its stored value."""
+    """Present a single summary as text and multi-line summaries as capped bullets."""
 
     with column:
         st.write(f"**{label}**")
         bullets = summary_bullets(value)
-        if bullets:
+        if len(bullets) == 1:
+            st.write(bullets[0])
+        elif bullets:
             st.markdown("\n".join(f"- {bullet}" for bullet in bullets))
         else:
             st.caption("Not reported.")

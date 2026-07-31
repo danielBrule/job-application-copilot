@@ -4,8 +4,9 @@ from datetime import date, datetime
 
 import pytest
 
-from job_application_copilot.domain import Language, Location
+from job_application_copilot.domain import AssessmentDecision, AssessmentStatus, Language, Location
 from job_application_copilot.repositories.models import Job
+from job_application_copilot.services.job_service import JobAssessmentSummary
 from job_application_copilot.ui.components.jobs_dashboard import (
     TABLE_COLUMN_ORDER,
     JobDashboardRow,
@@ -44,17 +45,30 @@ def test_shape_job_rows_preserves_order_and_core_values() -> None:
         source="LinkedIn",
         date_added=date(2026, 7, 24),
         updated_at=datetime(2026, 7, 24, 12, 30, 45),
-        assessment_stale=False,
+        assessment_status="Not assessed",
+        recommendation=None,
+        fit_score=None,
+        interview_probability_low=None,
+        interview_probability_high=None,
     )
     assert tuple(rows[0].display_record()) == TABLE_COLUMN_ORDER
     assert "job_id" not in rows[0].display_record()
 
 
-def test_shape_job_rows_displays_stale_assessment_state() -> None:
-    (row,) = shape_job_rows([make_job(2, "Second")], {2: True})
+def test_shape_job_rows_displays_current_assessment_values_and_staleness() -> None:
+    summary = JobAssessmentSummary(
+        status=AssessmentStatus.ASSESSED,
+        decision=AssessmentDecision.GO.value,
+        fit_score=8,
+        interview_probability_low=4,
+        interview_probability_high=6,
+    )
+    (row,) = shape_job_rows([make_job(2, "Second")], {2: summary})
 
-    assert row.assessment_stale is True
-    assert row.display_record()["assessment_stale"] == "Yes"
+    assert row.display_record()["assessment_status"] == "Assessed"
+    assert row.display_record()["recommendation"] == "GO"
+    assert row.display_record()["fit_score"] == 8
+    assert row.display_record()["interview_probability"] == "5 / 10"
 
 
 def test_selected_positions_map_to_stable_job_ids() -> None:

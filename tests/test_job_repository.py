@@ -6,9 +6,13 @@ from pathlib import Path
 import pytest
 
 from job_application_copilot.domain import (
+    AssessmentDecision,
+    AssessmentStatus,
+    DashboardAssessmentStatus,
     JobFilters,
     Language,
     Location,
+    Relevance,
     UserDecision,
 )
 from job_application_copilot.repositories import (
@@ -17,7 +21,7 @@ from job_application_copilot.repositories import (
     JobRepository,
     create_database,
 )
-from job_application_copilot.repositories.models import Job
+from job_application_copilot.repositories.models import Assessment, Job
 from job_application_copilot.services.database_bootstrap import initialize_database
 
 
@@ -196,6 +200,56 @@ def test_text_filter_treats_sql_wildcards_literally(
         companies = [job.company for job in repository.list(JobFilters(text=search_text))]
 
     assert companies == [expected_company]
+
+
+def test_filters_jobs_by_assessment_state_decision_and_freshness(
+    migrated_database: Database,
+) -> None:
+    with migrated_database.session() as session:
+        repository = JobRepository(session)
+        current = repository.add(make_job("Current"))
+        stale = repository.add(make_job("Stale"))
+        unassessed = repository.add(make_job("Unassessed"))
+        for job, source_updated_at in (
+            (current, current.assessment_input_updated_at),
+            (stale, stale.assessment_input_updated_at.replace(year=2025)),
+        ):
+            session.add(
+                Assessment(
+                    job_id=job.id,
+                    status=AssessmentStatus.ASSESSED,
+                    model_relevance=Relevance.HIGH,
+                    role_snapshot="Role snapshot",
+                    real_mandate="Real mandate",
+                    primary_role_family="ARCHITECTURE",
+                    seniority_fit=8,
+                    technical_bar="Technical bar",
+                    fit_score=8,
+                    priority_score=8,
+                    decision=AssessmentDecision.GO,
+                    decision_reason="Strong fit.",
+                    recommended_document_b_lane="ARCHITECTURE",
+                    assessed_at=job.assessment_input_updated_at,
+                    source_job_updated_at=source_updated_at,
+                )
+            )
+        session.flush()
+
+        assert {
+            job.company
+            for job in repository.list(
+                JobFilters(assessment_status=DashboardAssessmentStatus.NOT_ASSESSED)
+            )
+        } == {unassessed.company}
+        assert {
+            job.company
+            for job in repository.list(
+                JobFilters(
+                    assessment_status=DashboardAssessmentStatus.ASSESSED,
+                    assessment_decision=AssessmentDecision.GO,
+                )
+            )
+        } == {current.company, stale.company}
 
 
 def test_delete_removes_only_selected_job(migrated_database: Database) -> None:

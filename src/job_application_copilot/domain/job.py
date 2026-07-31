@@ -3,6 +3,10 @@
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from job_application_copilot.domain.assessment import AssessmentDecision
 
 
 class Location(StrEnum):
@@ -41,6 +45,16 @@ class Relevance(StrEnum):
     HIGH = "HIGH"
     MEDIUM = "MEDIUM"
     LOW = "LOW"
+
+
+class DashboardAssessmentStatus(StrEnum):
+    """Assessment states displayed and filtered from the Jobs dashboard."""
+
+    NOT_ASSESSED = "NOT_ASSESSED"
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    ASSESSED = "ASSESSED"
+    FAILED = "FAILED"
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,3 +113,5 @@ class JobFilters:
     source: str | None = None
     user_decision: UserDecision | None = None
     application_status: str | None = None
+    assessment_status: DashboardAssessmentStatus | None = None
+    assessment_decision: "AssessmentDecision | None" = None

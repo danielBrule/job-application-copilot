@@ -8,6 +8,7 @@ from job_application_copilot.domain import (
     AssessmentDecision,
     AssessmentStatus,
     CreateJob,
+    DashboardAssessmentStatus,
     DocumentBRoutingSetStatus,
     Language,
     Location,
@@ -32,6 +33,8 @@ from job_application_copilot.ui.components.job_details import LOAD_ERROR_MESSAGE
 from job_application_copilot.ui.components.job_filters import (
     CLEAR_FILTERS_KEY,
     FILTER_APPLICATION_STATUS_KEY,
+    FILTER_ASSESSMENT_DECISION_KEY,
+    FILTER_ASSESSMENT_STATUS_KEY,
     FILTER_LANGUAGE_KEY,
     FILTER_LOCATION_KEY,
     FILTER_SOURCE_KEY,
@@ -105,12 +108,15 @@ def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
             "language",
             "source",
             "date_added",
-            "assessment_stale",
+            "assessment_status",
+            "recommendation",
+            "fit_score",
+            "interview_probability",
             "updated_at",
         ]
         assert list(table["company"]) == ["Older Ltd", "Original Ltd"]
         assert table["job_url"].iloc[1] == "https://example.com/original"
-        assert list(table["assessment_stale"]) == ["No", "No"]
+        assert list(table["assessment_status"]) == ["Not assessed", "Not assessed"]
         assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
         assert app.get("page_link")[-1].disabled
 
@@ -164,6 +170,35 @@ def test_jobs_dashboard_queues_selected_failed_assessment_for_reassessment(
         reset_logging()
 
 
+def test_jobs_dashboard_links_to_first_assessed_job_awaiting_review(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+
+    try:
+        database_path = data_dir / "database" / "job_application_copilot.db"
+        service = get_job_service(database_path)
+        job = _create_job_for_edit(service)
+        with get_database(database_path).session() as session:
+            stored_job = session.get(Job, job.id)
+            assert stored_job is not None
+            stored_job.user_decision = UserDecision.UNDECIDED
+        _add_assessed_job_with_cv_lanes(database_path, job)
+
+        app.run()
+
+        review_link = next(
+            link for link in app.get("page_link") if link.label == "Review assessed jobs"
+        )
+        assert not review_link.disabled
+    finally:
+        reset_logging()
+
+
 def test_jobs_dashboard_combines_filters_clears_selection_and_resets(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -209,6 +244,9 @@ def test_jobs_dashboard_combines_filters_clears_selection_and_resets(
         app.selectbox(key=FILTER_SOURCE_KEY).select("LinkedIn").run()
         app.selectbox(key=FILTER_USER_DECISION_KEY).select(UserDecision.PURSUE).run()
         app.text_input(key=FILTER_APPLICATION_STATUS_KEY).input("VIEW").run()
+        app.selectbox(key=FILTER_ASSESSMENT_STATUS_KEY).select(
+            DashboardAssessmentStatus.NOT_ASSESSED
+        ).run()
 
         assert not app.exception
         assert list(app.dataframe[0].value["company"]) == ["Original Ltd"]
@@ -227,6 +265,8 @@ def test_jobs_dashboard_combines_filters_clears_selection_and_resets(
         assert app.selectbox(key=FILTER_SOURCE_KEY).value is None
         assert app.selectbox(key=FILTER_USER_DECISION_KEY).value is None
         assert app.text_input(key=FILTER_APPLICATION_STATUS_KEY).value == ""
+        assert app.selectbox(key=FILTER_ASSESSMENT_STATUS_KEY).value is None
+        assert app.selectbox(key=FILTER_ASSESSMENT_DECISION_KEY).value is None
         assert list(app.dataframe[0].value["company"]) == [
             "Another Ltd",
             "Original Ltd",
@@ -735,19 +775,14 @@ def test_job_details_saves_human_decision_and_notes_without_changing_model_recom
 
         app.query_params["job_id"] = str(job.id)
         app.switch_page("pages/job_details.py").run()
-        next(select for select in app.selectbox if select.label == "Decision").select(
-            UserDecision.DO_NOT_PURSUE
-        ).run()
-        next(
-            text_area for text_area in app.text_area if text_area.label == "Assessment notes"
-        ).input("Discuss team structure").run()
-        app.button(key=f"FormSubmitter:human_review_{job.id}_form-Save decision").click().run()
+        decision = next(select for select in app.selectbox if select.label == "Decision")
+        assert decision.disabled
 
         assert not app.exception
         detail = service.assessment_detail(job.id)
-        assert detail.job.user_decision is UserDecision.DO_NOT_PURSUE
+        assert detail.job.user_decision is UserDecision.PURSUE
         assert detail.assessment is not None
-        assert detail.assessment.assessment_notes == "Discuss team structure"
+        assert detail.assessment.assessment_notes is None
         assert detail.assessment.decision is AssessmentDecision.GO
         assert any(
             metric.label == "Recommendation" and metric.value == "Go" for metric in app.metric
@@ -780,7 +815,9 @@ def test_job_details_defaults_and_persists_selected_cv_lane(
         assert selected_lane.options == ["AI_DEPLOYMENT", "ARCHITECTURE"]
 
         selected_lane.select("AI_DEPLOYMENT").run()
-        app.button(key=f"FormSubmitter:human_review_{job.id}_form-Save decision").click().run()
+        app.button(
+            key=f"FormSubmitter:human_review_{job.id}_form-Save review details"
+        ).click().run()
 
         detail = service.assessment_detail(job.id)
         assert detail.assessment is not None

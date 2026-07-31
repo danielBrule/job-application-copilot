@@ -41,6 +41,17 @@ class JobAssessmentDetail:
 
 
 @dataclass(frozen=True, slots=True)
+class JobAssessmentSummary:
+    """Current assessment values needed by the dashboard, without detailed assessment text."""
+
+    status: AssessmentStatus | None
+    decision: str | None
+    fit_score: int | None
+    interview_probability_low: int | None
+    interview_probability_high: int | None
+
+
+@dataclass(frozen=True, slots=True)
 class AssessmentReviewNavigation:
     """Adjacent jobs in the deterministic assessed-undecided review queue."""
 
@@ -163,6 +174,35 @@ class JobService:
                 for assessment in (assessments_by_job_id.get(job.id),)
             }
 
+    def assessment_summaries(self, jobs: tuple[Job, ...]) -> dict[int, JobAssessmentSummary]:
+        """Return current dashboard assessment values for the supplied persisted jobs."""
+
+        if not jobs:
+            return {}
+        with self.database.session() as session:
+            assessments = AssessmentRepository(session)
+            assessments_by_job_id = {
+                assessment.job_id: assessment
+                for assessment in assessments.list_for_jobs(tuple(job.id for job in jobs))
+            }
+            return {
+                job.id: JobAssessmentSummary(
+                    status=assessment.status if assessment is not None else None,
+                    decision=assessment.decision.value
+                    if assessment is not None and assessment.decision is not None
+                    else None,
+                    fit_score=assessment.fit_score if assessment is not None else None,
+                    interview_probability_low=(
+                        assessment.interview_probability_low if assessment is not None else None
+                    ),
+                    interview_probability_high=(
+                        assessment.interview_probability_high if assessment is not None else None
+                    ),
+                )
+                for job in jobs
+                for assessment in (assessments_by_job_id.get(job.id),)
+            }
+
     def assessment_detail(self, job_id: int) -> JobAssessmentDetail:
         """Return one job with its current assessment and derived stale state."""
 
@@ -229,6 +269,13 @@ class JobService:
             previous_job_id=job_ids[position - 1] if position > 0 else None,
             next_job_id=job_ids[position + 1] if position + 1 < len(job_ids) else None,
         )
+
+    def first_assessment_review_job_id(self) -> int | None:
+        """Return the first assessed job still awaiting human review, if any."""
+
+        with self.database.session() as session:
+            queue = JobRepository(session).list_assessed_undecided()
+        return queue[0].id if queue else None
 
     def delete(self, job_id: int) -> None:
         """Permanently delete one job and its linked local history."""

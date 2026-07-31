@@ -4,7 +4,14 @@ from collections.abc import Callable, Iterable
 
 import streamlit as st
 
-from job_application_copilot.domain import JobFilters, Language, Location, UserDecision
+from job_application_copilot.domain import (
+    AssessmentDecision,
+    DashboardAssessmentStatus,
+    JobFilters,
+    Language,
+    Location,
+    UserDecision,
+)
 from job_application_copilot.repositories.models import Job
 
 FILTER_TEXT_KEY = "jobs_filter_text"
@@ -13,6 +20,8 @@ FILTER_LANGUAGE_KEY = "jobs_filter_language"
 FILTER_SOURCE_KEY = "jobs_filter_source"
 FILTER_USER_DECISION_KEY = "jobs_filter_user_decision"
 FILTER_APPLICATION_STATUS_KEY = "jobs_filter_application_status"
+FILTER_ASSESSMENT_STATUS_KEY = "jobs_filter_assessment_status"
+FILTER_ASSESSMENT_DECISION_KEY = "jobs_filter_assessment_decision"
 CLEAR_FILTERS_KEY = "jobs_clear_filters"
 FILTER_DEFAULTS: dict[str, object] = {
     FILTER_TEXT_KEY: "",
@@ -21,6 +30,8 @@ FILTER_DEFAULTS: dict[str, object] = {
     FILTER_SOURCE_KEY: None,
     FILTER_USER_DECISION_KEY: None,
     FILTER_APPLICATION_STATUS_KEY: "",
+    FILTER_ASSESSMENT_STATUS_KEY: None,
+    FILTER_ASSESSMENT_DECISION_KEY: None,
 }
 USER_DECISION_LABELS = {
     UserDecision.UNDECIDED: "Undecided",
@@ -43,6 +54,8 @@ def build_job_filters(
     source: str | None,
     user_decision: UserDecision | None,
     application_status: str | None,
+    assessment_status: DashboardAssessmentStatus | None = None,
+    assessment_decision: AssessmentDecision | None = None,
 ) -> JobFilters:
     """Normalize Streamlit widget values into the repository filter contract."""
 
@@ -53,6 +66,8 @@ def build_job_filters(
         source=source,
         user_decision=user_decision,
         application_status=_optional_text(application_status),
+        assessment_status=assessment_status,
+        assessment_decision=assessment_decision,
     )
 
 
@@ -68,6 +83,8 @@ def has_active_filters(filters: JobFilters) -> bool:
             filters.source,
             filters.user_decision,
             filters.application_status,
+            filters.assessment_status,
+            filters.assessment_decision,
         )
     )
 
@@ -79,7 +96,7 @@ def render_job_filters(
     """Render filter controls and return their normalized values."""
 
     _discard_stale_source(sources)
-    with st.container(border=True):
+    with st.expander("Filters", expanded=False):
         first_column, second_column, third_column = st.columns(3)
         with first_column:
             text = st.text_input(
@@ -128,6 +145,24 @@ def render_job_filters(
                 on_change=on_filter_change,
             )
 
+        seventh_column, eighth_column = st.columns(2)
+        with seventh_column:
+            assessment_status = st.selectbox(
+                "Assessment status",
+                options=[None, *DashboardAssessmentStatus],
+                format_func=_assessment_status_label,
+                key=FILTER_ASSESSMENT_STATUS_KEY,
+                on_change=on_filter_change,
+            )
+        with eighth_column:
+            assessment_decision = st.selectbox(
+                "Model decision",
+                options=[None, *AssessmentDecision],
+                format_func=_optional_label,
+                key=FILTER_ASSESSMENT_DECISION_KEY,
+                on_change=on_filter_change,
+            )
+
         st.button(
             "Clear filters",
             key=CLEAR_FILTERS_KEY,
@@ -142,6 +177,8 @@ def render_job_filters(
         source=source,
         user_decision=user_decision,
         application_status=application_status,
+        assessment_status=assessment_status,
+        assessment_decision=assessment_decision,
     )
 
 
@@ -162,6 +199,14 @@ def _user_decision_label(value: object) -> str:
     if isinstance(value, UserDecision):
         return USER_DECISION_LABELS[value]
     return str(value)
+
+
+def _assessment_status_label(value: object) -> str:
+    if value is None:
+        return "All"
+    if value is DashboardAssessmentStatus.NOT_ASSESSED:
+        return "Not assessed"
+    return str(value).title()
 
 
 def _discard_stale_source(sources: tuple[str, ...]) -> None:

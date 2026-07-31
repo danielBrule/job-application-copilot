@@ -63,6 +63,10 @@ STRETCH rather than assuming the least favourable operating model.
 Return every field required by the supplied structured-output schema.
 Do not add fields or omit required fields.
 
+For `role_snapshot`, `real_mandate`, and `decision_reason`, return two to four
+concise, evidence-grounded bullet points. Put each point on its own line and
+prefix it with `- `. Do not use a single prose paragraph for these fields.
+
 Use only values allowed by the schema for relevance, decision, scores,
 role-family identifiers, and the recommended Document B lane.
 
