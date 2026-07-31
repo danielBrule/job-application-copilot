@@ -39,3 +39,5 @@ class LlmUsageTotals:
     reasoning_tokens: int
     total_tokens: int
     duration_seconds: float
+    successful_total_tokens: int
+    successful_duration_seconds: float

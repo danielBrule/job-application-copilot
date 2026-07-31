@@ -35,6 +35,11 @@ from job_application_copilot.services.cv_selection import (
     CvSelectionSkip,
     CvSelectionSkipReason,
 )
+from job_application_copilot.services.dashboard_kpis import (
+    DashboardKpiService,
+    DashboardUsageKpis,
+    OperationUsageKpis,
+)
 from job_application_copilot.services.default_assessment_prompt import (
     DefaultAssessmentPromptError,
     DefaultAssessmentPromptService,
@@ -173,6 +178,8 @@ __all__ = [
     "CvSelectionService",
     "CvSelectionSkip",
     "CvSelectionSkipReason",
+    "DashboardKpiService",
+    "DashboardUsageKpis",
     "InvalidCvLaneSelectionError",
     "JobAssessmentDetail",
     "JobService",
@@ -180,6 +187,7 @@ __all__ = [
     "OpenAIFileUploadNotAllowedError",
     "OpenAIFileUploadService",
     "OpenAIInputFile",
+    "OperationUsageKpis",
     "PromptActivationError",
     "PromptService",
     "PromptStorageError",
