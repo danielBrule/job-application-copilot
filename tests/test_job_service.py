@@ -601,6 +601,63 @@ def test_create_rejects_exact_duplicate_non_null_url(
     assert [job.company for job in service.list()] == ["First"]
 
 
+def test_create_canonicalizes_linkedin_urls_before_duplicate_detection(
+    database_and_service: tuple[Database, JobService],
+) -> None:
+    _, service = database_and_service
+    first = service.create(
+        replace(
+            create_command("First"),
+            job_url="https://www.linkedin.com/jobs/view/4416123669/?trk=job-alert",
+        )
+    )
+
+    with pytest.raises(DuplicateJobUrlError) as captured:
+        service.create(
+            replace(
+                create_command("Duplicate"),
+                job_url="https://www.linkedin.com/jobs/view/4416123669/other/path",
+            )
+        )
+
+    assert first.job_url == "https://www.linkedin.com/jobs/view/4416123669/"
+    assert captured.value.existing_job_id == first.id
+
+
+def test_update_canonicalizes_linkedin_urls_before_duplicate_detection(
+    database_and_service: tuple[Database, JobService],
+) -> None:
+    _, service = database_and_service
+    first = service.create(
+        replace(
+            create_command("First"),
+            job_url="https://www.linkedin.com/jobs/view/4416123669/",
+        )
+    )
+    second = service.create(
+        replace(
+            create_command("Second"),
+            job_url="https://www.linkedin.com/jobs/view/5516123669/",
+        )
+    )
+
+    with pytest.raises(DuplicateJobUrlError) as captured:
+        service.update(
+            second.id,
+            replace(
+                update_command(),
+                company="Must roll back",
+                job_url="https://www.linkedin.com/jobs/view/4416123669/?tracking=other",
+            ),
+        )
+
+    assert captured.value.existing_job_id == first.id
+    stored = service.get(second.id)
+    assert stored is not None
+    assert stored.company == second.company
+    assert stored.job_url == second.job_url
+
+
 def test_create_allows_null_and_distinct_urls(
     database_and_service: tuple[Database, JobService],
 ) -> None:

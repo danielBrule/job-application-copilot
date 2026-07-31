@@ -16,6 +16,7 @@ from job_application_copilot.domain import (
     UpdateJob,
     UserDecision,
 )
+from job_application_copilot.domain.job_url import canonicalize_linkedin_job_url
 from job_application_copilot.errors import ApplicationOperationError, ApplicationValidationError
 from job_application_copilot.repositories import (
     AssessmentRepository,
@@ -81,9 +82,10 @@ class JobService:
     def create(self, command: CreateJob) -> Job:
         """Create and return a job in one transaction."""
 
+        job_url = canonicalize_linkedin_job_url(command.job_url)
         with self.database.session() as session:
             repository = JobRepository(session)
-            self._ensure_url_available(repository, command.job_url)
+            self._ensure_url_available(repository, job_url)
             return repository.add(
                 Job(
                     company=command.company,
@@ -91,7 +93,7 @@ class JobService:
                     location=command.location,
                     language=command.language,
                     source=command.source,
-                    job_url=command.job_url,
+                    job_url=job_url,
                     job_description=command.job_description,
                     date_added=command.date_added,
                     general_notes=command.general_notes,
@@ -115,10 +117,11 @@ class JobService:
     def update(self, job_id: int, command: UpdateJob) -> Job:
         """Replace editable job values in one transaction."""
 
+        job_url = canonicalize_linkedin_job_url(command.job_url)
         with self.database.session() as session:
             repository = JobRepository(session)
             job = repository.require(job_id)
-            self._ensure_url_available(repository, command.job_url, job_id)
+            self._ensure_url_available(repository, job_url, job_id)
             assessment_inputs_changed = (
                 job.company != command.company
                 or job.job_title != command.job_title
@@ -131,7 +134,7 @@ class JobService:
             job.location = command.location
             job.language = command.language
             job.source = command.source
-            job.job_url = command.job_url
+            job.job_url = job_url
             job.job_description = command.job_description
             job.date_added = command.date_added
             job.general_notes = command.general_notes
