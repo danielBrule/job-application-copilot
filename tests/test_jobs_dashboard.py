@@ -17,6 +17,8 @@ from job_application_copilot.services.job_service import JobAssessmentSummary
 from job_application_copilot.ui.components.jobs_dashboard import (
     TABLE_COLUMN_ORDER,
     JobDashboardRow,
+    _duration_total_and_average,
+    _total_and_average,
     selected_job_ids,
     shape_job_rows,
 )
@@ -94,6 +96,13 @@ def test_shape_job_rows_displays_current_assessment_values_and_staleness() -> No
     assert row.display_record()["open_cv"] == "Unavailable"
     assert row.display_record()["application_status"] == "Applied"
     assert row.display_record()["next_action"] == "Follow up"
+
+
+def test_usage_kpi_values_show_totals_and_successful_call_averages() -> None:
+    assert _total_and_average(1_250, 625.0) == "625.0 avg / 1,250 total"
+    assert _total_and_average(0, None) == "— avg / 0 total"
+    assert _duration_total_and_average(2.25, 1.5) == "1.50 s avg / 2.25 s total"
+    assert _duration_total_and_average(0.0, None) == "— avg / 0.00 s total"
 
 
 def test_selected_positions_map_to_stable_job_ids() -> None:

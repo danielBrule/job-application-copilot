@@ -214,6 +214,8 @@ def test_aggregates_reported_usage_including_failed_calls(
     assert totals.reasoning_tokens == 7
     assert totals.total_tokens == 180
     assert totals.duration_seconds == pytest.approx(2.25)
+    assert totals.successful_total_tokens == 120
+    assert totals.successful_duration_seconds == pytest.approx(1.5)
 
 
 def test_aggregation_distinguishes_no_usage_from_zero_totals(
@@ -244,6 +246,52 @@ def test_aggregation_distinguishes_no_usage_from_zero_totals(
     assert totals.failed_count == 1
     assert totals.calls_with_usage == 0
     assert totals.total_tokens == 0
+    assert totals.successful_total_tokens == 0
+    assert totals.successful_duration_seconds == 0
+
+
+def test_aggregates_global_dashboard_usage_by_operation(
+    migrated_database: Database,
+) -> None:
+    with migrated_database.session() as session:
+        first_job = add_job(session)
+        second_job = add_job(session, "Other")
+        calls = LlmCallRepository(session)
+        calls.add(make_call(first_job.id, total_tokens=100, duration_seconds=1.0))
+        calls.add(
+            make_call(
+                second_job.id,
+                call_sequence=2,
+                status=LlmCallStatus.FAILED,
+                failure_category=LlmFailureCategory.TIMEOUT,
+                total_tokens=40,
+                duration_seconds=0.5,
+            )
+        )
+        calls.add(
+            make_call(
+                first_job.id,
+                operation=BackgroundOperation.CV_GENERATION,
+                pipeline_step="ENGLISH_STAGE_1",
+                call_sequence=3,
+                total_tokens=500,
+                duration_seconds=4.0,
+            )
+        )
+
+    with migrated_database.session() as session:
+        totals = LlmCallRepository(session).aggregate_dashboard()
+
+    assessment = totals[BackgroundOperation.ASSESSMENT]
+    assert assessment.call_count == 2
+    assert assessment.total_tokens == 140
+    assert assessment.duration_seconds == pytest.approx(1.5)
+    assert assessment.successful_total_tokens == 100
+    assert assessment.successful_duration_seconds == pytest.approx(1.0)
+    cv_generation = totals[BackgroundOperation.CV_GENERATION]
+    assert cv_generation.call_count == 1
+    assert cv_generation.total_tokens == 500
+    assert cv_generation.successful_total_tokens == 500
 
 
 @pytest.mark.parametrize(

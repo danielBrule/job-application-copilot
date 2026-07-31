@@ -10,6 +10,7 @@ from job_application_copilot.services import (
     AssessmentBatchService,
     BackgroundRunService,
     CvSelectionService,
+    DashboardKpiService,
     DocumentAProcessingService,
     DocumentBProcessingService,
     JobService,
@@ -47,6 +48,12 @@ def get_cv_selection_service(database_path: Path) -> CvSelectionService:
     """Build CV selection over the UI process's shared database facade."""
 
     return CvSelectionService(get_database(database_path))
+
+
+def get_dashboard_kpi_service(database_path: Path) -> DashboardKpiService:
+    """Build global Jobs dashboard KPI aggregation over the shared database."""
+
+    return DashboardKpiService(get_database(database_path))
 
 
 def get_background_run_service(database_path: Path) -> BackgroundRunService:

@@ -81,6 +81,24 @@ class LlmCallRepository:
             func.coalesce(func.sum(LlmCall.reasoning_tokens), 0),
             func.coalesce(func.sum(LlmCall.total_tokens), 0),
             func.coalesce(func.sum(LlmCall.duration_seconds), 0.0),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (LlmCall.status == LlmCallStatus.SUCCEEDED, LlmCall.total_tokens),
+                        else_=0,
+                    )
+                ),
+                0,
+            ),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (LlmCall.status == LlmCallStatus.SUCCEEDED, LlmCall.duration_seconds),
+                        else_=0.0,
+                    )
+                ),
+                0.0,
+            ),
         ).where(LlmCall.job_id == job_id)
         if operation is not None:
             statement = statement.where(LlmCall.operation == operation)
@@ -97,7 +115,63 @@ class LlmCallRepository:
             reasoning_tokens=int(row[8]),
             total_tokens=int(row[9]),
             duration_seconds=float(row[10]),
+            successful_total_tokens=int(row[11]),
+            successful_duration_seconds=float(row[12]),
         )
+
+    def aggregate_dashboard(self) -> dict[BackgroundOperation, LlmUsageTotals]:
+        """Return global usage totals grouped by operation for the Jobs dashboard."""
+
+        statement = select(
+            LlmCall.operation,
+            func.count(LlmCall.id),
+            func.sum(case((LlmCall.status == LlmCallStatus.SUCCEEDED, 1), else_=0)),
+            func.sum(case((LlmCall.status == LlmCallStatus.FAILED, 1), else_=0)),
+            func.sum(case((LlmCall.input_tokens.is_not(None), 1), else_=0)),
+            func.coalesce(func.sum(LlmCall.input_tokens), 0),
+            func.coalesce(func.sum(LlmCall.cached_input_tokens), 0),
+            func.coalesce(func.sum(LlmCall.cache_write_tokens), 0),
+            func.coalesce(func.sum(LlmCall.output_tokens), 0),
+            func.coalesce(func.sum(LlmCall.reasoning_tokens), 0),
+            func.coalesce(func.sum(LlmCall.total_tokens), 0),
+            func.coalesce(func.sum(LlmCall.duration_seconds), 0.0),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (LlmCall.status == LlmCallStatus.SUCCEEDED, LlmCall.total_tokens),
+                        else_=0,
+                    )
+                ),
+                0,
+            ),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (LlmCall.status == LlmCallStatus.SUCCEEDED, LlmCall.duration_seconds),
+                        else_=0.0,
+                    )
+                ),
+                0.0,
+            ),
+        ).group_by(LlmCall.operation)
+        return {
+            row[0]: LlmUsageTotals(
+                call_count=int(row[1]),
+                succeeded_count=int(row[2] or 0),
+                failed_count=int(row[3] or 0),
+                calls_with_usage=int(row[4] or 0),
+                input_tokens=int(row[5]),
+                cached_input_tokens=int(row[6]),
+                cache_write_tokens=int(row[7]),
+                output_tokens=int(row[8]),
+                reasoning_tokens=int(row[9]),
+                total_tokens=int(row[10]),
+                duration_seconds=float(row[11]),
+                successful_total_tokens=int(row[12]),
+                successful_duration_seconds=float(row[13]),
+            )
+            for row in self.session.execute(statement)
+        }
 
     def _validate_associations(self, call: LlmCall) -> None:
         if self.session.get(Job, call.job_id) is None:
