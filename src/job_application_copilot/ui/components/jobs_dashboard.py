@@ -225,15 +225,16 @@ def render_jobs_dashboard(
         st.error(LOAD_ERROR_MESSAGE)
         return
 
+    add_job_column, review_column, _ = st.columns((1, 1, 4))
+    with add_job_column:
+        if st.button("Add job", key="add_job", type="primary"):
+            st.switch_page("pages/add_job.py")
+
     if not all_jobs:
         st.session_state[SELECTED_JOB_IDS_KEY] = ()
         st.info("No jobs have been added yet.")
         return
 
-    add_job_column, review_column, _ = st.columns((1, 1, 4))
-    with add_job_column:
-        if st.button("Add job", key="add_job", type="primary"):
-            st.switch_page("pages/add_job.py")
     if first_review_job_id is not None:
         with review_column:
             st.page_link(
