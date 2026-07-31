@@ -232,7 +232,8 @@ def render_jobs_dashboard(
 
     add_job_column, review_column, _ = st.columns((1, 1, 4))
     with add_job_column:
-        st.page_link("pages/add_job.py", label="Add job")
+        if st.button("Add job", key="add_job", type="primary"):
+            st.switch_page("pages/add_job.py")
     if first_review_job_id is not None:
         with review_column:
             st.page_link(
@@ -323,14 +324,36 @@ def render_jobs_dashboard(
     label = "job" if selected_count == 1 else "jobs"
     st.caption(f"{selected_count} {label} selected.")
     selected_job_id = selected_ids[0] if selected_count == 1 else None
-    st.page_link(
-        "pages/job_details.py",
-        label="Open selected job",
+    if st.button(
+        "Open selected job",
+        key="open_selected_job",
+        type="primary",
         disabled=selected_job_id is None,
-        query_params={"job_id": str(selected_job_id)} if selected_job_id is not None else None,
-    )
-    _render_assess_selected_jobs(assessment_batch_service, selected_ids)
-    _render_reassess_selected_jobs(assessment_batch_service, selected_ids)
+    ):
+        st.switch_page(
+            "pages/job_details.py",
+            query_params={"job_id": str(selected_job_id)},
+        )
+
+    try:
+        assessment_eligibility = assessment_batch_service.selection_eligibility(selected_ids)
+    except JobNotFoundError:
+        logger.exception(
+            "jobs_dashboard_assessment_eligibility_missing_job job_ids=%s", selected_ids
+        )
+        st.error("One or more selected jobs no longer exist. Refresh the selection and try again.")
+        return
+    except SQLAlchemyError:
+        logger.exception(
+            "jobs_dashboard_assessment_eligibility_load_failed job_ids=%s", selected_ids
+        )
+        st.error(LOAD_ERROR_MESSAGE)
+        return
+
+    if assessment_eligibility.initial_assessment_job_ids:
+        _render_assess_selected_jobs(assessment_batch_service, selected_ids)
+    if assessment_eligibility.reassessment_job_ids:
+        _render_reassess_selected_jobs(assessment_batch_service, selected_ids)
     _render_select_for_cv_generation(cv_selection_service, selected_ids)
     _render_delete_selected_jobs(service, selected_ids)
 

@@ -129,6 +129,27 @@ def test_queues_selected_eligible_jobs_in_one_batch_only(database: Database) -> 
         assert BackgroundTaskRepository(session).list(job_id=unselected_id) == []
 
 
+def test_selection_eligibility_separates_initial_and_reassessment_actions(
+    database: Database,
+) -> None:
+    initial_id = add_job(database, "Initial")
+    stale_id = add_job(database, "Stale")
+    failed_id = add_job(database, "Failed")
+    current_id = add_job(database, "Current")
+    queued_id = add_job(database, "Queued")
+    add_successful_assessment(database, stale_id, stale=True)
+    add_assessment(database, failed_id)
+    add_successful_assessment(database, current_id, stale=False)
+    add_active_task(database, queued_id)
+
+    result = AssessmentBatchService(database).selection_eligibility(
+        (initial_id, stale_id, failed_id, current_id, queued_id)
+    )
+
+    assert result.initial_assessment_job_ids == (initial_id,)
+    assert result.reassessment_job_ids == (stale_id, failed_id)
+
+
 def test_skips_jobs_with_existing_assessments_or_active_tasks(database: Database) -> None:
     eligible_id = add_job(database, "Eligible")
     assessed_id = add_job(database, "Assessed")
