@@ -4,6 +4,7 @@ from job_application_copilot.config import load_settings
 from job_application_copilot.ui.components.jobs_dashboard import render_jobs_dashboard
 from job_application_copilot.ui.dependencies import (
     get_assessment_batch_service,
+    get_background_run_service,
     get_cv_selection_service,
     get_dashboard_kpi_service,
     get_job_service,
@@ -15,4 +16,5 @@ render_jobs_dashboard(
     get_assessment_batch_service(settings.database_path),
     get_cv_selection_service(settings.database_path),
     get_dashboard_kpi_service(settings.database_path),
+    get_background_run_service(settings.database_path),
 )

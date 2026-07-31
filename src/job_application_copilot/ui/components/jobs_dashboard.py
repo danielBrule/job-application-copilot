@@ -16,6 +16,7 @@ from job_application_copilot.services import (
     CvSelectionResult,
     CvSelectionService,
     CvSelectionSkipReason,
+    BackgroundRunService,
     DashboardKpiService,
     DashboardUsageKpis,
     JobService,
@@ -205,6 +206,7 @@ def render_jobs_dashboard(
     assessment_batch_service: AssessmentBatchService,
     cv_selection_service: CvSelectionService,
     dashboard_kpi_service: DashboardKpiService,
+    background_run_service: BackgroundRunService,
 ) -> None:
     """Load and render the initial Jobs dashboard."""
 
@@ -221,6 +223,7 @@ def render_jobs_dashboard(
         st.success(cv_selection_message)
     try:
         _render_usage_kpis(dashboard_kpi_service.usage())
+        _render_failed_task_kpi(background_run_service.failed_task_count())
     except SQLAlchemyError:
         logger.exception("jobs_dashboard_kpi_load_failed")
         st.error(LOAD_ERROR_MESSAGE)
@@ -379,6 +382,19 @@ def _render_usage_kpis(kpis: DashboardUsageKpis) -> None:
                 kpis.cv_generation.total_duration_seconds,
                 kpis.cv_generation.average_duration_seconds_per_successful_call,
             )
+        )
+
+
+def _render_failed_task_kpi(failed_task_count: int) -> None:
+    """Render navigation to the failed Background Runs view."""
+
+    failed_tasks, _ = st.columns((1, 3))
+    with failed_tasks:
+        st.metric("Failed tasks requiring attention", failed_task_count)
+        st.page_link(
+            "pages/background_runs.py",
+            label="Review failed tasks",
+            query_params={"status": "FAILED"},
         )
 
 

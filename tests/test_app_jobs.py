@@ -92,6 +92,28 @@ def test_jobs_dashboard_shows_global_usage_and_processing_kpis(
         reset_logging()
 
 
+def test_jobs_dashboard_links_failed_task_kpi_to_filtered_background_runs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("JAC_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.chdir(tmp_path)
+
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+
+    try:
+        assert not app.exception
+        assert any(
+            metric.label == "Failed tasks requiring attention" and metric.value == "0"
+            for metric in app.metric
+        )
+        assert any(
+            page_link.label == "Review failed tasks" for page_link in app.get("page_link")
+        )
+    finally:
+        reset_logging()
+
+
 def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
