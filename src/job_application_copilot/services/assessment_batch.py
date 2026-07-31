@@ -44,11 +44,57 @@ class AssessmentBatchQueueResult:
     skipped: tuple[AssessmentQueueSkip, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class AssessmentSelectionEligibility:
+    """Assessment actions currently available for a selected set of jobs."""
+
+    initial_assessment_job_ids: tuple[int, ...]
+    reassessment_job_ids: tuple[int, ...]
+
+
 class AssessmentBatchService:
     """Create exactly one initial-assessment task per currently eligible job."""
 
     def __init__(self, database: Database) -> None:
         self.database = database
+
+    def selection_eligibility(
+        self,
+        job_ids: tuple[int, ...],
+    ) -> AssessmentSelectionEligibility:
+        """Return the assessment actions available without changing durable state.
+
+        Queue methods recheck these rules inside their own transaction before
+        creating work, because a worker or another UI rerun can change them.
+        """
+
+        selected_job_ids = tuple(dict.fromkeys(job_ids))
+        if not selected_job_ids:
+            return AssessmentSelectionEligibility((), ())
+
+        with self.database.session() as session:
+            jobs = JobRepository(session)
+            assessments = AssessmentRepository(session)
+            tasks = BackgroundTaskRepository(session)
+            initial_assessment_job_ids: list[int] = []
+            reassessment_job_ids: list[int] = []
+
+            for job_id in selected_job_ids:
+                job = jobs.require(job_id)
+                assessment = assessments.get_for_job(job_id)
+                if self._has_active_assessment_task(tasks, job_id):
+                    continue
+                if assessment is None:
+                    initial_assessment_job_ids.append(job_id)
+                elif assessment.status is AssessmentStatus.FAILED or assessments.is_stale(
+                    assessment, job
+                ):
+                    reassessment_job_ids.append(job_id)
+
+            return AssessmentSelectionEligibility(
+                tuple(initial_assessment_job_ids),
+                tuple(reassessment_job_ids),
+            )
 
     def queue_selected(self, job_ids: tuple[int, ...]) -> AssessmentBatchQueueResult:
         """Queue selected jobs atomically after rechecking their current eligibility."""

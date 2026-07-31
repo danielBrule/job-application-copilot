@@ -131,14 +131,17 @@ def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
         assert list(table["application_status"]) == ["—", "Interview"]
         assert list(table["next_action"]) == ["—", "Prepare interview"]
         assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
-        assert app.get("page_link")[-1].disabled
+        add_job = app.button(key="add_job")
+        assert not add_job.disabled
+        open_selected_job = app.button(key="open_selected_job")
+        assert open_selected_job.disabled
 
         app.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": [1]}}
         app.run()
 
         assert app.session_state[SELECTED_JOB_IDS_KEY] == (newer.id,)
         assert any(caption.value == "1 job selected." for caption in app.caption)
-        open_selected_job = app.get("page_link")[-1]
+        open_selected_job = app.button(key="open_selected_job")
         assert not open_selected_job.disabled
         assert open_selected_job.label == "Open selected job"
     finally:
@@ -179,6 +182,57 @@ def test_jobs_dashboard_queues_selected_failed_assessment_for_reassessment(
             tasks = BackgroundTaskRepository(session).list(job_id=job.id)
             assert len(tasks) == 1
             assert tasks[0].payload_metadata == {}
+    finally:
+        reset_logging()
+
+
+def test_jobs_dashboard_only_shows_relevant_assessment_actions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+
+    try:
+        database_path = data_dir / "database" / "job_application_copilot.db"
+        service = get_job_service(database_path)
+        _create_job_for_edit(service)
+        failed = service.create(
+            CreateJob(
+                company="Failed Ltd",
+                job_title="Platform Engineer",
+                location=Location.UK,
+                language=Language.EN,
+                source="LinkedIn",
+                job_description="Build reliable systems.",
+                date_added=date(2026, 7, 30),
+            )
+        )
+        with get_database(database_path).session() as session:
+            AssessmentRepository(session).add(
+                Assessment(
+                    job_id=failed.id,
+                    status=AssessmentStatus.FAILED,
+                    error_message="Timed out.",
+                )
+            )
+
+        app.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": [1]}}
+        app.run()
+        assert app.button(key="assess_selected_jobs")
+        assert not any(button.key == "reassess_selected_jobs" for button in app.button)
+
+        app.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": [0]}}
+        app.run()
+        assert not any(button.key == "assess_selected_jobs" for button in app.button)
+        assert app.button(key="reassess_selected_jobs")
+
+        app.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": [0, 1]}}
+        app.run()
+        assert app.button(key="assess_selected_jobs")
+        assert app.button(key="reassess_selected_jobs")
     finally:
         reset_logging()
 
