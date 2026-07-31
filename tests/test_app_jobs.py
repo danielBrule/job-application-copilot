@@ -112,11 +112,23 @@ def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
             "recommendation",
             "fit_score",
             "interview_probability",
+            "user_decision",
+            "selected_cv_lane",
+            "cv_selection_status",
+            "cv_status",
+            "open_cv",
+            "application_status",
+            "next_action",
             "updated_at",
         ]
         assert list(table["company"]) == ["Older Ltd", "Original Ltd"]
         assert table["job_url"].iloc[1] == "https://example.com/original"
         assert list(table["assessment_status"]) == ["Not assessed", "Not assessed"]
+        assert list(table["cv_selection_status"]) == ["Not selected", "Not selected"]
+        assert list(table["cv_status"]) == ["Not available yet", "Not available yet"]
+        assert list(table["open_cv"]) == ["Unavailable", "Unavailable"]
+        assert list(table["application_status"]) == ["—", "Interview"]
+        assert list(table["next_action"]) == ["—", "Prepare interview"]
         assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
         assert app.get("page_link")[-1].disabled
 
