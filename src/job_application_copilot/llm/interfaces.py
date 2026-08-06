@@ -9,6 +9,8 @@ from job_application_copilot.llm.openai_client import (
     OpenAIVectorStore,
     OpenAIVectorStoreFile,
     OpenAIVectorStoreSearchResult,
+    PromptStageOpenAIResponse,
+    PromptStageRequest,
     UploadedOpenAIFile,
 )
 
@@ -21,6 +23,13 @@ class OpenAIAssessmentOperations(Protocol):
     """Responses API capability needed by a single assessment execution."""
 
     def assess(self, context: AssessmentContext) -> AssessmentOpenAIResponse: ...
+
+
+@runtime_checkable
+class OpenAIPromptStageOperations(Protocol):
+    """Responses API capability used by the generic ordered prompt pipeline."""
+
+    def run_prompt_stage(self, request: PromptStageRequest) -> PromptStageOpenAIResponse: ...
 
 
 @runtime_checkable

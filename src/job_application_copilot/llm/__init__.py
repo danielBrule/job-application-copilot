@@ -3,6 +3,7 @@
 from job_application_copilot.llm.interfaces import (
     OpenAIAssessmentOperations,
     OpenAIFileOperations,
+    OpenAIPromptStageOperations,
     OpenAIReferenceClient,
     OpenAIRemoteCleanupOperations,
     OpenAIVectorStoreOperations,
@@ -19,6 +20,9 @@ from job_application_copilot.llm.openai_client import (
     OpenAIVectorStoreFile,
     OpenAIVectorStoreFileStatus,
     OpenAIVectorStoreSearchResult,
+    PromptStageInput,
+    PromptStageOpenAIResponse,
+    PromptStageRequest,
     UploadedOpenAIFile,
 )
 
@@ -29,6 +33,7 @@ __all__ = [
     "OPENAI_VECTOR_STORE_POLL_INTERVAL_SECONDS",
     "OpenAIClient",
     "OpenAIAssessmentOperations",
+    "OpenAIPromptStageOperations",
     "OpenAIClientError",
     "OpenAIConfigurationError",
     "OpenAIFileOperations",
@@ -39,5 +44,8 @@ __all__ = [
     "OpenAIVectorStoreFile",
     "OpenAIVectorStoreFileStatus",
     "OpenAIVectorStoreSearchResult",
+    "PromptStageInput",
+    "PromptStageOpenAIResponse",
+    "PromptStageRequest",
     "UploadedOpenAIFile",
 ]

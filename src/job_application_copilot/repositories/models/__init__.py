@@ -21,6 +21,7 @@ from job_application_copilot.repositories.models.document_b_section import (
 from job_application_copilot.repositories.models.job import Job
 from job_application_copilot.repositories.models.llm_call import LlmCall
 from job_application_copilot.repositories.models.prompt_definition import PromptDefinition
+from job_application_copilot.repositories.models.prompt_pipeline_stage import PromptPipelineStage
 from job_application_copilot.repositories.models.reference_asset import ReferenceAsset
 
 __all__ = [
@@ -37,5 +38,6 @@ __all__ = [
     "Job",
     "LlmCall",
     "PromptDefinition",
+    "PromptPipelineStage",
     "ReferenceAsset",
 ]
