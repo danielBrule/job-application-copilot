@@ -15,4 +15,5 @@ Rules:
 - Use only the authorised Document B material supplied in this request. Do not search or infer from other Document B content.
 - Keep the generated content concise, UK-style and suitable for the configured template.
 - Return content only for the requested structured schema and its configurable DOCX placeholders. Do not generate fixed template content.
+- The supplied template contract is authoritative. Return every required slot exactly once, use only its listed placeholders, and pair any experience title with the experience slot that has the same target.
 - Do not return a separate critique report or commentary.

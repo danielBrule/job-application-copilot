@@ -156,6 +156,7 @@ class CvGenerationContextBuilder:
         retrieval: DocumentBRetrievalPacket | None = None,
         brief: CvGenerationBriefInput | None = None,
         prior_stage_output: str | None = None,
+        template_contract: str | None = None,
     ) -> CvGenerationContext:
         """Return an authorised packet for one configured English generation stage."""
 
@@ -227,6 +228,7 @@ class CvGenerationContextBuilder:
             passages=passages,
             brief=brief,
             prior_stage_output=prior_stage_output,
+            template_contract=template_contract,
         )
         stable = (
             CvGenerationTextInput(section="stage_instructions", text=prompt.text),
@@ -408,6 +410,7 @@ class CvGenerationContextBuilder:
         passages: tuple[Any, ...],
         brief: CvGenerationBriefInput | None,
         prior_stage_output: str | None,
+        template_contract: str | None,
     ) -> tuple[CvGenerationTextInput, ...]:
         values = [
             CvGenerationTextInput(
@@ -455,6 +458,8 @@ class CvGenerationContextBuilder:
             values.append(
                 CvGenerationTextInput(section="prior_stage_output", text=prior_stage_output)
             )
+        if template_contract is not None:
+            values.append(CvGenerationTextInput(section="template_contract", text=template_contract))
         return tuple(values)
 
 
