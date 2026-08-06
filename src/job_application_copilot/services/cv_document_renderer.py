@@ -117,6 +117,7 @@ def _safe_company_name(company: str) -> str:
     sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', "-", company).strip(" .-")
     if not sanitized:
         return "Company"
-    if sanitized.upper() in WINDOWS_RESERVED_NAMES:
-        return f"{sanitized}-company"
+    stem, separator, extension = sanitized.partition(".")
+    if stem.rstrip(" .").upper() in WINDOWS_RESERVED_NAMES:
+        return f"{stem.rstrip(' .')}-company{separator}{extension}"
     return sanitized

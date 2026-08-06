@@ -22,6 +22,7 @@ from job_application_copilot.domain import (
 )
 from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.services import CvDocumentRendererService, CvTemplateManifestService
+from job_application_copilot.services.cv_document_renderer import _safe_company_name
 from job_application_copilot.services.database_bootstrap import initialize_database
 
 
@@ -171,3 +172,17 @@ def test_saves_non_overwriting_local_docx(
     assert second.name == "resume - Daniel Brule - 2026-08-06 - A-CME (2).docx"
     validate_docx(first.name, first.read_bytes())
     validate_docx(second.name, second.read_bytes())
+
+
+@pytest.mark.parametrize(
+    ("company", "expected"),
+    [
+        ('A<>:"/\\|?*\x00CME', "A-CME"),
+        (" . ", "Company"),
+        ("CON", "CON-company"),
+        ("COM1.txt", "COM1-company.txt"),
+        ("lpt9.report", "lpt9-company.report"),
+    ],
+)
+def test_sanitizes_windows_company_filename_segments(company: str, expected: str) -> None:
+    assert _safe_company_name(company) == expected
