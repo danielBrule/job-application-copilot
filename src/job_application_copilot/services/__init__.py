@@ -29,6 +29,15 @@ from job_application_copilot.services.assessment_worker_handler import (
     AssessmentWorkerHandler,
 )
 from job_application_copilot.services.background_runs import BackgroundRunService
+from job_application_copilot.services.cv_generation_context import (
+    ApprovedCvBriefInput,
+    CvGenerationCacheIdentity,
+    CvGenerationContext,
+    CvGenerationContextBuilder,
+    CvGenerationContextError,
+    CvGenerationTextInput,
+    CvGenerationTraceability,
+)
 from job_application_copilot.services.cv_selection import (
     CvSelectionResult,
     CvSelectionService,
@@ -143,6 +152,7 @@ __all__ = [
     "AssessmentFileInput",
     "AssessmentTextInput",
     "AssessmentTraceability",
+    "ApprovedCvBriefInput",
     "BackgroundRunService",
     "DocumentAInput",
     "DocumentAInputService",
@@ -174,6 +184,12 @@ __all__ = [
     "RoutingSetSummary",
     "JobNotFoundError",
     "CvLaneConfigurationError",
+    "CvGenerationCacheIdentity",
+    "CvGenerationContext",
+    "CvGenerationContextBuilder",
+    "CvGenerationContextError",
+    "CvGenerationTextInput",
+    "CvGenerationTraceability",
     "CvSelectionResult",
     "CvSelectionService",
     "CvSelectionSkip",
