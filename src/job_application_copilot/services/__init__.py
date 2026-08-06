@@ -29,6 +29,10 @@ from job_application_copilot.services.assessment_worker_handler import (
     AssessmentWorkerHandler,
 )
 from job_application_copilot.services.background_runs import BackgroundRunService
+from job_application_copilot.services.cv_document_renderer import (
+    CvDocumentRendererService,
+    CvDocumentStorageError,
+)
 from job_application_copilot.services.cv_generation_brief import (
     CvGenerationBriefResult,
     CvGenerationBriefService,
@@ -191,6 +195,8 @@ __all__ = [
     "CvGenerationDraftService",
     "CvGenerationFinalResult",
     "CvGenerationFinalService",
+    "CvDocumentRendererService",
+    "CvDocumentStorageError",
     "CvTemplateContractError",
     "CvTemplateContractService",
     "CvTemplateManifestError",
