@@ -68,6 +68,7 @@ def test_empty_jobs_dashboard_shows_add_prompt(
         assert app.info[0].value == "No jobs have been added yet."
         assert not app.metric
         assert not app.dataframe
+        assert not app.button(key="add_job").disabled
         assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
     finally:
         reset_logging()
