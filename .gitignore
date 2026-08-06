@@ -36,6 +36,9 @@ ENV/
 .idea/
 .DS_Store
 
+# Local Git worktrees
+.worktrees/
+
 # Data and documents
 data/
 *.csv
