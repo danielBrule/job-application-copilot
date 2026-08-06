@@ -35,6 +35,13 @@ from job_application_copilot.domain.document_b_routing import (
     RouteInclusion,
     SecondaryLaneDisposition,
 )
+from job_application_copilot.domain.final_cv import (
+    CvExperienceBlock,
+    CvSkillEntry,
+    CvSkillsBlock,
+    CvTemplateText,
+    FinalCvOutput,
+)
 from job_application_copilot.domain.job import (
     CreateJob,
     CvSelectionStatus,
@@ -90,6 +97,10 @@ __all__ = [
     "CvExperienceEmphasis",
     "CvGenerationBriefOutput",
     "CvGenerationDraftOutput",
+    "CvExperienceBlock",
+    "CvSkillEntry",
+    "CvSkillsBlock",
+    "CvTemplateText",
     "DOCUMENT_A_KEY",
     "DOCUMENT_B_KEY",
     "DashboardAssessmentStatus",
@@ -100,6 +111,7 @@ __all__ = [
     "ENGLISH_CV_TEMPLATE_KEY",
     "FRENCH_CV_TEMPLATE_KEY",
     "FrenchReferenceExamplesOverview",
+    "FinalCvOutput",
     "JobFilters",
     "is_valid_background_task_transition",
     "Language",
