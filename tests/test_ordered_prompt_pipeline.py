@@ -149,6 +149,22 @@ def test_runs_three_stages_in_order_and_persists_outputs(database: Database) -> 
     assert [item.output_text for item in stored] == ["brief", "draft", "final"]
 
 
+def test_allows_a_single_later_stage_to_keep_its_configured_position(database: Database) -> None:
+    task, attempt_id = claimed_task(database)
+    stage = OrderedPromptStage(
+        position=2,
+        pipeline_step="CV_GENERATION_STAGE_2_DRAFT",
+        request_factory=stages()[1].request_factory,
+    )
+
+    result = OrderedPromptPipelineService(
+        database, FakeClient([response("draft")]), max_retries=0
+    ).run(task, task_attempt_id=attempt_id, stages=(stage,))
+
+    assert result.outputs == ("draft",)
+    assert result.resumed_from_position == 2
+
+
 def test_manual_retry_resumes_from_failed_stage(database: Database) -> None:
     task, first_attempt_id = claimed_task(database)
     first_client = FakeClient(

@@ -18,6 +18,10 @@ from job_application_copilot.repositories.cv_generation_brief_repository import 
     CvGenerationBriefNotFoundError,
     CvGenerationBriefRepository,
 )
+from job_application_copilot.repositories.cv_generation_draft_repository import (
+    CvGenerationDraftNotFoundError,
+    CvGenerationDraftRepository,
+)
 from job_application_copilot.repositories.database import (
     Database,
     DatabaseHealth,
@@ -61,6 +65,8 @@ __all__ = [
     "BackgroundTaskRepository",
     "CvGenerationBriefNotFoundError",
     "CvGenerationBriefRepository",
+    "CvGenerationDraftNotFoundError",
+    "CvGenerationDraftRepository",
     "Database",
     "DatabaseHealth",
     "DocumentBSectionNotFoundError",

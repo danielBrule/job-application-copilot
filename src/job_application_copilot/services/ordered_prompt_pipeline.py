@@ -97,7 +97,7 @@ class OrderedPromptPipelineService:
             )
 
         outputs: list[str] = []
-        resumed_from = len(stages) + 1
+        resumed_from = stages[-1].position + 1
         for stage in stages:
             prior_output = outputs[-1] if outputs else None
             request = stage.request_factory(prior_output)
@@ -111,7 +111,7 @@ class OrderedPromptPipelineService:
             ):
                 outputs.append(stored.output_text)
                 continue
-            if resumed_from > len(stages):
+            if resumed_from > stages[-1].position:
                 resumed_from = stage.position
             self._discard_from(task.id, stage.position)
             output = self._run_stage(
@@ -124,7 +124,7 @@ class OrderedPromptPipelineService:
 
         return OrderedPromptPipelineResult(
             outputs=tuple(outputs),
-            resumed_from_position=resumed_from if resumed_from <= len(stages) else len(stages) + 1,
+            resumed_from_position=resumed_from,
         )
 
     def _run_stage(
@@ -333,8 +333,10 @@ class OrderedPromptPipelineService:
         if not stages:
             raise OrderedPromptPipelineError("Prompt pipeline requires at least one stage.")
         positions = [stage.position for stage in stages]
-        if positions != list(range(1, len(stages) + 1)):
-            raise OrderedPromptPipelineError("Prompt stages must have contiguous positions from 1.")
+        if positions[0] < 1 or positions != list(range(positions[0], positions[0] + len(stages))):
+            raise OrderedPromptPipelineError(
+                "Prompt stages must have contiguous positive positions."
+            )
         if any(not stage.pipeline_step.strip() for stage in stages):
             raise OrderedPromptPipelineError("Prompt stages require a pipeline step name.")
 

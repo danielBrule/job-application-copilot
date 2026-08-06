@@ -22,6 +22,7 @@ from job_application_copilot.domain.cv_generation_brief import (
     CvExperienceEmphasis,
     CvGenerationBriefOutput,
 )
+from job_application_copilot.domain.cv_generation_draft import CvGenerationDraftOutput
 from job_application_copilot.domain.document_b_retrieval import (
     DocumentBRetrievalRequest,
     DocumentBRetrievedPassage,
@@ -88,6 +89,7 @@ __all__ = [
     "CreatePromptDefinition",
     "CvExperienceEmphasis",
     "CvGenerationBriefOutput",
+    "CvGenerationDraftOutput",
     "DOCUMENT_A_KEY",
     "DOCUMENT_B_KEY",
     "DashboardAssessmentStatus",

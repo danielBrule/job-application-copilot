@@ -13,6 +13,7 @@ from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import (
     DOCUMENT_B_KEY,
     AssessmentStatus,
+    CvGenerationBriefOutput,
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
     RouteDeliveryMode,
@@ -62,11 +63,22 @@ class CvGenerationBriefInput(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
+    document_a_version: int = Field(gt=0)
     document_b_version: int = Field(gt=0)
     routing_set_id: int = Field(gt=0)
-    selected_section_ids: frozenset[str]
-    selected_passage_ids: frozenset[str]
-    guardrail_ids: frozenset[str]
+    output: CvGenerationBriefOutput
+
+    @property
+    def selected_section_ids(self) -> frozenset[str]:
+        return self.output.selected_section_ids
+
+    @property
+    def selected_passage_ids(self) -> frozenset[str]:
+        return self.output.selected_passage_ids
+
+    @property
+    def guardrail_ids(self) -> frozenset[str]:
+        return self.output.guardrail_ids
 
 
 class CvGenerationTraceability(BaseModel):
@@ -163,7 +175,13 @@ class CvGenerationContextBuilder:
         passages = () if retrieval is None else retrieval.passages
         self._validate_retrieval(primary, document_b_version, passages)
         if stage > 1:
-            self._validate_brief(brief, primary, document_b_version, passages)
+            self._validate_brief(
+                brief,
+                primary,
+                assessment.document_a_version or 0,
+                document_b_version,
+                passages,
+            )
         elif brief is not None:
             raise CvGenerationContextError(
                 "Only later CV-generation stages may receive a CV-generation brief."
@@ -173,7 +191,12 @@ class CvGenerationContextBuilder:
 
         schema_text = _canonical_json(response_schema)
         schema_hash = _sha256(schema_text.encode("utf-8"))
-        mandatory_text = self._mandatory_document_b_text(primary, document_b_version)
+        mandatory_text = self._mandatory_document_b_text(
+            primary,
+            document_b_version,
+            selected_section_ids=None if brief is None else brief.selected_section_ids,
+            guardrail_ids=frozenset() if brief is None else brief.guardrail_ids,
+        )
         primary_text = _canonical_json(
             {
                 "primary_lane": lane,
@@ -281,7 +304,14 @@ class CvGenerationContextBuilder:
             )
         return _PromptInput(asset_key, version, file_hash, text)
 
-    def _mandatory_document_b_text(self, routing: ResolvedRouting, version: int) -> str:
+    def _mandatory_document_b_text(
+        self,
+        routing: ResolvedRouting,
+        version: int,
+        *,
+        selected_section_ids: frozenset[str] | None,
+        guardrail_ids: frozenset[str],
+    ) -> str:
         sections: list[dict[str, object]] = []
         included: set[str] = set()
         for entry in routing.packet.entries:
@@ -291,6 +321,12 @@ class CvGenerationContextBuilder:
             ):
                 continue
             for section_id in entry.expanded_section_ids:
+                if (
+                    selected_section_ids is not None
+                    and section_id not in selected_section_ids
+                    and entry.logical_id not in guardrail_ids
+                ):
+                    continue
                 if section_id in included:
                     continue
                 included.add(section_id)
@@ -326,12 +362,17 @@ class CvGenerationContextBuilder:
     def _validate_brief(
         brief: CvGenerationBriefInput | None,
         routing: ResolvedRouting,
+        document_a_version: int,
         version: int,
         passages: tuple[Any, ...],
     ) -> None:
         if brief is None:
             raise CvGenerationContextError(
                 "Later CV-generation stages require a retained CV-generation brief."
+            )
+        if brief.document_a_version != document_a_version:
+            raise CvGenerationContextError(
+                "CV-generation brief does not match the current Document A assessment."
             )
         if (
             brief.document_b_version != version
@@ -343,6 +384,10 @@ class CvGenerationContextBuilder:
         available_sections = {
             section_id
             for entry in routing.packet.entries
+            if (
+                entry.delivery_mode is RouteDeliveryMode.DIRECT_CONTEXT
+                and entry.inclusion is RouteInclusion.MANDATORY
+            )
             for section_id in entry.expanded_section_ids
         }
         if not brief.selected_section_ids.issubset(available_sections):
