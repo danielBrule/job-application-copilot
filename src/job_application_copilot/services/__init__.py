@@ -104,6 +104,13 @@ from job_application_copilot.services.openai_file_upload import (
     OpenAIFileUploadService,
     ReferenceAssetIntegrityError,
 )
+from job_application_copilot.services.ordered_prompt_pipeline import (
+    OrderedPromptPipelineError,
+    OrderedPromptPipelineResult,
+    OrderedPromptPipelineService,
+    OrderedPromptStage,
+    OrderedPromptStageFailedError,
+)
 from job_application_copilot.services.prompt_service import (
     DuplicatePromptContentError,
     DuplicatePromptDefinitionError,
@@ -204,6 +211,11 @@ __all__ = [
     "OpenAIFileUploadService",
     "OpenAIInputFile",
     "OperationUsageKpis",
+    "OrderedPromptPipelineError",
+    "OrderedPromptPipelineResult",
+    "OrderedPromptPipelineService",
+    "OrderedPromptStage",
+    "OrderedPromptStageFailedError",
     "PromptActivationError",
     "PromptService",
     "PromptStorageError",

@@ -59,6 +59,7 @@ def test_streamlit_app_starts_and_creates_private_directories(
                 "jobs",
                 "llm_calls",
                 "prompt_definitions",
+                "prompt_pipeline_stages",
                 "reference_assets",
             ]
         finally:

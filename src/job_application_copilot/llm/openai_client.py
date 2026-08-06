@@ -60,6 +60,48 @@ class AssessmentOpenAIResponse:
     cache_ttl: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class PromptStageInput:
+    """One provider-neutral ordered item for a generic prompt stage."""
+
+    section: str
+    text: str
+    cache_boundary: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class PromptStageRequest:
+    """Validated, non-persistent request packet for one ordered prompt stage."""
+
+    model_identifier: str
+    input: tuple[PromptStageInput, ...]
+    cache_identity_hash: str
+    cache_identity_version: int
+    execution_identity_hash: str
+    response_schema: dict[str, object] | None = None
+    reasoning_effort: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PromptStageOpenAIResponse:
+    """Privacy-safe application view of a generic Responses API result."""
+
+    response_id: str
+    request_id: str | None
+    model: str | None
+    output_text: str
+    incomplete_reason: str | None
+    service_tier: str | None
+    input_tokens: int | None
+    cached_input_tokens: int | None
+    cache_write_tokens: int | None
+    output_tokens: int | None
+    reasoning_tokens: int | None
+    total_tokens: int | None
+    cache_mode: str | None
+    cache_ttl: str | None
+
+
 class OpenAIVectorStoreFileStatus(StrEnum):
     """Terminal and non-terminal indexing states returned by OpenAI."""
 
@@ -200,6 +242,67 @@ class OpenAIClient:
         output_details = usage.output_tokens_details if usage is not None else None
         cache_options = getattr(response, "prompt_cache_options", None)
         return AssessmentOpenAIResponse(
+            response_id=response.id,
+            request_id=response._request_id,
+            model=getattr(response, "model", None),
+            output_text=response.output_text,
+            incomplete_reason=(
+                response.incomplete_details.reason
+                if response.incomplete_details is not None
+                else None
+            ),
+            service_tier=response.service_tier,
+            input_tokens=usage.input_tokens if usage is not None else None,
+            cached_input_tokens=input_details.cached_tokens if input_details is not None else None,
+            cache_write_tokens=input_details.cache_write_tokens
+            if input_details is not None
+            else None,
+            output_tokens=usage.output_tokens if usage is not None else None,
+            reasoning_tokens=output_details.reasoning_tokens
+            if output_details is not None
+            else None,
+            total_tokens=usage.total_tokens if usage is not None else None,
+            cache_mode=cache_options.mode if cache_options is not None else None,
+            cache_ttl=cache_options.ttl if cache_options is not None else None,
+        )
+
+    def run_prompt_stage(self, request: PromptStageRequest) -> PromptStageOpenAIResponse:
+        """Run one generic ordered stage with an explicit cache breakpoint when supported."""
+
+        explicit_cache = _supports_explicit_prompt_cache(request.model_identifier)
+        input_items: list[dict[str, object]] = []
+        for item in request.input:
+            rendered: dict[str, object] = {"type": "input_text", "text": item.text}
+            if explicit_cache and item.cache_boundary:
+                rendered["prompt_cache_breakpoint"] = {"mode": "explicit"}
+            input_items.append(rendered)
+        arguments: dict[str, Any] = {
+            "model": request.model_identifier,
+            "input": [{"role": "user", "content": input_items}],
+            "prompt_cache_key": request.cache_identity_hash,
+        }
+        if request.reasoning_effort is not None:
+            arguments["reasoning"] = {"effort": request.reasoning_effort}
+        if request.response_schema is not None:
+            arguments["text"] = {
+                "format": {
+                    "type": "json_schema",
+                    "name": "prompt_stage_output",
+                    "strict": True,
+                    "schema": request.response_schema,
+                }
+            }
+        if explicit_cache:
+            arguments["prompt_cache_options"] = {"mode": "explicit", "ttl": "30m"}
+        try:
+            response = self._sdk_client.with_options(max_retries=0).responses.create(**arguments)
+        except APIError as error:
+            raise _translate_openai_error(error, operation="prompt_stage") from error
+        usage = response.usage
+        input_details = usage.input_tokens_details if usage is not None else None
+        output_details = usage.output_tokens_details if usage is not None else None
+        cache_options = getattr(response, "prompt_cache_options", None)
+        return PromptStageOpenAIResponse(
             response_id=response.id,
             request_id=response._request_id,
             model=getattr(response, "model", None),
