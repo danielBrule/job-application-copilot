@@ -10,6 +10,7 @@ from job_application_copilot.services import (
     AssessmentBatchService,
     BackgroundRunService,
     CvSelectionService,
+    CvTemplateManifestService,
     DashboardKpiService,
     DocumentAProcessingService,
     DocumentBProcessingService,
@@ -123,3 +124,7 @@ def get_reference_asset_storage_service(
         get_database(settings.database_path),
         settings,
     )
+
+
+def get_cv_template_manifest_service(settings: AppSettings) -> CvTemplateManifestService:
+    return CvTemplateManifestService(get_database(settings.database_path), settings)

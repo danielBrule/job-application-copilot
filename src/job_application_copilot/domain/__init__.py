@@ -23,6 +23,12 @@ from job_application_copilot.domain.cv_generation_brief import (
     CvGenerationBriefOutput,
 )
 from job_application_copilot.domain.cv_generation_draft import CvGenerationDraftOutput
+from job_application_copilot.domain.cv_template_manifest import (
+    CvTemplateManifest,
+    CvTemplateManifestStatus,
+    CvTemplateSlotKind,
+    CvTemplateSlotMapping,
+)
 from job_application_copilot.domain.document_b_retrieval import (
     DocumentBRetrievalRequest,
     DocumentBRetrievedPassage,
@@ -101,6 +107,10 @@ __all__ = [
     "CvSkillEntry",
     "CvSkillsBlock",
     "CvTemplateText",
+    "CvTemplateManifest",
+    "CvTemplateManifestStatus",
+    "CvTemplateSlotKind",
+    "CvTemplateSlotMapping",
     "DOCUMENT_A_KEY",
     "DOCUMENT_B_KEY",
     "DashboardAssessmentStatus",

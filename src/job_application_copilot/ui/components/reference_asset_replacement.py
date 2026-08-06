@@ -5,6 +5,7 @@ import streamlit as st
 from job_application_copilot.domain import (
     DOCUMENT_A_KEY,
     DOCUMENT_B_KEY,
+    ENGLISH_CV_TEMPLATE_KEY,
     REQUIRED_REFERENCE_ASSETS,
     FrenchReferenceExamplesOverview,
 )
@@ -48,6 +49,8 @@ def render_reference_asset_replacements(
         st.error(message)
 
     for requirement in REQUIRED_REFERENCE_ASSETS:
+        if requirement.asset_key == ENGLISH_CV_TEMPLATE_KEY:
+            continue
         if requirement.asset_key == DOCUMENT_A_KEY:
             render_reference_document_form(
                 requirement,

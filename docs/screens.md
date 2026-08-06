@@ -294,6 +294,11 @@ group.
 - French CV template
 - Shared CV folder for generated and uploaded CVs
 
+When an English template is uploaded or replaced, Settings scans its bracketed uppercase placeholders.
+The user must map every discovered placeholder to a supported content type before that template version
+becomes active. Experience placeholders additionally require a user-defined experience target. The
+previous active English template remains in use until the mapping is confirmed.
+
 ### Processing
 
 - Assessment worker count, default 1
