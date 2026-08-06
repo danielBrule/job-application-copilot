@@ -157,6 +157,12 @@ One structured stage-two draft is retained for each generated CV task. It record
 English CV draft plus the evidence deliberately prioritised, softened or excluded. Stage 3 uses this
 retained draft together with the retained brief and the same authorised Document B material.
 
+## Final structured CV
+
+The final CV is structured generated content for a user-managed DOCX template. Every generated text,
+experience block and skills block records its bracketed template placeholder. Template-owned contact
+details, education, languages, static employer headings and static roles remain outside model output.
+
 ## Contact
 
 Multiple records per job.

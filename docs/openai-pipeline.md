@@ -144,13 +144,13 @@ Assessment and final CV outputs use explicit schemas and Pydantic validation.
 
 The final CV structure includes:
 
-- positioning title;
-- profile;
-- skills;
-- experience introductions and bullets;
-- optional independent work;
-- education;
-- additional information.
+- positioning title and profile, each with a configurable DOCX placeholder;
+- skills entries with a configurable DOCX placeholder;
+- ordered experience blocks, each with a configurable content placeholder, optional title placeholder,
+  optional introduction and bullets.
+
+Education, contact details, languages, employer headings and other static content remain owned by the
+user-managed DOCX template rather than generated output.
 
 ## Failure handling
 
