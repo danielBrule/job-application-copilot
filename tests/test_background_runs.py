@@ -26,8 +26,11 @@ from job_application_copilot.repositories.models import (
 from job_application_copilot.services.background_runs import BackgroundRunService
 from job_application_copilot.services.database_bootstrap import initialize_database
 from job_application_copilot.ui.components.background_runs import (
+    TABLE_COLUMN_ORDER,
     _format_duration,
     _format_timestamp,
+    selected_background_run,
+    shape_background_run_rows,
 )
 
 
@@ -280,6 +283,42 @@ def test_retry_preserves_failed_attempt_and_does_not_change_completed_sibling(
     assert runs[failed_id].retry_count == 1
     assert runs[failed_id].attempts[0].status is BackgroundTaskStatus.FAILED
     assert runs[completed_id].status is BackgroundTaskStatus.COMPLETED
+
+
+def test_shapes_compact_rows_and_preserves_selected_task(migrated_database: Database) -> None:
+    task_id = add_task(
+        migrated_database,
+        company="Failed",
+        operation=BackgroundOperation.ASSESSMENT,
+        status=BackgroundTaskStatus.FAILED,
+        batch_created_at=datetime(2026, 7, 29, 9, 0),
+    )
+    (row,) = shape_background_run_rows(BackgroundRunService(migrated_database).list())
+
+    assert tuple(row.display_record()) == TABLE_COLUMN_ORDER
+    assert row.display_record()["job"] == "Failed — Platform Engineer"
+    assert row.display_record()["status"] == "FAILED"
+    assert row.display_record()["error"] == "Error"
+    assert selected_background_run((row,), [0]).task_id == task_id
+    assert selected_background_run((row,), []) is None
+
+
+@pytest.mark.parametrize("selected_positions", [(-1,), (1,), (0, 1)])
+def test_invalid_compact_table_selection_is_rejected(
+    migrated_database: Database,
+    selected_positions: tuple[int, ...],
+) -> None:
+    add_task(
+        migrated_database,
+        company="Pending",
+        operation=BackgroundOperation.ASSESSMENT,
+        status=BackgroundTaskStatus.PENDING,
+        batch_created_at=datetime(2026, 7, 29, 9, 0),
+    )
+    rows = shape_background_run_rows(BackgroundRunService(migrated_database).list())
+
+    with pytest.raises(ValueError):
+        selected_background_run(rows, selected_positions)
 
 
 def test_formats_utc_timestamps_and_durations() -> None:
