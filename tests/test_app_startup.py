@@ -51,6 +51,7 @@ def test_streamlit_app_starts_and_creates_private_directories(
                 "background_task_attempts",
                 "background_tasks",
                 "cv_generation_briefs",
+                "cv_generation_drafts",
                 "document_b_lane_routes",
                 "document_b_retrieval_trace_results",
                 "document_b_retrieval_traces",

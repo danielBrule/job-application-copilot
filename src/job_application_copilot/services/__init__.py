@@ -42,6 +42,10 @@ from job_application_copilot.services.cv_generation_context import (
     CvGenerationTextInput,
     CvGenerationTraceability,
 )
+from job_application_copilot.services.cv_generation_draft import (
+    CvGenerationDraftResult,
+    CvGenerationDraftService,
+)
 from job_application_copilot.services.cv_selection import (
     CvSelectionResult,
     CvSelectionService,
@@ -170,6 +174,8 @@ __all__ = [
     "CvGenerationBriefInput",
     "CvGenerationBriefResult",
     "CvGenerationBriefService",
+    "CvGenerationDraftResult",
+    "CvGenerationDraftService",
     "BackgroundRunService",
     "DocumentAInput",
     "DocumentAInputService",

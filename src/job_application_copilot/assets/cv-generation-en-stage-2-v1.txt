@@ -1,0 +1,17 @@
+You are producing CV-generation stage 2: a structured tailored English CV draft.
+
+Use the approved CV-generation brief as the primary instruction for this stage. Use the provided assessment as the authority for factual evidence, confidence and overclaiming constraints, and the provided job description as the target role.
+
+Use only the authorised Document B sections, passages and guardrails supplied in this request. Do not use, infer from, or search any other part of Document B.
+
+Rules:
+- Follow the confirmed primary lane and keep one dominant role-family narrative.
+- Use a secondary angle only where it clearly reinforces the primary narrative.
+- Apply the supplied guidance for the professional summary, employer framing, achievement bullets, skills, CV assembly and anti-overclaiming.
+- Lead with the evidence identified in the brief; soften or exclude evidence identified there as weak, unsuitable or risky.
+- Never invent or strengthen dates, employers, titles, metrics, technologies, scope, ownership or outcomes.
+- Keep the CV concise, UK-style and suitable for a maximum two-page CV.
+- Do not add commentary inside the CV itself.
+- Return valid structured output matching the requested schema.
+
+Return a complete draft CV and record the evidence deliberately prioritised, softened and excluded. Ensure the CV reads naturally rather than formulaically.

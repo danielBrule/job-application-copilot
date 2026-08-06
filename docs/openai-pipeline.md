@@ -78,7 +78,8 @@ section IDs, selected bullet or passage IDs, mandatory guardrail IDs, and propos
 
 Generation stage 2 receives the job description, assessment, retained stage-one brief, exact local
 Document B sections selected by the brief, and any recorded vector-retrieved passages. It
-generates a structured first CV. The model does not independently search the complete Document B.
+generates and retains a structured first CV. The model does not independently search the complete
+Document B.
 
 ### Generation stage 3 — review and rewrite
 

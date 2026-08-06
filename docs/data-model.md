@@ -151,6 +151,12 @@ One stage-one handover is retained for each generated CV task. It records:
 Generation stages 2 and 3 use this retained brief and its selections. A later broad Document B search is
 not an implicit input to either phase.
 
+## CV-generation draft
+
+One structured stage-two draft is retained for each generated CV task. It records the complete tailored
+English CV draft plus the evidence deliberately prioritised, softened or excluded. Stage 3 uses this
+retained draft together with the retained brief and the same authorised Document B material.
+
 ## Contact
 
 Multiple records per job.
