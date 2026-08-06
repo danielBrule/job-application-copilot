@@ -14,6 +14,10 @@ from job_application_copilot.repositories.background_task_repository import (
     BackgroundTaskRepository,
     InvalidBackgroundTaskTransitionError,
 )
+from job_application_copilot.repositories.cv_generation_brief_repository import (
+    CvGenerationBriefNotFoundError,
+    CvGenerationBriefRepository,
+)
 from job_application_copilot.repositories.database import (
     Database,
     DatabaseHealth,
@@ -55,6 +59,8 @@ __all__ = [
     "BackgroundTaskBatchOperationMismatchError",
     "BackgroundTaskNotFoundError",
     "BackgroundTaskRepository",
+    "CvGenerationBriefNotFoundError",
+    "CvGenerationBriefRepository",
     "Database",
     "DatabaseHealth",
     "DocumentBSectionNotFoundError",

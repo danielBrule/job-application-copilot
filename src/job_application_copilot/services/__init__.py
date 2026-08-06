@@ -29,8 +29,12 @@ from job_application_copilot.services.assessment_worker_handler import (
     AssessmentWorkerHandler,
 )
 from job_application_copilot.services.background_runs import BackgroundRunService
+from job_application_copilot.services.cv_generation_brief import (
+    CvGenerationBriefResult,
+    CvGenerationBriefService,
+)
 from job_application_copilot.services.cv_generation_context import (
-    ApprovedCvBriefInput,
+    CvGenerationBriefInput,
     CvGenerationCacheIdentity,
     CvGenerationContext,
     CvGenerationContextBuilder,
@@ -52,6 +56,10 @@ from job_application_copilot.services.dashboard_kpis import (
 from job_application_copilot.services.default_assessment_prompt import (
     DefaultAssessmentPromptError,
     DefaultAssessmentPromptService,
+)
+from job_application_copilot.services.default_cv_generation_prompt import (
+    DefaultCvGenerationPromptError,
+    DefaultCvGenerationPromptService,
 )
 from job_application_copilot.services.document_a_input import (
     DocumentAInput,
@@ -159,7 +167,9 @@ __all__ = [
     "AssessmentFileInput",
     "AssessmentTextInput",
     "AssessmentTraceability",
-    "ApprovedCvBriefInput",
+    "CvGenerationBriefInput",
+    "CvGenerationBriefResult",
+    "CvGenerationBriefService",
     "BackgroundRunService",
     "DocumentAInput",
     "DocumentAInputService",
@@ -175,6 +185,8 @@ __all__ = [
     "DocumentBVectorStoreService",
     "DefaultAssessmentPromptError",
     "DefaultAssessmentPromptService",
+    "DefaultCvGenerationPromptError",
+    "DefaultCvGenerationPromptService",
     "DocumentBProcessingError",
     "DocumentBProcessingService",
     "DocumentBSectionError",

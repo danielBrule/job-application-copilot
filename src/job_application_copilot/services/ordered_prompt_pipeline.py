@@ -38,6 +38,7 @@ class OrderedPromptStage:
     position: int
     pipeline_step: str
     request_factory: Callable[[str | None], PromptStageRequest]
+    output_validator: Callable[[str], str] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,6 +185,33 @@ class OrderedPromptPipelineService:
                 )
                 raise OrderedPromptStageFailedError(stage.pipeline_step)
 
+            try:
+                output_text = (
+                    stage.output_validator(response.output_text)
+                    if stage.output_validator is not None
+                    else response.output_text
+                )
+            except ValueError as error:
+                self._record_call(
+                    task,
+                    task_attempt_id,
+                    stage,
+                    request,
+                    retry_number,
+                    LlmCallStatus.FAILED,
+                    started_at,
+                    completed_at,
+                    duration,
+                    failure_category=LlmFailureCategory.SCHEMA_VALIDATION,
+                    response=response,
+                )
+                if retry_number < self.max_retries:
+                    self.sleep(2**retry_number)
+                    continue
+                self._store_failure(
+                    task.id, stage, request, "The model returned invalid structured stage output."
+                )
+                raise OrderedPromptStageFailedError(stage.pipeline_step) from error
             self._record_call(
                 task,
                 task_attempt_id,
@@ -202,9 +230,9 @@ class OrderedPromptPipelineService:
                     stage_position=stage.position,
                     pipeline_step=stage.pipeline_step,
                     input_identity_hash=request.execution_identity_hash,
-                    output_text=response.output_text,
+                    output_text=output_text,
                 )
-            return response.output_text
+            return output_text
         raise AssertionError("Prompt stage retry loop must return.")
 
     def _stored_stage(self, task_id: int, position: int) -> PromptPipelineStage | None:

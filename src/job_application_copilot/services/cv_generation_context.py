@@ -57,12 +57,8 @@ class CvGenerationTextInput(BaseModel):
     cache_boundary: bool = False
 
 
-class ApprovedCvBriefInput(BaseModel):
-    """The minimum retained approval handover needed by later stages.
-
-    Ticket T7.5 owns persistence and approval; this contract prevents later stages from
-    accepting a broad, newly retrieved Document B packet.
-    """
+class CvGenerationBriefInput(BaseModel):
+    """The retained stage-one handover required by later generation stages."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -146,7 +142,7 @@ class CvGenerationContextBuilder:
         model_identifier: str,
         response_schema: dict[str, Any],
         retrieval: DocumentBRetrievalPacket | None = None,
-        approved_brief: ApprovedCvBriefInput | None = None,
+        brief: CvGenerationBriefInput | None = None,
         prior_stage_output: str | None = None,
     ) -> CvGenerationContext:
         """Return an authorised packet for one configured English generation stage."""
@@ -167,10 +163,10 @@ class CvGenerationContextBuilder:
         passages = () if retrieval is None else retrieval.passages
         self._validate_retrieval(primary, document_b_version, passages)
         if stage > 1:
-            self._validate_approved_brief(approved_brief, primary, document_b_version, passages)
-        elif approved_brief is not None:
+            self._validate_brief(brief, primary, document_b_version, passages)
+        elif brief is not None:
             raise CvGenerationContextError(
-                "Only later CV-generation stages may receive an approved brief."
+                "Only later CV-generation stages may receive a CV-generation brief."
             )
         if prior_stage_output is not None and not prior_stage_output.strip():
             raise CvGenerationContextError("Prior-stage output cannot be blank when supplied.")
@@ -206,7 +202,7 @@ class CvGenerationContextBuilder:
             assessment=assessment,
             secondary=secondary,
             passages=passages,
-            approved_brief=approved_brief,
+            brief=brief,
             prior_stage_output=prior_stage_output,
         )
         stable = (
@@ -327,22 +323,22 @@ class CvGenerationContextBuilder:
                 )
 
     @staticmethod
-    def _validate_approved_brief(
-        brief: ApprovedCvBriefInput | None,
+    def _validate_brief(
+        brief: CvGenerationBriefInput | None,
         routing: ResolvedRouting,
         version: int,
         passages: tuple[Any, ...],
     ) -> None:
         if brief is None:
             raise CvGenerationContextError(
-                "Later CV-generation stages require an approved CV brief."
+                "Later CV-generation stages require a retained CV-generation brief."
             )
         if (
             brief.document_b_version != version
             or brief.routing_set_id != routing.summary.routing_set_id
         ):
             raise CvGenerationContextError(
-                "Approved CV brief does not match the current authorised route."
+                "CV-generation brief does not match the current authorised route."
             )
         available_sections = {
             section_id
@@ -351,11 +347,11 @@ class CvGenerationContextBuilder:
         }
         if not brief.selected_section_ids.issubset(available_sections):
             raise CvGenerationContextError(
-                "Approved CV brief contains unauthorised Document B sections."
+                "CV-generation brief contains unauthorised Document B sections."
             )
         if not brief.selected_passage_ids.issuperset(passage.passage_id for passage in passages):
             raise CvGenerationContextError(
-                "Supplementary passages were not approved in the CV brief."
+                "Supplementary passages are not recorded in the CV-generation brief."
             )
 
     @staticmethod
@@ -365,7 +361,7 @@ class CvGenerationContextBuilder:
         assessment: Any,
         secondary: str | None,
         passages: tuple[Any, ...],
-        approved_brief: ApprovedCvBriefInput | None,
+        brief: CvGenerationBriefInput | None,
         prior_stage_output: str | None,
     ) -> tuple[CvGenerationTextInput, ...]:
         values = [
@@ -406,11 +402,9 @@ class CvGenerationContextBuilder:
                     text=_canonical_json([passage.model_dump() for passage in passages]),
                 ),
             )
-        if approved_brief is not None:
+        if brief is not None:
             values.append(
-                CvGenerationTextInput(
-                    section="approved_brief", text=approved_brief.model_dump_json()
-                )
+                CvGenerationTextInput(section="cv_generation_brief", text=brief.model_dump_json())
             )
         if prior_stage_output is not None:
             values.append(

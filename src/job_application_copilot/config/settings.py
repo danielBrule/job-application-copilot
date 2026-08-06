@@ -40,11 +40,14 @@ class AppSettings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("OPENAI_API_KEY", "JAC_OPENAI_API_KEY"),
     )
-    assessment_model: str = "gpt-5.6-sol"
+    assessment_model: str = "gpt-5.6-terra"
     assessment_reasoning_effort: AssessmentReasoningEffort = "medium"
     assessment_max_retries: int = Field(default=2, ge=0, le=5)
     assessment_retry_base_delay_seconds: float = Field(default=1.0, ge=0, le=30)
     assessment_worker_count: int = Field(default=1, ge=1, le=5)
+    cv_generation_model: str = "gpt-5.6-terra"
+    cv_generation_reasoning_effort: AssessmentReasoningEffort = "medium"
+    cv_generation_max_retries: int = Field(default=2, ge=0, le=5)
     cv_worker_count: int = Field(default=1, ge=1, le=5)
     log_level: LogLevelName = "INFO"
     log_max_size_mb: int = Field(default=5, ge=1, le=100)

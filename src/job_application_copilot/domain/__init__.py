@@ -18,6 +18,10 @@ from job_application_copilot.domain.background_task import (
     BackgroundTaskStatus,
     is_valid_background_task_transition,
 )
+from job_application_copilot.domain.cv_generation_brief import (
+    CvExperienceEmphasis,
+    CvGenerationBriefOutput,
+)
 from job_application_copilot.domain.document_b_retrieval import (
     DocumentBRetrievalRequest,
     DocumentBRetrievedPassage,
@@ -82,6 +86,8 @@ __all__ = [
     "CreateJob",
     "CvSelectionStatus",
     "CreatePromptDefinition",
+    "CvExperienceEmphasis",
+    "CvGenerationBriefOutput",
     "DOCUMENT_A_KEY",
     "DOCUMENT_B_KEY",
     "DashboardAssessmentStatus",
