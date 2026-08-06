@@ -78,6 +78,7 @@ def test_migrations_create_current_domain_tables(
             "jobs",
             "llm_calls",
             "prompt_definitions",
+            "prompt_pipeline_stages",
             "reference_assets",
         ]
     finally:
