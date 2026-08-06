@@ -1,5 +1,7 @@
 """Background task monitoring, filtering, attempt history, and retry controls."""
 
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from datetime import datetime
 
 import streamlit as st
@@ -28,6 +30,65 @@ STATUS_QUERY_PARAMETER = "status"
 LOAD_ERROR_MESSAGE = "Background runs could not be loaded. See the private UI log for details."
 RETRY_ERROR_MESSAGE = "The task could not be retried. See the private UI log for details."
 AUTO_REFRESH_SECONDS = 60
+BACKGROUND_RUNS_TABLE_KEY = "background_runs_table"
+TABLE_COLUMN_ORDER = (
+    "batch",
+    "job",
+    "operation",
+    "status",
+    "pipeline_step",
+    "started",
+    "completed",
+    "duration",
+    "error",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class BackgroundRunTableRow:
+    """Compact presentation values for one durable background task."""
+
+    run: BackgroundRunSummary
+
+    def display_record(self) -> dict[str, object]:
+        """Return the stable values rendered in the compact runs table."""
+
+        return {
+            "batch": f"Batch {self.run.batch_id}",
+            "job": f"{self.run.company} — {self.run.job_title}",
+            "operation": self.run.operation.value,
+            "status": self.run.status.value,
+            "pipeline_step": self.run.pipeline_step or "—",
+            "started": _format_timestamp(self.run.started_at),
+            "completed": _format_timestamp(self.run.completed_at),
+            "duration": _format_duration(self.run.started_at, self.run.completed_at),
+            "error": _error_indicator(self.run),
+        }
+
+
+def shape_background_run_rows(
+    runs: Iterable[BackgroundRunSummary],
+) -> tuple[BackgroundRunTableRow, ...]:
+    """Create compact rows without changing durable monitoring state."""
+
+    return tuple(BackgroundRunTableRow(run) for run in runs)
+
+
+def selected_background_run(
+    rows: Sequence[BackgroundRunTableRow],
+    selected_positions: Iterable[int],
+) -> BackgroundRunSummary | None:
+    """Return the selected task while protecting the table's stable identity."""
+
+    positions = tuple(selected_positions)
+    if not positions:
+        return None
+    if len(positions) != 1:
+        raise ValueError("Select exactly one background task.")
+    position = positions[0]
+    if position < 0 or position >= len(rows):
+        raise ValueError(f"Selected row position {position} is outside the background runs table.")
+    return rows[position].run
 
 
 def render_background_runs(service: BackgroundRunService) -> None:
@@ -159,56 +220,74 @@ def _render_run_rows(
     runs: list[BackgroundRunSummary],
 ) -> None:
     st.caption(f"{len(runs)} background task{'s' if len(runs) != 1 else ''}.")
-    for run in runs:
-        with st.container(border=True):
-            identity, timing, result, action = st.columns([3, 2, 3, 1])
-            with identity:
-                st.markdown(f"**{run.company} — {run.job_title}**")
-                st.caption(
-                    f"Batch {run.batch_id} · {_format_timestamp(run.batch_created_at)} · "
-                    f"{run.operation.value}"
-                )
-            with timing:
-                st.markdown(f"**{run.status.value}**")
-                st.caption(
-                    f"Started: {_format_timestamp(run.started_at)}  \n"
-                    f"Completed: {_format_timestamp(run.completed_at)}  \n"
-                    f"Duration: {_format_duration(run.started_at, run.completed_at)}"
-                )
-            with result:
-                if run.pipeline_step:
-                    st.caption(f"Pipeline step: {run.pipeline_step}")
-                if run.error_message:
-                    st.error(run.error_message)
-                elif run.status is BackgroundTaskStatus.PENDING and run.retry_count:
-                    st.caption("Queued for retry.")
-                else:
-                    st.caption("No error.")
-            with action:
-                if run.retryable and st.button(
-                    "Retry",
-                    key=f"background_run_retry_{run.task_id}",
-                    type="primary",
-                ):
-                    _retry_task(service, run.task_id)
+    rows = shape_background_run_rows(runs)
+    table_state = st.dataframe(
+        [row.display_record() for row in rows],
+        key=BACKGROUND_RUNS_TABLE_KEY,
+        hide_index=True,
+        column_order=TABLE_COLUMN_ORDER,
+        column_config={
+            "batch": st.column_config.TextColumn("Batch", width="small"),
+            "job": st.column_config.TextColumn("Job"),
+            "operation": st.column_config.TextColumn("Operation", width="small"),
+            "status": st.column_config.TextColumn("Status", width="small"),
+            "pipeline_step": st.column_config.TextColumn("Pipeline step"),
+            "started": st.column_config.TextColumn("Started"),
+            "completed": st.column_config.TextColumn("Completed"),
+            "duration": st.column_config.TextColumn("Duration", width="small"),
+            "error": st.column_config.TextColumn("Error", width="small"),
+        },
+        on_select="rerun",
+        selection_mode="single-row",
+        width="stretch",
+    )
+    selected_run = selected_background_run(
+        rows,
+        table_state.selection.rows,  # type: ignore[attr-defined]
+    )
+    if selected_run is not None:
+        _render_selected_run_details(service, selected_run)
 
-            if run.attempts:
-                with st.expander(
-                    f"Attempt history ({len(run.attempts)})",
-                    expanded=run.retryable,
-                ):
-                    for attempt in run.attempts:
-                        st.markdown(
-                            f"**Attempt {attempt.attempt_number} — {attempt.status.value}**  \n"
-                            f"Started: {_format_timestamp(attempt.started_at)} · "
-                            f"Completed: {_format_timestamp(attempt.completed_at)} · "
-                            f"Duration: "
-                            f"{_format_duration(attempt.started_at, attempt.completed_at)}"
-                        )
-                        if attempt.pipeline_step:
-                            st.caption(f"Pipeline step: {attempt.pipeline_step}")
-                        if attempt.error_message:
-                            st.error(attempt.error_message)
+
+def _render_selected_run_details(service: BackgroundRunService, run: BackgroundRunSummary) -> None:
+    """Render full diagnostics and retry only for the selected compact row."""
+
+    with st.expander(f"Task {run.task_id} details", expanded=True):
+        st.caption(
+            f"Batch {run.batch_id} · {_format_timestamp(run.batch_created_at)} · Job {run.job_id}"
+        )
+        if run.error_message:
+            st.error(run.error_message)
+        elif run.status is BackgroundTaskStatus.PENDING and run.retry_count:
+            st.caption("Queued for retry.")
+        else:
+            st.caption("No error.")
+
+        if run.retryable and st.button(
+            "Retry",
+            key=f"background_run_retry_{run.task_id}",
+            type="primary",
+        ):
+            _retry_task(service, run.task_id)
+
+        if run.attempts:
+            st.markdown(f"**Attempt history ({len(run.attempts)})**")
+            st.dataframe(
+                [
+                    {
+                        "attempt": attempt.attempt_number,
+                        "status": attempt.status.value,
+                        "pipeline_step": attempt.pipeline_step or "—",
+                        "started": _format_timestamp(attempt.started_at),
+                        "completed": _format_timestamp(attempt.completed_at),
+                        "duration": _format_duration(attempt.started_at, attempt.completed_at),
+                        "error": attempt.error_message or "—",
+                    }
+                    for attempt in run.attempts
+                ],
+                hide_index=True,
+                width="stretch",
+            )
 
 
 def _retry_task(service: BackgroundRunService, task_id: int) -> None:
@@ -257,3 +336,13 @@ def _format_duration(started_at: datetime | None, completed_at: datetime | None)
     if minutes:
         return f"{minutes}m {seconds:02d}s"
     return f"{seconds}s"
+
+
+def _error_indicator(run: BackgroundRunSummary) -> str:
+    """Return a compact status signal while retaining details on selection."""
+
+    if run.error_message:
+        return "Error"
+    if run.status is BackgroundTaskStatus.PENDING and run.retry_count:
+        return "Queued for retry"
+    return "—"

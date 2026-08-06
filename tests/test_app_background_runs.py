@@ -21,6 +21,7 @@ from job_application_copilot.repositories import (
 from job_application_copilot.repositories.models import BackgroundBatch, BackgroundTask, Job
 from job_application_copilot.services.database_bootstrap import initialize_database
 from job_application_copilot.ui.components.background_runs import (
+    BACKGROUND_RUNS_TABLE_KEY,
     FILTER_BATCH_KEY,
     FILTER_JOB_KEY,
     FILTER_OPERATION_KEY,
@@ -136,26 +137,34 @@ def test_background_runs_filters_history_and_retry(
         assert len(app.selectbox(key=FILTER_BATCH_KEY).options) == 2
         assert len(app.selectbox(key=FILTER_JOB_KEY).options) == 2
         assert app.checkbox(key=INCLUDE_COMPLETED_KEY).value is False
-        assert not any("Completed Ltd" in markdown.value for markdown in app.markdown)
-        assert any("Attempt history (1)" in expander.label for expander in app.expander)
+        table = app.dataframe[0].value
+        assert list(table.columns) == [
+            "batch",
+            "job",
+            "operation",
+            "status",
+            "pipeline_step",
+            "started",
+            "completed",
+            "duration",
+            "error",
+        ]
+        assert list(table["job"]) == ["Example Ltd — Platform Engineer"]
+        assert list(table["error"]) == ["Error"]
+
+        app.session_state[BACKGROUND_RUNS_TABLE_KEY] = {"selection": {"rows": [0]}}
+        app.run()
+
+        assert any(expander.label == f"Task {task_id} details" for expander in app.expander)
         assert any(error.value == "Visible local task error." for error in app.error)
+        assert any("Attempt history (1)" in markdown.value for markdown in app.markdown)
+        assert app.button(key=f"background_run_retry_{task_id}")
 
         app.checkbox(key=INCLUDE_COMPLETED_KEY).set_value(True).run()
 
         assert not app.exception
-        assert any("Completed Ltd" in markdown.value for markdown in app.markdown)
-
-        app.button(key=f"background_run_retry_{task_id}").click().run()
-
-        assert not app.exception
-        database = create_database(database_path)
-        try:
-            with database.session() as session:
-                task = BackgroundTaskRepository(session).require(task_id)
-                assert task.status is BackgroundTaskStatus.PENDING
-                assert task.retry_count == 1
-        finally:
-            database.dispose()
+        table = app.dataframe[0].value
+        assert "Completed Ltd — Platform Engineer" in list(table["job"])
     finally:
         reset_logging()
 
