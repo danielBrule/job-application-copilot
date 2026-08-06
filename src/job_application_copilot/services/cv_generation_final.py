@@ -27,6 +27,7 @@ from job_application_copilot.services.cv_generation_context import (
     CvGenerationContext,
     CvGenerationContextBuilder,
 )
+from job_application_copilot.services.cv_template_contract import CvTemplateContractService
 from job_application_copilot.services.ordered_prompt_pipeline import (
     OrderedPromptPipelineResult,
     OrderedPromptPipelineService,
@@ -54,9 +55,11 @@ class CvGenerationFinalService:
         self.settings = settings
         self.client = client
         self.context_builder = CvGenerationContextBuilder(database, settings)
+        self.template_contracts = CvTemplateContractService(database)
 
     def run(self, task: BackgroundTask, *, task_attempt_id: int) -> CvGenerationFinalResult:
         brief, draft = self._stage_inputs(task.id)
+        contract = self.template_contracts.active()
         context = self.context_builder.build(
             task.job_id,
             stage=3,
@@ -64,6 +67,7 @@ class CvGenerationFinalService:
             response_schema=FinalCvOutput.model_json_schema(),
             brief=brief,
             prior_stage_output=draft.model_dump_json(),
+            template_contract=contract.prompt_input(),
         )
         stage = OrderedPromptStage(
             position=3,
@@ -77,6 +81,7 @@ class CvGenerationFinalService:
             max_retries=self.settings.cv_generation_max_retries,
         ).run(task, task_attempt_id=task_attempt_id, stages=(stage,))
         output = self._validated_output(pipeline.outputs[0])
+        contract.validate(output)
         with self.database.session() as session:
             CvGenerationFinalRepository(session).store(
                 task_id=task.id,
