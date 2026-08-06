@@ -93,7 +93,7 @@ def test_settings_page_displays_seeded_prompt_completeness(
             "Upload or replace French CV template",
             "Manage French CV examples",
             "1. Assessment prompt — v1 READY",
-            "1. English generation prompt 1 — Missing",
+            "1. English generation prompt 1 — v1 READY",
             "2. English generation prompt 2 — Missing",
             "3. English generation prompt 3 — Missing",
             "4. English generation prompt 4 — Missing",
