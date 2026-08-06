@@ -52,6 +52,11 @@ from job_application_copilot.services.cv_selection import (
     CvSelectionSkip,
     CvSelectionSkipReason,
 )
+from job_application_copilot.services.cv_template_manifest import (
+    CvTemplateManifestError,
+    CvTemplateManifestNotFoundError,
+    CvTemplateManifestService,
+)
 from job_application_copilot.services.dashboard_kpis import (
     DashboardKpiService,
     DashboardUsageKpis,
@@ -176,6 +181,9 @@ __all__ = [
     "CvGenerationBriefService",
     "CvGenerationDraftResult",
     "CvGenerationDraftService",
+    "CvTemplateManifestError",
+    "CvTemplateManifestNotFoundError",
+    "CvTemplateManifestService",
     "BackgroundRunService",
     "DocumentAInput",
     "DocumentAInputService",

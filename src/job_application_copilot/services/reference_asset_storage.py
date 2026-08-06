@@ -142,6 +142,22 @@ class ReferenceAssetStorageService:
             },
         )
 
+    def store_template_candidate(
+        self, *, filename: str, content: bytes, asset_key: str, name: str, language_code: str
+    ) -> ReferenceAsset:
+        """Store a READY inactive template until its placeholder manifest is confirmed."""
+
+        return self._store_version(
+            filename=filename,
+            content=content,
+            asset_key=asset_key,
+            asset_type=ReferenceAssetType.TEMPLATE,
+            name=name,
+            language_code=language_code,
+            activate_after_validation=False,
+            ready_when_stored=True,
+        )
+
     def replace_french_example(
         self,
         *,
@@ -244,6 +260,7 @@ class ReferenceAssetStorageService:
         name: str,
         language_code: str | None,
         activate_after_validation: bool,
+        ready_when_stored: bool = False,
     ) -> ReferenceAsset:
         normalized_key = self._validate_asset_key(asset_key)
         normalized_name = name.strip()
@@ -299,7 +316,7 @@ class ReferenceAssetStorageService:
                         is_active=activate_after_validation,
                         processing_status=(
                             ReferenceAssetProcessingStatus.READY
-                            if activate_after_validation
+                            if activate_after_validation or ready_when_stored
                             else ReferenceAssetProcessingStatus.PENDING
                         ),
                     )

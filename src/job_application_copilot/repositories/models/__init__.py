@@ -8,6 +8,9 @@ from job_application_copilot.repositories.models.background_task import (
 )
 from job_application_copilot.repositories.models.cv_generation_brief import CvGenerationBrief
 from job_application_copilot.repositories.models.cv_generation_draft import CvGenerationDraft
+from job_application_copilot.repositories.models.cv_template_manifest import (
+    CvTemplateManifestRecord,
+)
 from job_application_copilot.repositories.models.document_b_retrieval import (
     DocumentBRetrievalTrace,
     DocumentBRetrievalTraceResult,
@@ -33,6 +36,7 @@ __all__ = [
     "BackgroundTaskAttempt",
     "CvGenerationBrief",
     "CvGenerationDraft",
+    "CvTemplateManifestRecord",
     "DocumentBLaneRoute",
     "DocumentBRoutingSet",
     "DocumentBSection",

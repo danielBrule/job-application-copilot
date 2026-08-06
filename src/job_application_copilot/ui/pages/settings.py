@@ -17,7 +17,11 @@ from job_application_copilot.ui.components.reference_asset_remote_cleanup import
 from job_application_copilot.ui.components.reference_asset_replacement import (
     render_reference_asset_replacements,
 )
+from job_application_copilot.ui.components.template_manifest_settings import (
+    render_english_template_manifest,
+)
 from job_application_copilot.ui.dependencies import (
+    get_cv_template_manifest_service,
     get_document_a_processing_service,
     get_document_b_processing_service,
     get_prompt_service,
@@ -58,6 +62,7 @@ render_reference_asset_replacements(
         document_b_overview is not None and document_b_overview.latest_version is not None
     ),
 )
+render_english_template_manifest(get_cv_template_manifest_service(settings))
 render_document_b_processing(
     document_b_processing_service,
     document_b_overview,
