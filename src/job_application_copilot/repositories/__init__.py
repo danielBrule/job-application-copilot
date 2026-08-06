@@ -22,6 +22,10 @@ from job_application_copilot.repositories.cv_generation_draft_repository import 
     CvGenerationDraftNotFoundError,
     CvGenerationDraftRepository,
 )
+from job_application_copilot.repositories.cv_generation_final_repository import (
+    CvGenerationFinalNotFoundError,
+    CvGenerationFinalRepository,
+)
 from job_application_copilot.repositories.cv_template_manifest_repository import (
     CvTemplateManifestRepository,
 )
@@ -70,6 +74,8 @@ __all__ = [
     "CvGenerationBriefRepository",
     "CvGenerationDraftNotFoundError",
     "CvGenerationDraftRepository",
+    "CvGenerationFinalNotFoundError",
+    "CvGenerationFinalRepository",
     "CvTemplateManifestRepository",
     "Database",
     "DatabaseHealth",

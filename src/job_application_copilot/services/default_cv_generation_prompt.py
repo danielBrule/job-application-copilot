@@ -10,8 +10,10 @@ from job_application_copilot.services.prompt_service import PromptService
 
 CV_STAGE_ONE_PROMPT_ASSET_KEY = "cv-generation-en-stage-1"
 CV_STAGE_TWO_PROMPT_ASSET_KEY = "cv-generation-en-stage-2"
+CV_STAGE_THREE_PROMPT_ASSET_KEY = "cv-generation-en-stage-3"
 DEFAULT_CV_STAGE_ONE_PROMPT_FILENAME = "cv-generation-en-stage-1-v1.txt"
 DEFAULT_CV_STAGE_TWO_PROMPT_FILENAME = "cv-generation-en-stage-2-v1.txt"
+DEFAULT_CV_STAGE_THREE_PROMPT_FILENAME = "cv-generation-en-stage-3-v1.txt"
 
 
 class DefaultCvGenerationPromptError(ApplicationOperationError):
@@ -34,7 +36,10 @@ class DefaultCvGenerationPromptService:
         created_stage_two = self._ensure_prompt(
             CV_STAGE_TWO_PROMPT_ASSET_KEY, DEFAULT_CV_STAGE_TWO_PROMPT_FILENAME
         )
-        return created_stage_one or created_stage_two
+        created_stage_three = self._ensure_prompt(
+            CV_STAGE_THREE_PROMPT_ASSET_KEY, DEFAULT_CV_STAGE_THREE_PROMPT_FILENAME
+        )
+        return created_stage_one or created_stage_two or created_stage_three
 
     def _ensure_prompt(self, asset_key: str, filename: str) -> bool:
         if self.prompt_service.list_versions(asset_key):

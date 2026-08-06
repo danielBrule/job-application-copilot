@@ -46,6 +46,10 @@ from job_application_copilot.services.cv_generation_draft import (
     CvGenerationDraftResult,
     CvGenerationDraftService,
 )
+from job_application_copilot.services.cv_generation_final import (
+    CvGenerationFinalResult,
+    CvGenerationFinalService,
+)
 from job_application_copilot.services.cv_selection import (
     CvSelectionResult,
     CvSelectionService,
@@ -181,6 +185,8 @@ __all__ = [
     "CvGenerationBriefService",
     "CvGenerationDraftResult",
     "CvGenerationDraftService",
+    "CvGenerationFinalResult",
+    "CvGenerationFinalService",
     "CvTemplateManifestError",
     "CvTemplateManifestNotFoundError",
     "CvTemplateManifestService",
