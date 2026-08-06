@@ -55,7 +55,7 @@ from the stable input identifiers and hashes; it never contains prompt text, doc
 content or model output. Reasoning effort is explicit request metadata but does not alter the
 reusable input prefix.
 
-### Phase 2 — select Document B content and approve the CV brief
+### Generation stage 1 — select Document B content and create the CV brief
 
 The selected lane is an exact key in a versioned SQLite routing set bound to the active Document B
 version. The routing set is a configuration lookup, not fuzzy matching, heading similarity or model
@@ -70,20 +70,19 @@ to emphasise, and gaps or claims to avoid. Retrieval may suggest optional bullet
 technical keywords and secondary themes; it cannot select the primary lane or replace mandatory
 local sections.
 
-Phase 2 returns a structured CV-generation brief containing the selected lane, primary narrative,
+Generation stage 1 returns a structured CV-generation brief containing the selected lane, primary narrative,
 optional secondary angle, evidence to lead with, evidence to soften or exclude, selected Document B
 section IDs, selected bullet or passage IDs, mandatory guardrail IDs, and proposed CV structure.
-The user must approve this brief before Phase 3 starts.
 
-### Phase 3 — generate the first CV
+### Generation stage 2 — generate the first CV
 
-Phase 3 receives the job description, Phase 1 assessment, approved Phase 2 brief, exact local
-Document B sections selected by the brief, and any Phase 2-approved vector-retrieved passages. It
+Generation stage 2 receives the job description, assessment, retained stage-one brief, exact local
+Document B sections selected by the brief, and any recorded vector-retrieved passages. It
 generates a structured first CV. The model does not independently search the complete Document B.
 
-### Phase 4 — review and rewrite
+### Generation stage 3 — review and rewrite
 
-Phase 4 reviews the generated CV against the job description, Phase 1 assessment, Phase 2 brief,
+Generation stage 3 reviews the generated CV against the job description, assessment, stage-one brief,
 and the same Document B sections and guardrails used for generation. It checks alignment, evidence
 quality, length, overclaiming and writing quality before producing the final rewritten CV.
 

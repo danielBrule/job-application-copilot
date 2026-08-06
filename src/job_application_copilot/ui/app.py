@@ -18,6 +18,8 @@ from job_application_copilot.repositories import create_database
 from job_application_copilot.services import (
     DefaultAssessmentPromptError,
     DefaultAssessmentPromptService,
+    DefaultCvGenerationPromptError,
+    DefaultCvGenerationPromptService,
 )
 from job_application_copilot.services.database_bootstrap import (
     DatabaseHealthError,
@@ -48,12 +50,14 @@ def main() -> None:
         database = create_database(settings.database_path)
         try:
             DefaultAssessmentPromptService(database, settings).ensure()
+            DefaultCvGenerationPromptService(database, settings).ensure()
         finally:
             database.dispose()
     except (
         DatabaseHealthError,
         DatabaseMigrationError,
         DefaultAssessmentPromptError,
+        DefaultCvGenerationPromptError,
         LocalDirectoryError,
         LoggingConfigurationError,
         ValidationError,

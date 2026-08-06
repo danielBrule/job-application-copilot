@@ -113,18 +113,16 @@ English path:
 1. English prompt 1
 2. English prompt 2
 3. English prompt 3
-4. English prompt 4
-5. English DOCX rendering
+4. English DOCX rendering
 
 French path:
 
 1. English prompt 1
 2. English prompt 2
 3. English prompt 3
-4. English prompt 4
-5. French prompt 1
-6. French prompt 2
-7. French DOCX rendering
+4. French prompt 1
+5. French prompt 2
+6. French DOCX rendering
 
 Requirements:
 
@@ -134,11 +132,12 @@ Requirements:
 - Mandatory Document B section trees are selected deterministically from that routing configuration.
 - Vector retrieval may return optional CV material only from the section IDs authorised by that
   routing configuration. It must not determine the primary lane or replace mandatory sections.
-- Phase 2 produces a structured CV-generation brief recording selected section, bullet/passage and
-  guardrail IDs. Human approval of that brief is required before Phase 3 generates CV wording.
-- Phase 3 receives only the approved brief, selected local sections and approved retrieved passages;
+- Generation stage 1 produces a structured CV-generation brief recording selected section,
+  bullet/passage and guardrail IDs.
+- Generation stages 2 and 3 receive only the retained brief, selected local sections and recorded
+  retrieved passages;
   it does not independently search the complete Document B.
-- Phase 4 uses the same selected material to review and rewrite the CV. A new retrieval is allowed
+- Generation stage 3 uses the same selected material to review and rewrite the CV. A new retrieval is allowed
   only for a specific identified gap and remains within the authorised section scope.
 - One failed CV must not stop other jobs.
 - CV generation and regeneration can be launched for multiple selected rows.

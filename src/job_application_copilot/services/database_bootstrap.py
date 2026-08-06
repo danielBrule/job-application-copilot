@@ -204,8 +204,12 @@ def main() -> None:
         from job_application_copilot.services.default_assessment_prompt import (
             DefaultAssessmentPromptService,
         )
+        from job_application_copilot.services.default_cv_generation_prompt import (
+            DefaultCvGenerationPromptService,
+        )
 
         DefaultAssessmentPromptService(database, settings).ensure()
+        DefaultCvGenerationPromptService(database, settings).ensure()
     finally:
         database.dispose()
     previous = status.previous_revision or "none"

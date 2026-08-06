@@ -64,7 +64,7 @@ def test_defaults_are_safe_and_typed() -> None:
         "data/reference/prompts/generation/french"
     )
     assert settings.openai_api_key is None
-    assert settings.assessment_model == "gpt-5.6-sol"
+    assert settings.assessment_model == "gpt-5.6-terra"
     assert settings.assessment_reasoning_effort == "medium"
     assert settings.assessment_worker_count == 1
     assert settings.cv_worker_count == 1

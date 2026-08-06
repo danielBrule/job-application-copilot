@@ -42,6 +42,9 @@ from job_application_copilot.services.database_bootstrap import initialize_datab
 from job_application_copilot.services.default_assessment_prompt import (
     DefaultAssessmentPromptService,
 )
+from job_application_copilot.services.default_cv_generation_prompt import (
+    DefaultCvGenerationPromptService,
+)
 from job_application_copilot.services.local_directories import ensure_local_directories
 
 _IS_WINDOWS = os.name == "nt"
@@ -349,6 +352,7 @@ def main() -> None:
     initialize_database(settings.database_path)
     database = create_database(settings.database_path)
     DefaultAssessmentPromptService(database, settings).ensure()
+    DefaultCvGenerationPromptService(database, settings).ensure()
     worker = BackgroundWorker(
         database,
         handlers={

@@ -137,7 +137,7 @@ No Word-document version history is required.
 
 ## CV-generation brief
 
-One approved Phase 2 handover is retained for each generated CV attempt. It records:
+One stage-one handover is retained for each generated CV task. It records:
 
 - confirmed selected lane and optional secondary angle
 - primary narrative
@@ -147,9 +147,8 @@ One approved Phase 2 handover is retained for each generated CV attempt. It reco
 - mandatory guardrail IDs
 - proposed CV structure
 - Document B, routing-set and prompt versions
-- user approval time
 
-Phase 3 and Phase 4 use this retained brief and its selections. A later broad Document B search is
+Generation stages 2 and 3 use this retained brief and its selections. A later broad Document B search is
 not an implicit input to either phase.
 
 ## Contact
