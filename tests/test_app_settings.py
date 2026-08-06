@@ -89,19 +89,19 @@ def test_settings_page_displays_seeded_prompt_completeness(
         assert [expander.label for expander in app.expander] == [
             "Upload or replace Document A",
             "Upload or replace Document B",
-            "Upload or replace English CV template",
             "Upload or replace French CV template",
             "Manage French CV examples",
+            "Upload or replace English CV template",
             "1. Assessment prompt — v1 READY",
             "1. English generation prompt 1 — v1 READY",
-            "2. English generation prompt 2 — Missing",
-            "3. English generation prompt 3 — Missing",
+            "2. English generation prompt 2 — v1 READY",
+            "3. English generation prompt 3 — v1 READY",
             "4. English generation prompt 4 — Missing",
             "1. French extension prompt 1 — Missing",
             "2. French extension prompt 2 — Missing",
             "Add pipeline prompt",
         ]
-        assert [uploader.proto.max_upload_size_mb for uploader in app.file_uploader] == [5] * 5
+        assert [uploader.proto.max_upload_size_mb for uploader in app.file_uploader] == [5, 5, 5, 5, 200]
     finally:
         reset_logging()
 
@@ -135,7 +135,7 @@ def test_settings_page_saves_prompt_text_as_active_version(
         reset_logging()
 
 
-def test_settings_page_activates_valid_template_replacement(
+def test_settings_page_confirms_valid_english_template_mapping(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -150,16 +150,20 @@ def test_settings_page_activates_valid_template_replacement(
 
     try:
         app.switch_page("pages/settings.py").run()
-        app.file_uploader[2].upload(
+        app.file_uploader[4].upload(
             "english-template.docx",
-            make_docx("English template"),
+            make_docx("[OPENING_TITLE]"),
         )
         app.button(
-            key=("FormSubmitter:replace_reference_asset_cv-template-en-Validate and store")
+            key="FormSubmitter:upload_english_template-Upload and scan placeholders"
+        ).click().run()
+        next(
+            button
+            for button in app.button
+            if button.label == "Confirm template mapping and activate"
         ).click().run()
 
         assert not app.exception
-        assert app.success[0].value == "'cv-template-en' version 1 is active and READY."
         overview_table = app.dataframe[0].value
         template = overview_table.loc[overview_table["Asset key"] == "cv-template-en"].iloc[0]
         assert template["Version / count"] == "v1"
@@ -729,7 +733,7 @@ def test_settings_page_adds_dynamic_french_reference_example(
     try:
         app.switch_page("pages/settings.py").run()
         app.text_input[0].input("French platform CV")
-        app.file_uploader[4].upload(
+        app.file_uploader[3].upload(
             "french-example.docx",
             make_docx("French style example"),
         )
