@@ -73,6 +73,7 @@ def test_migrations_create_current_domain_tables(
             "cv_generation_drafts",
             "cv_generation_finals",
             "cv_template_manifests",
+            "cvs",
             "document_b_lane_routes",
             "document_b_retrieval_trace_results",
             "document_b_retrieval_traces",

@@ -60,6 +60,7 @@ from job_application_copilot.services.cv_selection import (
     CvSelectionSkip,
     CvSelectionSkipReason,
 )
+from job_application_copilot.services.cv_service import CvFileValidationError, CvService
 from job_application_copilot.services.cv_template_contract import (
     CvTemplateContractError,
     CvTemplateContractService,
@@ -245,6 +246,8 @@ __all__ = [
     "CvSelectionService",
     "CvSelectionSkip",
     "CvSelectionSkipReason",
+    "CvFileValidationError",
+    "CvService",
     "DashboardKpiService",
     "DashboardUsageKpis",
     "InvalidCvLaneSelectionError",

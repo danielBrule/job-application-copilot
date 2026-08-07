@@ -6,6 +6,7 @@ from job_application_copilot.repositories.models.background_task import (
     BackgroundTask,
     BackgroundTaskAttempt,
 )
+from job_application_copilot.repositories.models.cv import Cv
 from job_application_copilot.repositories.models.cv_generation_brief import CvGenerationBrief
 from job_application_copilot.repositories.models.cv_generation_draft import CvGenerationDraft
 from job_application_copilot.repositories.models.cv_generation_final import CvGenerationFinal
@@ -38,6 +39,7 @@ __all__ = [
     "CvGenerationBrief",
     "CvGenerationDraft",
     "CvGenerationFinal",
+    "Cv",
     "CvTemplateManifestRecord",
     "DocumentBLaneRoute",
     "DocumentBRoutingSet",
