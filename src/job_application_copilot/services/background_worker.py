@@ -38,6 +38,9 @@ from job_application_copilot.services.assessment_worker_handler import (
 from job_application_copilot.services.background_task_recovery import (
     BackgroundTaskRecoveryService,
 )
+from job_application_copilot.services.cv_generation_worker_handler import (
+    CvGenerationWorkerHandler,
+)
 from job_application_copilot.services.database_bootstrap import initialize_database
 from job_application_copilot.services.default_assessment_prompt import (
     DefaultAssessmentPromptService,
@@ -343,7 +346,7 @@ class BackgroundWorker:
 
 
 def main() -> None:
-    """Run the local worker process with no production handlers until later pipeline tickets."""
+    """Run the local worker process with the available production task handlers."""
 
     arguments = _parse_arguments()
     settings = load_settings()
@@ -357,6 +360,7 @@ def main() -> None:
         database,
         handlers={
             BackgroundOperation.ASSESSMENT: AssessmentWorkerHandler(database, settings),
+            BackgroundOperation.CV_GENERATION: CvGenerationWorkerHandler(database, settings),
         },
         worker_counts={
             BackgroundOperation.ASSESSMENT: settings.assessment_worker_count,
