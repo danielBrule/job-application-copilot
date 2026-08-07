@@ -4,8 +4,10 @@ from job_application_copilot.domain.assessment import (
     ASSESSMENT_SCHEMA_VERSION,
     AssessmentDecision,
     AssessmentEvidenceAnchor,
+    AssessmentMandateDimension,
     AssessmentOutput,
     AssessmentStatus,
+    MandateEvidenceStrength,
     assessment_output_json_schema,
 )
 from job_application_copilot.domain.background_run import (
@@ -22,6 +24,8 @@ from job_application_copilot.domain.cv import CvSource, CvStatus, is_valid_cv_tr
 from job_application_copilot.domain.cv_generation_brief import (
     CvExperienceEmphasis,
     CvGenerationBriefOutput,
+    CvMandateCoverage,
+    CvMandateCoverageStatus,
 )
 from job_application_copilot.domain.cv_generation_draft import CvGenerationDraftOutput
 from job_application_copilot.domain.cv_template_manifest import (
@@ -90,8 +94,10 @@ __all__ = [
     "ASSESSMENT_SCHEMA_VERSION",
     "AssessmentDecision",
     "AssessmentEvidenceAnchor",
+    "AssessmentMandateDimension",
     "AssessmentOutput",
     "AssessmentStatus",
+    "MandateEvidenceStrength",
     "assessment_output_json_schema",
     "BackgroundOperation",
     "BackgroundAttemptSummary",
@@ -103,6 +109,8 @@ __all__ = [
     "CreatePromptDefinition",
     "CvExperienceEmphasis",
     "CvGenerationBriefOutput",
+    "CvMandateCoverage",
+    "CvMandateCoverageStatus",
     "CvGenerationDraftOutput",
     "CvSource",
     "CvStatus",

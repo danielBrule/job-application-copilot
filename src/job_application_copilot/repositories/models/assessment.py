@@ -169,6 +169,9 @@ class Assessment(Base):
     evidence_anchors: Mapped[list[dict[str, object]]] = mapped_column(
         JSON, nullable=False, default=list, server_default=text("'[]'")
     )
+    material_mandate_dimensions: Mapped[list[dict[str, object]]] = mapped_column(
+        JSON, nullable=False, default=list, server_default=text("'[]'")
+    )
     evidence_confidence: Mapped[int | None] = mapped_column(Integer)
     recommended_document_b_lane: Mapped[LaneId | None] = mapped_column(String(128))
     selected_cv_lane: Mapped[LaneId | None] = mapped_column(String(128))

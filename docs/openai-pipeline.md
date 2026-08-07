@@ -24,6 +24,7 @@ The result includes both user-visible assessment fields and an internal handover
 - evidence confidence;
 - evidence gaps;
 - overclaiming constraints.
+- material mandate dimensions, their Document A evidence strength and whether they should shape CV selection.
 
 ## Document B routing and retrieval
 
@@ -109,8 +110,11 @@ Phase 3 generates the CV
 Phase 4 reviews and rewrites it
 ```
 
-The routing table provides control and reproducibility. Vector retrieval provides flexibility and
-job-specific relevance within the authorised scope.
+The primary lane always controls the headline, summary and dominant positioning. A controlled,
+evidence-supported secondary CV angle may authorise only supporting bullet, skills and guardrail
+material. One dominant narrative therefore does not imply one evidence category. The routing table
+provides control and reproducibility. Vector retrieval provides flexibility and job-specific
+relevance within the authorised scope.
 
 ## English CV pipeline
 

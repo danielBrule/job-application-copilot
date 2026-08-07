@@ -62,6 +62,52 @@ class AssessmentEvidenceAnchor(BaseModel):
         return value
 
 
+class MandateEvidenceStrength(StrEnum):
+    """How directly Document A supports one material JD mandate dimension."""
+
+    DIRECT = "DIRECT"
+    ADJACENT = "ADJACENT"
+    WEAK = "WEAK"
+    NONE = "NONE"
+
+
+class AssessmentMandateDimension(BaseModel):
+    """A compact, evidence-grounded requirement retained for CV coverage planning."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: str
+    description: str
+    importance: Score
+    evidence_strength: MandateEvidenceStrength
+    evidence_anchor_refs: tuple[str, ...] = ()
+    should_shape_cv: bool
+
+    @field_validator("id", "description", mode="before")
+    @classmethod
+    def require_non_blank_text(cls, value: object) -> object:
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        raise ValueError("must be non-blank text")
+
+    @field_validator("evidence_anchor_refs")
+    @classmethod
+    def require_non_blank_anchor_refs(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        cleaned = tuple(value.strip() for value in values)
+        if any(not value for value in cleaned):
+            raise ValueError("items must be non-blank text")
+        return cleaned
+
+    @model_validator(mode="after")
+    def require_anchor_for_supported_dimension(self) -> "AssessmentMandateDimension":
+        if (
+            self.evidence_strength is not MandateEvidenceStrength.NONE
+            and not self.evidence_anchor_refs
+        ):
+            raise ValueError("supported mandate dimensions require evidence_anchor_refs")
+        return self
+
+
 class AssessmentOutput(BaseModel):
     """Exact model-produced assessment response validated before persistence."""
 
@@ -87,9 +133,12 @@ class AssessmentOutput(BaseModel):
     sustainability_risks: tuple[str, ...]
     evidence_gaps: tuple[str, ...]
     evidence_anchors: tuple[AssessmentEvidenceAnchor, ...]
+    material_mandate_dimensions: tuple[AssessmentMandateDimension, ...] = Field(
+        min_length=1, max_length=7
+    )
     evidence_confidence: Score
     recommended_document_b_lane: LaneId
-    secondary_cv_angle: str | None
+    secondary_cv_angle: LaneId | None
     overclaiming_risks: tuple[str, ...]
 
     @field_validator(
@@ -141,6 +190,7 @@ class AssessmentOutput(BaseModel):
             "primary_role_family",
             "secondary_role_family",
             "recommended_document_b_lane",
+            "secondary_cv_angle",
         ):
             lane = getattr(self, field_name)
             if lane is None:
@@ -161,9 +211,10 @@ def assessment_output_json_schema(allowed_lane_ids: Iterable[object]) -> dict[st
     properties = schema["properties"]
     for field_name in ("primary_role_family", "recommended_document_b_lane"):
         properties[field_name]["enum"] = lanes
-    secondary_options = properties["secondary_role_family"]["anyOf"]
-    secondary_lane_schema = next(
-        option for option in secondary_options if option.get("type") == "string"
-    )
-    secondary_lane_schema["enum"] = lanes
+    for field_name in ("secondary_role_family", "secondary_cv_angle"):
+        secondary_options = properties[field_name]["anyOf"]
+        secondary_lane_schema = next(
+            option for option in secondary_options if option.get("type") == "string"
+        )
+        secondary_lane_schema["enum"] = lanes
     return schema

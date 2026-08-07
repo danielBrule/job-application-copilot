@@ -34,12 +34,6 @@ logger = get_logger(__name__)
 LOAD_ERROR_MESSAGE = "The job could not be loaded. See the private UI log for details."
 
 
-def _review_next_job_key(job_id: int) -> str:
-    """Return the session key for a next job captured before a review save."""
-
-    return f"assessment_review_next_job_{job_id}"
-
-
 def parse_job_id(value: str | None) -> int:
     """Parse a positive job identifier from a query parameter."""
 
@@ -374,7 +368,6 @@ def _render_auto_saving_decision(
     )
     if decision is detail.job.user_decision or not cv_lanes:
         return
-    _preserve_review_next_job(detail.job.id, service)
     _save_human_review(
         detail,
         service,
@@ -382,20 +375,6 @@ def _render_auto_saving_decision(
         detail.assessment.assessment_notes,
         _default_lane(detail, cv_lanes),
     )
-
-
-def _preserve_review_next_job(job_id: int, service: JobService) -> None:
-    """Retain the next queue item while saving removes this job from that queue."""
-
-    try:
-        next_job_id = service.assessment_review_navigation(job_id).next_job_id
-    except SQLAlchemyError:
-        logger.exception("assessment_review_navigation_load_failed job_id=%s", job_id)
-        return
-    if next_job_id is None:
-        st.session_state.pop(_review_next_job_key(job_id), None)
-    else:
-        st.session_state[_review_next_job_key(job_id)] = next_job_id
 
 
 def _render_review_details(
@@ -466,36 +445,37 @@ def _render_assessment_navigation(detail: JobAssessmentDetail, service: JobServi
 
     try:
         navigation = service.assessment_review_navigation(detail.job.id)
+        next_job_id = service.next_outstanding_assessment_review_job_id(
+            excluding_job_id=detail.job.id
+        )
     except SQLAlchemyError:
         logger.exception("assessment_review_navigation_load_failed job_id=%s", detail.job.id)
         st.warning("Review navigation is temporarily unavailable. Refresh the page and try again.")
         return
 
-    next_job_id = navigation.next_job_id
-    if next_job_id is None:
-        saved_next_job_id = st.session_state.get(_review_next_job_key(detail.job.id))
-        if isinstance(saved_next_job_id, int):
-            next_job_id = saved_next_job_id
-
     previous_column, next_column, _ = st.columns((1, 1, 4))
     with previous_column:
-        st.page_link(
-            "pages/job_details.py",
-            label="Previous",
+        if st.button(
+            "Previous",
+            key=f"previous_assessment_review_{detail.job.id}",
             disabled=navigation.previous_job_id is None,
-            query_params=(
-                {"job_id": str(navigation.previous_job_id)}
-                if navigation.previous_job_id is not None
-                else None
-            ),
-        )
+        ):
+            assert navigation.previous_job_id is not None
+            st.switch_page(
+                "pages/job_details.py",
+                query_params={"job_id": str(navigation.previous_job_id)},
+            )
     with next_column:
-        st.page_link(
-            "pages/job_details.py",
-            label="Next",
+        if st.button(
+            "Next",
+            key=f"next_assessment_review_{detail.job.id}",
             disabled=next_job_id is None,
-            query_params=({"job_id": str(next_job_id)} if next_job_id is not None else None),
-        )
+        ):
+            assert next_job_id is not None
+            st.switch_page(
+                "pages/job_details.py",
+                query_params={"job_id": str(next_job_id)},
+            )
 
 
 def _render_summary(column: DeltaGenerator, label: str, value: str | None) -> None:

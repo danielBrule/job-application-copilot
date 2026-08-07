@@ -80,7 +80,7 @@ class CvGenerationFinalService:
             self.client,
             max_retries=self.settings.cv_generation_max_retries,
         ).run(task, task_attempt_id=task_attempt_id, stages=(stage,))
-        output = self._validated_output(pipeline.outputs[0])
+        output = contract.normalise_experience_titles(self._validated_output(pipeline.outputs[0]))
         contract.validate(output)
         with self.database.session() as session:
             CvGenerationFinalRepository(session).store(

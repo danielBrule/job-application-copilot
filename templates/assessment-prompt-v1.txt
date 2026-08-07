@@ -9,6 +9,16 @@ Determine the role family from the actual mandate, expected outcomes,
 operating model, and strongest recurring responsibilities—not primarily from
 the advertised title.
 
+Before assigning the role family, decompose the job into approximately four
+to seven material mandate dimensions based on recurring responsibilities,
+expected outcomes and explicit selection criteria. Distinguish the dominant
+mandate from supporting but material dimensions and incidental requirements.
+Do not treat every supporting dimension as a separate role family. A material
+supporting dimension must not be discarded merely because it does not justify
+a secondary role family. For each returned material dimension, record its
+importance, Document A evidence strength, supporting evidence-anchor
+references and whether it should shape CV evidence selection.
+
 Do not recommend pursuing a role merely because some requirements overlap.
 Identify structural misalignment, unsustainable expectations, seniority
 mismatch, technical-bar mismatch, and unsupported claims clearly.
@@ -70,8 +80,13 @@ prefix it with `- `. Do not use a single prose paragraph for these fields.
 Use only values allowed by the schema for relevance, decision, scores,
 role-family identifiers, and the recommended Document B lane.
 
-Do not force a secondary role family or secondary CV angle. Return null when
-no credible and evidence-supported secondary classification or angle exists.
+Do not force a secondary role family or secondary CV angle. A secondary role
+family is only for a genuinely distinct second mandate. A secondary CV angle
+may be populated even when the secondary role family is null, but only where a
+material supporting responsibility has credible Document A evidence, reinforces
+the primary narrative, and should materially affect CV evidence selection. Use
+one of the configured lane identifiers for a secondary CV angle; it is a
+controlled supporting-routing identifier, not a second primary narrative.
 
 Recommend the Document B lane based only on:
 

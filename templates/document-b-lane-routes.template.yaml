@@ -570,6 +570,7 @@ lanes:
       - assembly.selection_rules
       allowed:
       - HEAD_OF_SOLUTIONS_ARCHITECTURE
+      - EXPERT_LED_COMMERCIAL_POST_SALES
       cautious: []
       supporting_sections:
       - supporting_experience.software_engineering_foundation

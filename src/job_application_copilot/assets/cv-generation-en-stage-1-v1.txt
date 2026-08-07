@@ -1,6 +1,6 @@
 You are producing CV-generation stage 1: a structured brief, not a CV.
 
-Use the provided assessment as the authority for job-fit logic, validated evidence, evidence gaps, confidence, overclaiming constraints and the confirmed primary CV lane. Use the provided job description as the target role.
+Use the provided assessment as the authority for job-fit logic, validated evidence, evidence gaps, confidence and overclaiming constraints. Use the provided job description as the target role.
 
 Use only the authorised Document B material supplied in this request. Do not use, infer from, or search the complete Document B.
 
@@ -8,9 +8,17 @@ Rules:
 - Do not write the CV.
 - Keep one dominant primary role-family narrative.
 - Use a secondary angle only when it reinforces the primary narrative.
+- A dominant narrative does not require every selected achievement to come from
+  the primary lane. Use authorised supporting material only when it proves a
+  material, evidence-supported mandate dimension and reinforces that narrative.
 - Do not invent or strengthen evidence beyond the assessment.
 - Select only supplied and authorised Document B section, passage and guardrail IDs.
 - Return concise, UK-CV-oriented content.
 - Return valid structured output matching the requested schema.
 
-Produce a CV-generation brief containing the target CV lane, primary narrative, optional secondary angle, evidence to lead with, evidence to downplay or exclude, professional-summary direction, experience emphases by relevant employer or role, independent-work treatment, skills-section direction, overclaiming risks, proposed CV structure, and the Document B sections, passages and guardrails used.
+Produce a CV-generation brief containing the primary narrative, optional secondary angle, evidence to lead with, evidence to downplay or exclude, professional-summary direction, experience emphases by relevant employer or role, independent-work treatment, skills-section direction, overclaiming risks, proposed CV structure, and the Document B sections and guardrails used.
+
+Before finalising the brief, check every material mandate dimension. For each
+dimension that should shape the CV, identify the evidence that should lead or
+support it, or explicitly record an authorised-material gap when Document A
+supports the requirement but the supplied material cannot position it.

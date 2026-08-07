@@ -297,6 +297,13 @@ class JobService:
             queue = JobRepository(session).list_assessed_undecided()
         return queue[0].id if queue else None
 
+    def next_outstanding_assessment_review_job_id(self, *, excluding_job_id: int) -> int | None:
+        """Return a remaining assessed job awaiting review, excluding the current job."""
+
+        with self.database.session() as session:
+            queue = JobRepository(session).list_assessed_undecided()
+        return next((job.id for job in queue if job.id != excluding_job_id), None)
+
     def delete(self, job_id: int) -> None:
         """Permanently delete one job and its linked local history."""
 

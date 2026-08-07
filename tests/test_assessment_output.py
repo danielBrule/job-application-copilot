@@ -175,6 +175,10 @@ def test_provider_schema_uses_configured_lanes_as_exact_enums() -> None:
     assert next(option for option in secondary_options if option.get("type") == "string")[
         "enum"
     ] == sorted(ALLOWED_LANES)
+    angle_options = schema["properties"]["secondary_cv_angle"]["anyOf"]
+    assert next(option for option in angle_options if option.get("type") == "string")[
+        "enum"
+    ] == sorted(ALLOWED_LANES)
 
 
 def test_provider_schema_describes_decision_boundaries() -> None:
