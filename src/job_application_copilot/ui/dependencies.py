@@ -9,6 +9,7 @@ from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.services import (
     AssessmentBatchService,
     BackgroundRunService,
+    CvGenerationBatchService,
     CvSelectionService,
     CvTemplateManifestService,
     DashboardKpiService,
@@ -49,6 +50,12 @@ def get_cv_selection_service(database_path: Path) -> CvSelectionService:
     """Build CV selection over the UI process's shared database facade."""
 
     return CvSelectionService(get_database(database_path))
+
+
+def get_cv_generation_batch_service(database_path: Path) -> CvGenerationBatchService:
+    """Build CV-generation batching over the UI process's shared database facade."""
+
+    return CvGenerationBatchService(get_database(database_path))
 
 
 def get_dashboard_kpi_service(database_path: Path) -> DashboardKpiService:
