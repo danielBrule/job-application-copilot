@@ -18,6 +18,7 @@ from job_application_copilot.domain.background_task import (
     BackgroundTaskStatus,
     is_valid_background_task_transition,
 )
+from job_application_copilot.domain.cv import CvSource, CvStatus, is_valid_cv_transition
 from job_application_copilot.domain.cv_generation_brief import (
     CvExperienceEmphasis,
     CvGenerationBriefOutput,
@@ -103,6 +104,8 @@ __all__ = [
     "CvExperienceEmphasis",
     "CvGenerationBriefOutput",
     "CvGenerationDraftOutput",
+    "CvSource",
+    "CvStatus",
     "CvExperienceBlock",
     "CvSkillEntry",
     "CvSkillsBlock",
@@ -124,6 +127,7 @@ __all__ = [
     "FinalCvOutput",
     "JobFilters",
     "is_valid_background_task_transition",
+    "is_valid_cv_transition",
     "Language",
     "LaneId",
     "Location",
