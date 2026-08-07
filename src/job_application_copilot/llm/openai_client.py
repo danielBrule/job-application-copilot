@@ -225,7 +225,7 @@ class OpenAIClient:
                     "type": "json_schema",
                     "name": "assessment_output",
                     "strict": True,
-                    "schema": context.response_schema,
+                    "schema": _provider_response_schema(context.response_schema),
                 }
             },
             "prompt_cache_key": context.cache_identity.identity_hash,
@@ -289,7 +289,7 @@ class OpenAIClient:
                     "type": "json_schema",
                     "name": "prompt_stage_output",
                     "strict": True,
-                    "schema": request.response_schema,
+                    "schema": _provider_response_schema(request.response_schema),
                 }
             }
         if explicit_cache:
@@ -523,6 +523,35 @@ class OpenAIClient:
         """Close HTTP resources owned by the SDK client."""
 
         self._sdk_client.close()
+
+
+def _provider_response_schema(schema: dict[str, object]) -> dict[str, object]:
+    """Return an OpenAI-compatible copy of an internal JSON schema.
+
+    Pydantic emits ``uniqueItems`` for set-like fields, but the Responses API's
+    strict-schema subset rejects that keyword. Domain validation still enforces
+    the application's uniqueness semantics after the response is parsed.
+    """
+
+    sanitized = _remove_unsupported_schema_keywords(schema)
+    assert isinstance(sanitized, dict)
+    return sanitized
+
+
+def _remove_unsupported_schema_keywords(value: object) -> object:
+    if isinstance(value, dict):
+        sanitized = {
+            key: _remove_unsupported_schema_keywords(item)
+            for key, item in value.items()
+            if key != "uniqueItems"
+        }
+        properties = sanitized.get("properties")
+        if isinstance(properties, dict):
+            sanitized["required"] = list(properties)
+        return sanitized
+    if isinstance(value, list):
+        return [_remove_unsupported_schema_keywords(item) for item in value]
+    return value
 
 
 def _translate_openai_error(

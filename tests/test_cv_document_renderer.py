@@ -83,7 +83,7 @@ def manifest() -> CvTemplateManifest:
     )
 
 
-def template_bytes(*, inline_title: bool = False) -> bytes:
+def template_bytes(*, inline_title: bool = False, merged_skills_cell: bool = False) -> bytes:
     document = Document()
     static = document.add_paragraph("Daniel Brule | London")
     static.runs[0].bold = True
@@ -93,8 +93,11 @@ def template_bytes(*, inline_title: bool = False) -> bytes:
     document.add_paragraph("[CURRENT_TITLE]")
     bullets = document.add_paragraph("[EXPERIENCE_CURRENT]")
     bullets.style = "List Bullet"
-    table = document.add_table(rows=1, cols=1)
-    table.cell(0, 0).paragraphs[0].text = "[SKILLS]"
+    table = document.add_table(rows=1, cols=2 if merged_skills_cell else 1)
+    skills_cell = table.cell(0, 0)
+    if merged_skills_cell:
+        skills_cell = skills_cell.merge(table.cell(0, 1))
+    skills_cell.paragraphs[0].text = "[SKILLS]"
     buffer = BytesIO()
     document.save(buffer)
     return buffer.getvalue()
@@ -133,6 +136,18 @@ def test_rejects_generated_placeholder_embedded_in_static_template_text() -> Non
         render_cv_template(
             template_bytes(inline_title=True), manifest=manifest(), output=final_output()
         )
+
+
+def test_renders_a_placeholder_in_a_merged_table_cell_once() -> None:
+    rendered = render_cv_template(
+        template_bytes(merged_skills_cell=True), manifest=manifest(), output=final_output()
+    )
+
+    document = Document(BytesIO(rendered))
+    assert [paragraph.text for paragraph in document.tables[0].cell(0, 0).paragraphs] == [
+        "Architecture: APIs and integration.",
+        "Leadership: Team delivery.",
+    ]
 
 
 def test_rejects_template_missing_a_configured_generated_placeholder() -> None:

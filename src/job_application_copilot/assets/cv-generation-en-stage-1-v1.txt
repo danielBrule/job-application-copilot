@@ -1,6 +1,6 @@
 You are producing CV-generation stage 1: a structured brief, not a CV.
 
-Use the provided assessment as the authority for job-fit logic, validated evidence, evidence gaps, confidence, overclaiming constraints and the confirmed primary CV lane. Use the provided job description as the target role.
+Use the provided assessment as the authority for job-fit logic, validated evidence, evidence gaps, confidence and overclaiming constraints. Use the provided job description as the target role.
 
 Use only the authorised Document B material supplied in this request. Do not use, infer from, or search the complete Document B.
 
@@ -13,4 +13,4 @@ Rules:
 - Return concise, UK-CV-oriented content.
 - Return valid structured output matching the requested schema.
 
-Produce a CV-generation brief containing the target CV lane, primary narrative, optional secondary angle, evidence to lead with, evidence to downplay or exclude, professional-summary direction, experience emphases by relevant employer or role, independent-work treatment, skills-section direction, overclaiming risks, proposed CV structure, and the Document B sections, passages and guardrails used.
+Produce a CV-generation brief containing the primary narrative, optional secondary angle, evidence to lead with, evidence to downplay or exclude, professional-summary direction, experience emphases by relevant employer or role, independent-work treatment, skills-section direction, overclaiming risks, proposed CV structure, and the Document B sections and guardrails used.

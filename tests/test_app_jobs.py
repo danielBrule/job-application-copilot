@@ -1018,6 +1018,18 @@ def test_review_decision_keeps_next_assessed_job_available(
         database_path = data_dir / "database" / "job_application_copilot.db"
         service = get_job_service(database_path)
         next_job = _create_job_for_edit(service)
+        intermediate_job = service.create(
+            CreateJob(
+                company="Intermediate Ltd",
+                job_title="Intermediate role",
+                location=Location.UK,
+                language=Language.EN,
+                source="LinkedIn",
+                job_url="https://example.com/intermediate",
+                job_description="Intermediate description.",
+                date_added=date(2026, 7, 2),
+            )
+        )
         current_job = service.create(
             CreateJob(
                 company="Current Ltd",
@@ -1027,7 +1039,7 @@ def test_review_decision_keeps_next_assessed_job_available(
                 source="LinkedIn",
                 job_url="https://example.com/current",
                 job_description="Current description.",
-                date_added=date(2026, 7, 2),
+                date_added=date(2026, 7, 3),
             )
         )
         _add_assessed_job_with_cv_lanes(database_path, next_job)
@@ -1038,6 +1050,25 @@ def test_review_decision_keeps_next_assessed_job_available(
             assert stored_current_job is not None
             stored_next_job.user_decision = UserDecision.UNDECIDED
             stored_current_job.user_decision = UserDecision.UNDECIDED
+            session.add(
+                Assessment(
+                    job_id=intermediate_job.id,
+                    status=AssessmentStatus.ASSESSED,
+                    model_relevance=Relevance.HIGH,
+                    role_snapshot="Intermediate role snapshot.",
+                    real_mandate="Intermediate mandate.",
+                    primary_role_family="ARCHITECTURE",
+                    seniority_fit=8,
+                    technical_bar="Architecture judgement.",
+                    fit_score=8,
+                    priority_score=7,
+                    decision=AssessmentDecision.GO,
+                    decision_reason="Strong evidence supports the mandate.",
+                    recommended_document_b_lane="ARCHITECTURE",
+                    assessed_at=intermediate_job.assessment_input_updated_at,
+                    source_job_updated_at=intermediate_job.assessment_input_updated_at,
+                )
+            )
             session.add(
                 Assessment(
                     job_id=current_job.id,
@@ -1069,8 +1100,24 @@ def test_review_decision_keeps_next_assessed_job_available(
             service.assessment_detail(current_job.id).job.user_decision
             is UserDecision.DO_NOT_PURSUE
         )
-        next_link = next(link for link in app.get("page_link") if link.label == "Next")
-        assert not next_link.disabled
+        app.button(key=f"next_assessment_review_{current_job.id}").click().run()
+        app.selectbox(key=f"human_review_decision_{intermediate_job.id}").select(
+            UserDecision.DO_NOT_PURSUE
+        ).run()
+
+        assert (
+            service.assessment_detail(intermediate_job.id).job.user_decision
+            is UserDecision.DO_NOT_PURSUE
+        )
+        app.button(key=f"next_assessment_review_{intermediate_job.id}").click().run()
+        app.selectbox(key=f"human_review_decision_{next_job.id}").select(
+            UserDecision.DO_NOT_PURSUE
+        ).run()
+
+        assert (
+            service.assessment_detail(next_job.id).job.user_decision is UserDecision.DO_NOT_PURSUE
+        )
+        assert app.button(key=f"next_assessment_review_{next_job.id}").disabled
     finally:
         reset_logging()
 
