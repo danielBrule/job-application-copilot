@@ -99,6 +99,10 @@ class CvService:
         with self.database.session() as session:
             return CvRepository(session).get_for_job(job_id)
 
+    def list_for_jobs(self, job_ids: tuple[int, ...]) -> dict[int, Cv]:
+        with self.database.session() as session:
+            return {cv.job_id: cv for cv in CvRepository(session).list_for_jobs(job_ids)}
+
     def review_navigation(self, job_id: int) -> CvReviewNavigation:
         with self.database.session() as session:
             job_ids = CvRepository(session).list_review_ready_job_ids()
