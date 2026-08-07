@@ -76,6 +76,7 @@ TABLE_COLUMN_ORDER = (
     "cv_status",
     "open_cv",
     "application_status",
+    "application_date",
     "next_action",
     "updated_at",
 )
@@ -104,6 +105,7 @@ class JobDashboardRow:
     cv_selection_status: str
     cv_status: str | None
     application_status: str | None
+    application_date: date | None
     next_action: str | None
 
     @classmethod
@@ -144,6 +146,7 @@ class JobDashboardRow:
             ),
             cv_status=cv.status.value if cv is not None else None,
             application_status=job.application_status,
+            application_date=job.application_date,
             next_action=job.next_action,
         )
 
@@ -170,6 +173,7 @@ class JobDashboardRow:
             else "Not available yet",
             "open_cv": "Unavailable",
             "application_status": self.application_status or "—",
+            "application_date": self.application_date,
             "next_action": self.next_action or "—",
             "updated_at": self.updated_at,
         }
@@ -369,6 +373,7 @@ def render_jobs_dashboard(
             "cv_status": st.column_config.TextColumn("CV status", width="small"),
             "open_cv": st.column_config.TextColumn("Open CV", width="small"),
             "application_status": st.column_config.TextColumn("Application status"),
+            "application_date": st.column_config.DateColumn("Application date"),
             "next_action": st.column_config.TextColumn("Next action"),
             "updated_at": st.column_config.DatetimeColumn(
                 "Updated",

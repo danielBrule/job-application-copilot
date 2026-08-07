@@ -4,12 +4,20 @@ from datetime import date
 
 import pytest
 
-from job_application_copilot.domain import AssessmentStatus, Language, Location, Relevance
+from job_application_copilot.domain import (
+    AssessmentStatus,
+    CvSource,
+    CvStatus,
+    Language,
+    Location,
+    Relevance,
+)
 from job_application_copilot.repositories import AssessmentRepository, create_database
-from job_application_copilot.repositories.models import Assessment, Job
-from job_application_copilot.services import JobService
+from job_application_copilot.repositories.models import Assessment, Cv, Job
+from job_application_copilot.services import JobAssessmentDetail, JobService
 from job_application_copilot.services.database_bootstrap import initialize_database
 from job_application_copilot.ui.components.job_details import (
+    _can_record_application,
     _effective_relevance,
     parse_job_id,
     summary_bullets,
@@ -93,3 +101,40 @@ def test_summary_bullets_normalizes_markers_and_caps_at_ten() -> None:
 
     assert summary_bullets(source) == tuple(f"Point {number}" for number in range(10))
     assert summary_bullets("A single summary paragraph.") == ("A single summary paragraph.",)
+
+
+def test_application_recording_requires_assessment_and_reviewable_cv() -> None:
+    job = Job(
+        id=1,
+        company="Example Ltd",
+        job_title="Architecture Lead",
+        location=Location.UK,
+        language=Language.EN,
+        source="LinkedIn",
+        job_description="Lead architecture.",
+        date_added=date(2026, 7, 30),
+    )
+    assessment = Assessment(job_id=job.id, status=AssessmentStatus.ASSESSED)
+    detail = JobAssessmentDetail(job=job, assessment=assessment, is_stale=False)
+    ready_cv = Cv(
+        job_id=job.id,
+        source=CvSource.UPLOADED,
+        status=CvStatus.READY_FOR_REVIEW,
+        language=Language.EN,
+        file_name="CV.docx",
+        file_path="C:/private/cvs/CV.docx",
+    )
+
+    assert _can_record_application(detail, ready_cv)
+    pending_cv = Cv(
+        job_id=job.id,
+        source=CvSource.UPLOADED,
+        status=CvStatus.PENDING,
+        language=Language.EN,
+        file_name=None,
+        file_path=None,
+    )
+    assert not _can_record_application(detail, pending_cv)
+    assert not _can_record_application(
+        JobAssessmentDetail(job=job, assessment=None, is_stale=False), ready_cv
+    )

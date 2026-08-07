@@ -2,15 +2,18 @@
 
 import logging
 import re
+from datetime import date
 
 import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
 from streamlit.delta_generator import DeltaGenerator
 
-from job_application_copilot.domain import CvStatus, UserDecision
+from job_application_copilot.domain import AssessmentStatus, CvStatus, UserDecision
+from job_application_copilot.errors import ApplicationValidationError
 from job_application_copilot.observability import get_logger, log_event
 from job_application_copilot.repositories.assessment_repository import AssessmentNotFoundError
 from job_application_copilot.repositories.job_repository import JobNotFoundError
+from job_application_copilot.repositories.models import Cv
 from job_application_copilot.services import (
     AssessmentReviewNotEligibleError,
     CvFileMissingError,
@@ -87,11 +90,12 @@ def render_job_details(
     with assessment_tab:
         render_assessment_detail(detail, service)
     with cv_tab:
-        _render_cv_tab(detail, cv_service, upload_service, opener, generation_service)
+        _render_cv_tab(detail, service, cv_service, upload_service, opener, generation_service)
 
 
 def _render_cv_tab(
     detail: JobAssessmentDetail,
+    job_service: JobService,
     cv_service: CvService,
     upload_service: CvUploadService,
     opener: CvFileOpener,
@@ -158,6 +162,63 @@ def _render_cv_tab(
         st.write(f"**Approved at:** {cv.approved_at}")
         if cv.review_notes:
             st.write(f"**Review notes:** {cv.review_notes}")
+    if _can_record_application(detail, cv):
+        _render_application_status(
+            detail.job.id, detail.job.application_status, detail.job.application_date, job_service
+        )
+
+
+def _can_record_application(detail: JobAssessmentDetail, cv: Cv) -> bool:
+    """Return whether assessment and completed CV work permit recording an application."""
+
+    return (
+        detail.assessment is not None
+        and detail.assessment.status is AssessmentStatus.ASSESSED
+        and cv.status in {CvStatus.READY_FOR_REVIEW, CvStatus.APPROVED}
+    )
+
+
+def _render_application_status(
+    job_id: int,
+    current_status: str | None,
+    current_application_date: date | None,
+    service: JobService,
+) -> None:
+    """Let the user record an application after CV work is ready for review."""
+
+    st.markdown("#### Application")
+    status_option = st.selectbox(
+        "Application status",
+        options=("Applied", "Other"),
+        index=0 if current_status == "Applied" else 1,
+        key=f"application_status_option_{job_id}",
+    )
+    custom_status = ""
+    if status_option == "Other":
+        custom_status = st.text_input(
+            "Other application status",
+            value=current_status or "",
+            key=f"application_status_other_{job_id}",
+        )
+    application_date = st.date_input(
+        "Application date",
+        value=current_application_date or date.today(),
+        key=f"application_date_{job_id}",
+    )
+    if not st.button("Save application status", key=f"save_application_status_{job_id}"):
+        return
+    status = "Applied" if status_option == "Applied" else custom_status
+    try:
+        service.record_application(job_id, status=status, application_date=application_date)
+    except ApplicationValidationError as error:
+        st.error(str(error))
+    except JobNotFoundError:
+        st.error("This job is no longer available. Refresh the page and try again.")
+    except SQLAlchemyError:
+        logger.exception("application_status_save_failed job_id=%s", job_id)
+        st.error("The application status could not be saved. See the private UI log for details.")
+    else:
+        st.rerun()
 
 
 def _render_cv_generation(
