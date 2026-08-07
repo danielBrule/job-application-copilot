@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from job_application_copilot.domain import CvStatus, is_valid_cv_transition
 from job_application_copilot.errors import ApplicationNotFoundError, ApplicationValidationError
-from job_application_copilot.repositories.models import Cv
+from job_application_copilot.repositories.models import Cv, Job
 
 
 class CvNotFoundError(ApplicationNotFoundError):
@@ -30,6 +30,15 @@ class CvRepository:
 
     def get_for_job(self, job_id: int) -> Cv | None:
         return self.session.scalar(select(Cv).where(Cv.job_id == job_id))
+
+    def list_review_ready_job_ids(self) -> tuple[int, ...]:
+        statement = (
+            select(Cv.job_id)
+            .join(Job, Job.id == Cv.job_id)
+            .where(Cv.status == CvStatus.READY_FOR_REVIEW)
+            .order_by(Job.date_added.desc(), Job.id.desc())
+        )
+        return tuple(self.session.scalars(statement))
 
     def require_for_job(self, job_id: int) -> Cv:
         cv = self.get_for_job(job_id)
