@@ -54,6 +54,9 @@ from job_application_copilot.services.cv_generation_final import (
     CvGenerationFinalResult,
     CvGenerationFinalService,
 )
+from job_application_copilot.services.cv_generation_worker_handler import (
+    CvGenerationWorkerHandler,
+)
 from job_application_copilot.services.cv_selection import (
     CvSelectionResult,
     CvSelectionService,
@@ -196,6 +199,7 @@ __all__ = [
     "CvGenerationDraftService",
     "CvGenerationFinalResult",
     "CvGenerationFinalService",
+    "CvGenerationWorkerHandler",
     "CvDocumentRendererService",
     "CvDocumentStorageError",
     "CvTemplateContractError",
