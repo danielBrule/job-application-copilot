@@ -102,6 +102,7 @@ class JobDashboardRow:
     user_decision: str
     selected_cv_lane: str | None
     cv_selection_status: str
+    cv_status: str | None
     application_status: str | None
     next_action: str | None
 
@@ -111,6 +112,7 @@ class JobDashboardRow:
         job: Job,
         *,
         assessment: JobAssessmentSummary | None = None,
+        cv: Cv | None = None,
     ) -> "JobDashboardRow":
         """Shape a persisted job for the dashboard."""
 
@@ -140,6 +142,7 @@ class JobDashboardRow:
                 if job.cv_selection_status is CvSelectionStatus.SELECTED
                 else "Not selected"
             ),
+            cv_status=cv.status.value if cv is not None else None,
             application_status=job.application_status,
             next_action=job.next_action,
         )
@@ -162,7 +165,9 @@ class JobDashboardRow:
             "user_decision": self.user_decision,
             "selected_cv_lane": self.selected_cv_lane or "—",
             "cv_selection_status": self.cv_selection_status,
-            "cv_status": "Not available yet",
+            "cv_status": self.cv_status.replace("_", " ").title()
+            if self.cv_status
+            else "Not available yet",
             "open_cv": "Unavailable",
             "application_status": self.application_status or "—",
             "next_action": self.next_action or "—",
@@ -192,11 +197,16 @@ def _user_decision_display(decision: UserDecision | None) -> str:
 def shape_job_rows(
     jobs: Iterable[Job],
     assessment_summaries: dict[int, JobAssessmentSummary] | None = None,
+    cvs_by_job_id: Mapping[int, Cv] | None = None,
 ) -> tuple[JobDashboardRow, ...]:
     """Preserve service ordering while shaping dashboard rows."""
 
     summaries = assessment_summaries or {}
-    return tuple(JobDashboardRow.from_job(job, assessment=summaries.get(job.id)) for job in jobs)
+    cvs = cvs_by_job_id or {}
+    return tuple(
+        JobDashboardRow.from_job(job, assessment=summaries.get(job.id), cv=cvs.get(job.id))
+        for job in jobs
+    )
 
 
 def selected_job_ids(
@@ -316,8 +326,8 @@ def render_jobs_dashboard(
         st.error(LOAD_ERROR_MESSAGE)
         return
 
-    rows = shape_job_rows(jobs, assessment_summaries)
     cvs_by_job_id = cv_service.list_for_jobs(tuple(job.id for job in jobs))
+    rows = shape_job_rows(jobs, assessment_summaries, cvs_by_job_id)
     if not rows:
         st.session_state[SELECTED_JOB_IDS_KEY] = ()
         st.info("No jobs match the current filters.")

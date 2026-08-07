@@ -96,6 +96,7 @@ from job_application_copilot.services.cv_upload import (
 from job_application_copilot.services.dashboard_kpis import (
     DashboardKpiService,
     DashboardUsageKpis,
+    DashboardWorkflowKpis,
     OperationUsageKpis,
 )
 from job_application_copilot.services.default_assessment_prompt import (
@@ -284,6 +285,7 @@ __all__ = [
     "CvUploadStorageError",
     "CvUploadValidationError",
     "DashboardKpiService",
+    "DashboardWorkflowKpis",
     "DashboardUsageKpis",
     "InvalidCvLaneSelectionError",
     "JobAssessmentDetail",

@@ -2,8 +2,11 @@
 
 from dataclasses import dataclass
 
-from job_application_copilot.domain import BackgroundOperation, LlmUsageTotals
+from sqlalchemy import func, select
+
+from job_application_copilot.domain import BackgroundOperation, CvSource, CvStatus, LlmUsageTotals
 from job_application_copilot.repositories import Database, LlmCallRepository
+from job_application_copilot.repositories.models import Cv, Job
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +45,14 @@ class DashboardUsageKpis:
     cv_generation: OperationUsageKpis
 
 
+@dataclass(frozen=True, slots=True)
+class DashboardWorkflowKpis:
+    jobs_entered: int
+    cvs_generated: int
+    cvs_uploaded: int
+    cvs_approved: int
+
+
 class DashboardKpiService:
     """Aggregate global dashboard KPIs outside Streamlit page code."""
 
@@ -59,3 +70,21 @@ class DashboardKpiService:
                 totals.get(BackgroundOperation.CV_GENERATION)
             ),
         )
+
+    def workflow(self) -> DashboardWorkflowKpis:
+        with self.database.session() as session:
+            return DashboardWorkflowKpis(
+                jobs_entered=session.scalar(select(func.count()).select_from(Job)) or 0,
+                cvs_generated=session.scalar(
+                    select(func.count()).select_from(Cv).where(Cv.source == CvSource.GENERATED)
+                )
+                or 0,
+                cvs_uploaded=session.scalar(
+                    select(func.count()).select_from(Cv).where(Cv.source == CvSource.UPLOADED)
+                )
+                or 0,
+                cvs_approved=session.scalar(
+                    select(func.count()).select_from(Cv).where(Cv.status == CvStatus.APPROVED)
+                )
+                or 0,
+            )

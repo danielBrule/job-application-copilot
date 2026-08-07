@@ -8,11 +8,13 @@ from job_application_copilot.domain import (
     AssessmentDecision,
     AssessmentStatus,
     CvSelectionStatus,
+    CvSource,
+    CvStatus,
     Language,
     Location,
     UserDecision,
 )
-from job_application_copilot.repositories.models import Job
+from job_application_copilot.repositories.models import Cv, Job
 from job_application_copilot.services.job_service import JobAssessmentSummary
 from job_application_copilot.ui.components.jobs_dashboard import (
     TABLE_COLUMN_ORDER,
@@ -60,6 +62,7 @@ def test_shape_job_rows_preserves_order_and_core_values() -> None:
         user_decision="Undecided",
         selected_cv_lane=None,
         cv_selection_status="Not selected",
+        cv_status=None,
         application_status=None,
         next_action=None,
     )
@@ -94,6 +97,22 @@ def test_shape_job_rows_displays_current_assessment_values_and_staleness() -> No
     assert row.display_record()["open_cv"] == "Unavailable"
     assert row.display_record()["application_status"] == "Applied"
     assert row.display_record()["next_action"] == "Follow up"
+
+
+def test_shape_job_rows_displays_persisted_cv_status() -> None:
+    job = make_job(2, "Second")
+    cv = Cv(
+        job_id=job.id,
+        source=CvSource.GENERATED,
+        status=CvStatus.APPROVED,
+        language=Language.EN,
+        file_name="Second CV.docx",
+        file_path="C:/private/cvs/Second CV.docx",
+    )
+
+    (row,) = shape_job_rows([job], cvs_by_job_id={job.id: cv})
+
+    assert row.display_record()["cv_status"] == "Approved"
 
 
 def test_selected_positions_map_to_stable_job_ids() -> None:
