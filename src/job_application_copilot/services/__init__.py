@@ -79,6 +79,11 @@ from job_application_copilot.services.cv_template_manifest import (
     CvTemplateManifestNotFoundError,
     CvTemplateManifestService,
 )
+from job_application_copilot.services.cv_upload import (
+    CvUploadService,
+    CvUploadStorageError,
+    CvUploadValidationError,
+)
 from job_application_copilot.services.dashboard_kpis import (
     DashboardKpiService,
     DashboardUsageKpis,
@@ -262,6 +267,9 @@ __all__ = [
     "CvSelectionSkipReason",
     "CvFileValidationError",
     "CvService",
+    "CvUploadService",
+    "CvUploadStorageError",
+    "CvUploadValidationError",
     "DashboardKpiService",
     "DashboardUsageKpis",
     "InvalidCvLaneSelectionError",

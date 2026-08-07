@@ -70,8 +70,7 @@ def render_english_template_manifest(service: CvTemplateManifestService) -> None
                 )
                 target = (
                     _experience_target(placeholder, suggested_target)
-                    if kind
-                    in {CvTemplateSlotKind.EXPERIENCE, CvTemplateSlotKind.EXPERIENCE_TITLE}
+                    if kind in {CvTemplateSlotKind.EXPERIENCE, CvTemplateSlotKind.EXPERIENCE_TITLE}
                     else ""
                 )
                 values.append((placeholder, kind, target))

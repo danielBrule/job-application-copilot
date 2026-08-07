@@ -40,10 +40,18 @@ def test_contract_rejects_missing_or_invented_experience_placeholder() -> None:
             status=CvTemplateManifestStatus.CONFIRMED,
             placeholders=("[OPENING_TITLE]", "[OPENING_PROFILE]", "[SKILLS]", "[EXPERIENCE_ONE]"),
             slots=(
-                CvTemplateSlotMapping(placeholder="[OPENING_TITLE]", kind=CvTemplateSlotKind.OPENING_TITLE),
-                CvTemplateSlotMapping(placeholder="[OPENING_PROFILE]", kind=CvTemplateSlotKind.OPENING_PROFILE),
+                CvTemplateSlotMapping(
+                    placeholder="[OPENING_TITLE]", kind=CvTemplateSlotKind.OPENING_TITLE
+                ),
+                CvTemplateSlotMapping(
+                    placeholder="[OPENING_PROFILE]", kind=CvTemplateSlotKind.OPENING_PROFILE
+                ),
                 CvTemplateSlotMapping(placeholder="[SKILLS]", kind=CvTemplateSlotKind.SKILLS),
-                CvTemplateSlotMapping(placeholder="[EXPERIENCE_ONE]", kind=CvTemplateSlotKind.EXPERIENCE, experience_target="One"),
+                CvTemplateSlotMapping(
+                    placeholder="[EXPERIENCE_ONE]",
+                    kind=CvTemplateSlotKind.EXPERIENCE,
+                    experience_target="One",
+                ),
             ),
         )
     )
