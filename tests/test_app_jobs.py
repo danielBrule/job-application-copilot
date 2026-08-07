@@ -124,6 +124,7 @@ def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
             "cv_status",
             "open_cv",
             "application_status",
+            "application_date",
             "next_action",
             "updated_at",
         ]

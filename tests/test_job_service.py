@@ -25,6 +25,7 @@ from job_application_copilot.domain import (
     UpdateJob,
     UserDecision,
 )
+from job_application_copilot.errors import ApplicationValidationError
 from job_application_copilot.repositories import (
     Database,
     create_database,
@@ -159,6 +160,45 @@ def test_update_can_change_and_clear_relevance_override(
 
     assert high.relevance_override is Relevance.HIGH
     assert cleared.relevance_override is None
+
+
+def test_record_application_persists_a_status_and_date(
+    database_and_service: tuple[Database, JobService],
+) -> None:
+    _, service = database_and_service
+    created = service.create(create_command())
+
+    updated = service.record_application(
+        created.id,
+        status=" Applied ",
+        application_date=date(2026, 8, 7),
+    )
+
+    assert updated.application_status == "Applied"
+    assert updated.application_date == date(2026, 8, 7)
+    persisted = service.get(created.id)
+    assert persisted is not None
+    assert persisted.application_status == "Applied"
+    assert persisted.application_date == date(2026, 8, 7)
+
+    custom = service.record_application(
+        created.id,
+        status=" First interview ",
+        application_date=date(2026, 8, 8),
+    )
+
+    assert custom.application_status == "First interview"
+    assert custom.application_date == date(2026, 8, 8)
+
+
+def test_record_application_rejects_a_blank_status(
+    database_and_service: tuple[Database, JobService],
+) -> None:
+    _, service = database_and_service
+    created = service.create(create_command())
+
+    with pytest.raises(ApplicationValidationError, match="Application status is required"):
+        service.record_application(created.id, status="  ", application_date=date(2026, 8, 7))
 
 
 @pytest.mark.parametrize(

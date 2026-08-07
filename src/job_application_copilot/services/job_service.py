@@ -1,7 +1,7 @@
 """Transaction-owning application service for job CRUD operations."""
 
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -152,6 +152,19 @@ class JobService:
                     now,
                     job.assessment_input_updated_at + timedelta(seconds=1),
                 )
+            session.flush()
+            return job
+
+    def record_application(self, job_id: int, *, status: str, application_date: date) -> Job:
+        """Persist a user-recorded application outcome without changing job-fit inputs."""
+
+        normalized_status = status.strip()
+        if not normalized_status:
+            raise ApplicationValidationError("Application status is required.")
+        with self.database.session() as session:
+            job = JobRepository(session).require(job_id)
+            job.application_status = normalized_status
+            job.application_date = application_date
             session.flush()
             return job
 

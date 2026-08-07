@@ -64,6 +64,7 @@ def test_shape_job_rows_preserves_order_and_core_values() -> None:
         cv_selection_status="Not selected",
         cv_status=None,
         application_status=None,
+        application_date=None,
         next_action=None,
     )
     assert tuple(rows[0].display_record()) == TABLE_COLUMN_ORDER
@@ -83,6 +84,7 @@ def test_shape_job_rows_displays_current_assessment_values_and_staleness() -> No
     job.user_decision = UserDecision.PURSUE
     job.cv_selection_status = CvSelectionStatus.SELECTED
     job.application_status = "Applied"
+    job.application_date = date(2026, 8, 7)
     job.next_action = "Follow up"
     (row,) = shape_job_rows([job], {2: summary})
 
@@ -96,6 +98,7 @@ def test_shape_job_rows_displays_current_assessment_values_and_staleness() -> No
     assert row.display_record()["cv_status"] == "Not available yet"
     assert row.display_record()["open_cv"] == "Unavailable"
     assert row.display_record()["application_status"] == "Applied"
+    assert row.display_record()["application_date"] == date(2026, 8, 7)
     assert row.display_record()["next_action"] == "Follow up"
 
 
