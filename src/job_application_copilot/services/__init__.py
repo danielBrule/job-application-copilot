@@ -35,8 +35,8 @@ from job_application_copilot.services.cv_document_renderer import (
 )
 from job_application_copilot.services.cv_file_opener import (
     CvFileMissingError,
-    CvFileOpenError,
     CvFileOpener,
+    CvFileOpenError,
 )
 from job_application_copilot.services.cv_generation_batch import (
     CvGenerationBatchQueueResult,
@@ -74,7 +74,11 @@ from job_application_copilot.services.cv_selection import (
     CvSelectionSkip,
     CvSelectionSkipReason,
 )
-from job_application_copilot.services.cv_service import CvFileValidationError, CvReviewNavigation, CvService
+from job_application_copilot.services.cv_service import (
+    CvFileValidationError,
+    CvReviewNavigation,
+    CvService,
+)
 from job_application_copilot.services.cv_template_contract import (
     CvTemplateContractError,
     CvTemplateContractService,
