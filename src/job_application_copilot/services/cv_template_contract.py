@@ -39,7 +39,9 @@ class CvTemplateContract:
     def validate(self, output: FinalCvOutput) -> None:
         slots = self.manifest.slots
         self._require_one(slots, CvTemplateSlotKind.OPENING_TITLE, output.opening_title.placeholder)
-        self._require_one(slots, CvTemplateSlotKind.OPENING_PROFILE, output.opening_profile.placeholder)
+        self._require_one(
+            slots, CvTemplateSlotKind.OPENING_PROFILE, output.opening_profile.placeholder
+        )
         self._require_one(slots, CvTemplateSlotKind.SKILLS, output.skills.placeholder)
 
         expected_experience = {
@@ -48,7 +50,9 @@ class CvTemplateContract:
             if slot.kind is CvTemplateSlotKind.EXPERIENCE
         }
         if set(expected_experience) != {item.placeholder for item in output.experience}:
-            raise CvTemplateContractError("Final CV experience placeholders do not match the template.")
+            raise CvTemplateContractError(
+                "Final CV experience placeholders do not match the template."
+            )
         expected_titles = {
             slot.experience_target: slot.placeholder
             for slot in slots
@@ -90,5 +94,7 @@ class CvTemplateContractService:
                 slots=tuple(CvTemplateSlotMapping.model_validate(slot) for slot in record.slots),
             )
         if manifest.status is not CvTemplateManifestStatus.CONFIRMED:
-            raise CvTemplateContractError("The active English CV template mapping is not confirmed.")
+            raise CvTemplateContractError(
+                "The active English CV template mapping is not confirmed."
+            )
         return CvTemplateContract(manifest)

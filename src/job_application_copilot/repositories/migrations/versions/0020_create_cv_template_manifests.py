@@ -16,16 +16,23 @@ def upgrade() -> None:
         "cv_template_manifests",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column(
-            "template_asset_id", sa.Integer(), sa.ForeignKey("reference_assets.id", ondelete="CASCADE"), nullable=False
+            "template_asset_id",
+            sa.Integer(),
+            sa.ForeignKey("reference_assets.id", ondelete="CASCADE"),
+            nullable=False,
         ),
         sa.Column("status", sa.String(length=16), nullable=False),
         sa.Column("placeholders", sa.JSON(), nullable=False),
         sa.Column("slots", sa.JSON(), nullable=False),
         sa.Column("confirmed_at", sa.DateTime()),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.func.current_timestamp(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(), server_default=sa.func.current_timestamp(), nullable=False
+        ),
         sa.UniqueConstraint("template_asset_id", name="uq_cv_template_manifests_asset"),
     )
-    op.create_index("ix_cv_template_manifests_template_asset_id", "cv_template_manifests", ["template_asset_id"])
+    op.create_index(
+        "ix_cv_template_manifests_template_asset_id", "cv_template_manifests", ["template_asset_id"]
+    )
 
 
 def downgrade() -> None:

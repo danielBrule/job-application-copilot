@@ -459,7 +459,9 @@ class CvGenerationContextBuilder:
                 CvGenerationTextInput(section="prior_stage_output", text=prior_stage_output)
             )
         if template_contract is not None:
-            values.append(CvGenerationTextInput(section="template_contract", text=template_contract))
+            values.append(
+                CvGenerationTextInput(section="template_contract", text=template_contract)
+            )
         return tuple(values)
 
 
