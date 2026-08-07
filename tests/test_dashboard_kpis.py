@@ -7,13 +7,15 @@ from sqlalchemy.orm import Session
 
 from job_application_copilot.domain import (
     BackgroundOperation,
+    CvSource,
+    CvStatus,
     Language,
     LlmCallStatus,
     LlmFailureCategory,
     Location,
 )
 from job_application_copilot.repositories import Database, LlmCallRepository, create_database
-from job_application_copilot.repositories.models import Job, LlmCall
+from job_application_copilot.repositories.models import Cv, Job, LlmCall
 from job_application_copilot.services.dashboard_kpis import DashboardKpiService
 from job_application_copilot.services.database_bootstrap import initialize_database
 
@@ -93,6 +95,31 @@ def test_usage_returns_zero_totals_and_no_averages_without_successful_calls(tmp_
         database.dispose()
 
 
+def test_workflow_counts_jobs_cvs_by_source_and_approved_cvs(tmp_path: Path) -> None:
+    database = _migrated_database(tmp_path)
+    try:
+        with database.session() as session:
+            generated_job = _add_job(session, "Generated")
+            uploaded_job = _add_job(session, "Uploaded")
+            unapproved_job = _add_job(session, "Unapproved")
+            session.add_all(
+                [
+                    _make_cv(generated_job.id, CvSource.GENERATED, CvStatus.APPROVED),
+                    _make_cv(uploaded_job.id, CvSource.UPLOADED, CvStatus.READY_FOR_REVIEW),
+                    _make_cv(unapproved_job.id, CvSource.GENERATED, CvStatus.READY_FOR_REVIEW),
+                ]
+            )
+
+        kpis = DashboardKpiService(database).workflow()
+
+        assert kpis.jobs_entered == 3
+        assert kpis.cvs_generated == 2
+        assert kpis.cvs_uploaded == 1
+        assert kpis.cvs_approved == 1
+    finally:
+        database.dispose()
+
+
 def _migrated_database(tmp_path: Path) -> Database:
     database_path = tmp_path / "copilot.db"
     initialize_database(database_path)
@@ -135,3 +162,15 @@ def _make_call(job_id: int, **overrides: object) -> LlmCall:
     }
     values.update(overrides)
     return LlmCall(**values)
+
+
+def _make_cv(job_id: int, source: CvSource, status: CvStatus) -> Cv:
+    return Cv(
+        job_id=job_id,
+        source=source,
+        status=status,
+        language=Language.EN,
+        file_name=f"{job_id}.docx",
+        file_path=f"C:/private/cvs/{job_id}.docx",
+        approved_at=datetime(2026, 7, 29, 12, 0, 0) if status is CvStatus.APPROVED else None,
+    )

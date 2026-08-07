@@ -8,6 +8,7 @@ from job_application_copilot.services import (
     BackgroundRunService,
     DashboardKpiService,
     DashboardUsageKpis,
+    DashboardWorkflowKpis,
 )
 
 logger = get_logger(__name__)
@@ -23,6 +24,7 @@ def render_dashboard(
     st.title("Dashboard")
     try:
         _render_usage_kpis(dashboard_kpi_service.usage())
+        _render_workflow_kpis(dashboard_kpi_service.workflow())
         _render_failed_task_kpi(background_run_service.failed_task_count())
     except SQLAlchemyError:
         logger.exception("dashboard_kpi_load_failed")
@@ -67,6 +69,17 @@ def _render_usage_kpis(kpis: DashboardUsageKpis) -> None:
                 kpis.cv_generation.average_duration_seconds_per_successful_call,
             ),
         )
+
+
+def _render_workflow_kpis(kpis: DashboardWorkflowKpis) -> None:
+    """Render counts for the entered-job and CV workflow."""
+
+    st.subheader("Workflow")
+    jobs, generated, uploaded, approved = st.columns(4)
+    jobs.metric("Jobs entered", kpis.jobs_entered)
+    generated.metric("CVs generated", kpis.cvs_generated)
+    uploaded.metric("CVs uploaded", kpis.cvs_uploaded)
+    approved.metric("CVs approved", kpis.cvs_approved)
 
 
 def _render_failed_task_kpi(failed_task_count: int) -> None:
