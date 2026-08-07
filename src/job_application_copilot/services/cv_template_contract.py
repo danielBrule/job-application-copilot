@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from job_application_copilot.domain import (
     ENGLISH_CV_TEMPLATE_KEY,
+    CvExperienceBlock,
     CvTemplateManifest,
     CvTemplateManifestStatus,
     CvTemplateSlotKind,
@@ -61,10 +62,44 @@ class CvTemplateContract:
         for item in output.experience:
             expected_title = expected_titles.get(expected_experience[item.placeholder])
             actual_title = None if item.title is None else item.title.placeholder
-            if actual_title != expected_title:
+            if expected_title is None and actual_title is not None:
                 raise CvTemplateContractError(
                     "Final CV experience title placeholders do not match the template."
                 )
+            if expected_title is not None and actual_title not in {None, expected_title}:
+                raise CvTemplateContractError(
+                    "Final CV experience title placeholders do not match the template."
+                )
+
+    def normalise_experience_titles(self, output: FinalCvOutput) -> FinalCvOutput:
+        """Assign title content to its template-defined experience-title placeholder."""
+
+        experience_targets = {
+            slot.placeholder: slot.experience_target
+            for slot in self.manifest.slots
+            if slot.kind is CvTemplateSlotKind.EXPERIENCE
+        }
+        title_placeholders = {
+            slot.experience_target: slot.placeholder
+            for slot in self.manifest.slots
+            if slot.kind is CvTemplateSlotKind.EXPERIENCE_TITLE
+        }
+
+        def normalise_title(item: CvExperienceBlock) -> CvExperienceBlock:
+            target = experience_targets.get(item.placeholder)
+            if target is None:
+                return item
+            title_placeholder = title_placeholders.get(target)
+            if title_placeholder is None:
+                return item.model_copy(update={"title": None})
+            if item.title is None:
+                return item
+            return item.model_copy(
+                update={"title": item.title.model_copy(update={"placeholder": title_placeholder})}
+            )
+
+        experience = tuple(normalise_title(item) for item in output.experience)
+        return output.model_copy(update={"experience": experience})
 
     @staticmethod
     def _require_one(

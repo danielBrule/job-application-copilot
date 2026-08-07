@@ -9,6 +9,10 @@ Rules:
 - Use a secondary angle only where it clearly reinforces the primary narrative.
 - Apply the supplied guidance for the professional summary, employer framing, achievement bullets, skills, CV assembly and anti-overclaiming.
 - Lead with the evidence identified in the brief; soften or exclude evidence identified there as weak, unsuitable or risky.
+- Optimise the evidence mix against the material mandate dimensions in the
+  approved brief, not only the primary lane. Each materially supported
+  requirement should normally have visible, differentiated proof somewhere in
+  the CV; do not crowd it out with repetitive technical bullets.
 - Never invent or strengthen dates, employers, titles, metrics, technologies, scope, ownership or outcomes.
 - Keep the CV concise, UK-style and suitable for a maximum two-page CV.
 - Do not add commentary inside the CV itself.

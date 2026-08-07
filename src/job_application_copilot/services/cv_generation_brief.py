@@ -5,7 +5,7 @@ import json
 from dataclasses import asdict, dataclass
 
 from job_application_copilot.config import AppSettings
-from job_application_copilot.domain import CvGenerationBriefOutput
+from job_application_copilot.domain import CvGenerationBriefOutput, DocumentBRouteRole
 from job_application_copilot.llm import (
     OpenAIPromptStageOperations,
     PromptStageInput,
@@ -106,7 +106,11 @@ class CvGenerationBriefService:
         schema = CvGenerationBriefOutput.model_json_schema()
         properties = schema["properties"]
         assert isinstance(properties, dict)
-        application_controlled_fields = {"target_cv_lane", "selected_passage_ids"}
+        application_controlled_fields = {
+            "target_cv_lane",
+            "selected_passage_ids",
+            "guardrail_ids",
+        }
         for field in application_controlled_fields:
             properties.pop(field)
         required = schema.get("required")
@@ -126,16 +130,20 @@ class CvGenerationBriefService:
                 **raw_output,
                 "target_cv_lane": context.cache_identity.primary_lane,
                 "selected_passage_ids": [],
+                "guardrail_ids": [],
             }
         )
         mandatory = next(item for item in context.input if item.section == "mandatory_document_b")
         entries = json.loads(mandatory.text)
         section_ids = {entry["section_id"] for entry in entries}
-        logical_ids = {entry["logical_id"] for entry in entries}
+        guardrail_ids = {
+            entry["logical_id"]
+            for entry in entries
+            if entry.get("role") == DocumentBRouteRole.GUARDRAIL
+        }
+        output = output.model_copy(update={"guardrail_ids": frozenset(guardrail_ids)})
         if not output.selected_section_ids.issubset(section_ids):
             raise ValueError("CV-generation brief selected an unauthorised Document B section.")
         if output.selected_passage_ids:
             raise ValueError("Stage-one brief cannot select passages that were not supplied.")
-        if not output.guardrail_ids.issubset(logical_ids):
-            raise ValueError("CV-generation brief selected an unauthorised guardrail.")
         return output

@@ -15,6 +15,7 @@ from job_application_copilot.services.cv_generation_context import (
     CvGenerationContextBuilder,
     CvGenerationContextError,
     _authorised_secondary,
+    _authorised_supporting_lane,
 )
 from job_application_copilot.services.document_b_routing import (
     ResolvedLanePacket,
@@ -83,6 +84,13 @@ def brief(*, selected_sections: frozenset[str]) -> CvGenerationBriefInput:
             "target_cv_lane": "PRIMARY_LANE",
             "primary_narrative": "Primary narrative.",
             "evidence_to_lead_with": ["Validated evidence."],
+            "mandate_coverage": [
+                {
+                    "mandate_dimension_id": "delivery",
+                    "planned_evidence": "Validated evidence.",
+                    "coverage_status": "COVERED",
+                }
+            ],
             "professional_summary_direction": "Lead with evidence.",
             "independent_work_treatment": "Frame cautiously.",
             "skills_section_direction": "Use evidenced skills.",
@@ -121,6 +129,63 @@ def test_assessment_secondary_lane_is_supporting_only_when_primary_route_allows_
     assert _authorised_secondary(routing, "PRIMARY_LANE") is None
 
 
+def test_secondary_cv_angle_can_authorise_support_without_secondary_role_family() -> None:
+    primary = ResolvedRouting(
+        summary=routing().summary,
+        packet=ResolvedLanePacket(lane="PRIMARY_LANE", entries=(), conditional_guardrails=()),
+        constraints=SecondaryLaneConstraintPacket(
+            default_disposition_for_unlisted_lane="EXCLUDED",
+            source_sections=(),
+            allowed=("COMMERCIAL_POST_SALES",),
+            cautious=(),
+        ),
+    )
+    assessment = SimpleNamespace(
+        secondary_role_family=None,
+        secondary_cv_angle="COMMERCIAL_POST_SALES",
+        material_mandate_dimensions=[
+            {
+                "should_shape_cv": True,
+                "evidence_strength": "DIRECT",
+            }
+        ],
+    )
+
+    assert _authorised_supporting_lane(primary, assessment) == "COMMERCIAL_POST_SALES"
+
+
+@pytest.mark.parametrize(
+    ("angle", "strength", "expected"),
+    [
+        (None, "DIRECT", None),  # Pure single-lane role.
+        ("COMMERCIAL_POST_SALES", "NONE", None),  # Unsupported secondary dimension.
+        ("COMMERCIAL_POST_SALES", "WEAK", None),  # Hunter-sales evidence must not inflate fit.
+        ("COMMERCIAL_POST_SALES", "ADJACENT", "COMMERCIAL_POST_SALES"),  # Hybrid role.
+        ("COMMERCIAL_POST_SALES", "DIRECT", "COMMERCIAL_POST_SALES"),  # Valid angle.
+    ],
+)
+def test_supporting_angle_requires_credible_material_evidence(
+    angle: str | None, strength: str, expected: str | None
+) -> None:
+    primary = ResolvedRouting(
+        summary=routing().summary,
+        packet=ResolvedLanePacket(lane="PRIMARY_LANE", entries=(), conditional_guardrails=()),
+        constraints=SecondaryLaneConstraintPacket(
+            default_disposition_for_unlisted_lane="EXCLUDED",
+            source_sections=(),
+            allowed=("COMMERCIAL_POST_SALES",),
+            cautious=(),
+        ),
+    )
+    assessment = SimpleNamespace(
+        secondary_role_family=None,
+        secondary_cv_angle=angle,
+        material_mandate_dimensions=[{"should_shape_cv": True, "evidence_strength": strength}],
+    )
+
+    assert _authorised_supporting_lane(primary, assessment) == expected
+
+
 def test_later_stages_receive_only_brief_selected_sections_and_guardrails() -> None:
     builder = object.__new__(CvGenerationContextBuilder)
     builder.sections = SimpleNamespace(
@@ -144,5 +209,33 @@ def test_later_stages_receive_only_brief_selected_sections_and_guardrails() -> N
 def test_rejects_brief_sections_not_available_as_direct_context() -> None:
     with pytest.raises(CvGenerationContextError, match="unauthorised"):
         CvGenerationContextBuilder._validate_brief(
-            brief(selected_sections=frozenset({"not-authorised"})), routing(), 1, 1, ()
+            brief(selected_sections=frozenset({"not-authorised"})), routing(), None, 1, 1, ()
         )
+
+
+def test_later_stages_accept_primary_lane_scoped_sections_selected_by_stage_one() -> None:
+    primary = routing()
+    scoped_entry = ResolvedRouteEntry(
+        logical_id="bullet-library",
+        section_id="bullet-root",
+        heading="Bullet library",
+        heading_path=("Bullets",),
+        role=DocumentBRouteRole.BULLET_LIBRARY,
+        inclusion=RouteInclusion.MANDATORY,
+        delivery_mode=RouteDeliveryMode.VECTOR_SCOPE_REQUIRED,
+        include_descendants=True,
+        expanded_section_ids=("bullet-root",),
+    )
+    primary = ResolvedRouting(
+        summary=primary.summary,
+        packet=ResolvedLanePacket(
+            lane=primary.packet.lane,
+            entries=primary.packet.entries + (scoped_entry,),
+            conditional_guardrails=(),
+        ),
+        constraints=primary.constraints,
+    )
+
+    CvGenerationContextBuilder._validate_brief(
+        brief(selected_sections=frozenset({"bullet-root"})), primary, None, 1, 1, ()
+    )
