@@ -1,24 +1,28 @@
 """Jobs dashboard table component and selection state."""
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 
 import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
 
-from job_application_copilot.domain import CvSelectionStatus, UserDecision
+from job_application_copilot.domain import CvSelectionStatus, CvStatus, UserDecision
 from job_application_copilot.observability import get_logger
 from job_application_copilot.repositories.job_repository import JobNotFoundError
-from job_application_copilot.repositories.models import Job
+from job_application_copilot.repositories.models import Cv, Job
 from job_application_copilot.services import (
     AssessmentBatchService,
+    CvFileMissingError,
+    CvFileOpener,
+    CvFileOpenError,
     CvGenerationBatchQueueResult,
     CvGenerationBatchService,
     CvGenerationQueueSkipReason,
     CvSelectionResult,
     CvSelectionService,
     CvSelectionSkipReason,
+    CvService,
     JobService,
 )
 from job_application_copilot.services.job_service import JobAssessmentSummary
@@ -209,11 +213,42 @@ def selected_job_ids(
     return tuple(selected_ids)
 
 
+def _render_open_cv_actions(
+    rows: Sequence[JobDashboardRow],
+    cvs_by_job_id: Mapping[int, Cv],
+    opener: CvFileOpener,
+) -> None:
+    """Offer direct dashboard opening only for a persisted CV file."""
+
+    available = [
+        (row, cvs_by_job_id[row.job_id])
+        for row in rows
+        if row.job_id in cvs_by_job_id
+        and cvs_by_job_id[row.job_id].status in {CvStatus.READY_FOR_REVIEW, CvStatus.APPROVED}
+        and cvs_by_job_id[row.job_id].file_path
+    ]
+    if not available:
+        return
+    st.caption("Open available CVs")
+    for row, cv in available:
+        if st.button(
+            f"Open CV — {row.company}: {row.job_title}",
+            key=f"dashboard_open_cv_{row.job_id}",
+        ):
+            try:
+                assert cv.file_path is not None
+                opener.open(cv.file_path)
+            except (CvFileMissingError, CvFileOpenError) as error:
+                st.error(f"{row.company}: {error}")
+
+
 def render_jobs_dashboard(
     service: JobService,
     assessment_batch_service: AssessmentBatchService,
     cv_selection_service: CvSelectionService,
     cv_generation_batch_service: CvGenerationBatchService,
+    cv_service: CvService,
+    opener: CvFileOpener,
 ) -> None:
     """Load and render the initial Jobs dashboard."""
 
@@ -282,6 +317,7 @@ def render_jobs_dashboard(
         return
 
     rows = shape_job_rows(jobs, assessment_summaries)
+    cvs_by_job_id = cv_service.list_for_jobs(tuple(job.id for job in jobs))
     if not rows:
         st.session_state[SELECTED_JOB_IDS_KEY] = ()
         st.info("No jobs match the current filters.")
@@ -339,6 +375,7 @@ def render_jobs_dashboard(
         table_state.selection.rows,  # type: ignore[attr-defined]
     )
     st.session_state[SELECTED_JOB_IDS_KEY] = selected_ids
+    _render_open_cv_actions(rows, cvs_by_job_id, opener)
     selected_count = len(selected_ids)
     label = "job" if selected_count == 1 else "jobs"
     st.caption(f"{selected_count} {label} selected.")

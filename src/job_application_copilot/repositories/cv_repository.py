@@ -40,6 +40,11 @@ class CvRepository:
         )
         return tuple(self.session.scalars(statement))
 
+    def list_for_jobs(self, job_ids: tuple[int, ...]) -> tuple[Cv, ...]:
+        if not job_ids:
+            return ()
+        return tuple(self.session.scalars(select(Cv).where(Cv.job_id.in_(job_ids))))
+
     def require_for_job(self, job_id: int) -> Cv:
         cv = self.get_for_job(job_id)
         if cv is None:
