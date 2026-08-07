@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import NamedTuple
 
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import CvSource, CvStatus, Language
@@ -16,6 +17,13 @@ from job_application_copilot.services.immutable_file_storage import (
 
 class CvFileValidationError(ApplicationValidationError):
     """Raised when a CV record does not point to an existing shared-CV file."""
+
+
+class CvReviewNavigation(NamedTuple):
+    """Adjacent jobs in the deterministic ready-for-review CV queue."""
+
+    previous_job_id: int | None
+    next_job_id: int | None
 
 
 class CvService:
@@ -86,6 +94,22 @@ class CvService:
                 approved_at=timestamp,
                 review_notes=review_notes,
             )
+
+    def get_for_job(self, job_id: int) -> Cv | None:
+        with self.database.session() as session:
+            return CvRepository(session).get_for_job(job_id)
+
+    def review_navigation(self, job_id: int) -> CvReviewNavigation:
+        with self.database.session() as session:
+            job_ids = CvRepository(session).list_review_ready_job_ids()
+        try:
+            position = job_ids.index(job_id)
+        except ValueError:
+            return CvReviewNavigation(None, None)
+        return CvReviewNavigation(
+            previous_job_id=job_ids[position - 1] if position else None,
+            next_job_id=job_ids[position + 1] if position + 1 < len(job_ids) else None,
+        )
 
     def _require_shared_cv_file(self, file_path: Path) -> Path:
         try:

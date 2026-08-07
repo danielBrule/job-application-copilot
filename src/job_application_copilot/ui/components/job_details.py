@@ -7,13 +7,20 @@ import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
 from streamlit.delta_generator import DeltaGenerator
 
-from job_application_copilot.domain import UserDecision
+from job_application_copilot.domain import CvStatus, UserDecision
 from job_application_copilot.observability import get_logger, log_event
 from job_application_copilot.repositories.assessment_repository import AssessmentNotFoundError
 from job_application_copilot.repositories.job_repository import JobNotFoundError
 from job_application_copilot.services import (
     AssessmentReviewNotEligibleError,
+    CvFileMissingError,
+    CvFileOpener,
+    CvFileOpenError,
+    CvGenerationBatchService,
     CvLaneConfigurationError,
+    CvService,
+    CvUploadService,
+    CvUploadValidationError,
     InvalidCvLaneSelectionError,
     JobAssessmentDetail,
     JobService,
@@ -44,7 +51,13 @@ def parse_job_id(value: str | None) -> int:
     return job_id
 
 
-def render_job_details(service: JobService) -> None:
+def render_job_details(
+    service: JobService,
+    cv_service: CvService,
+    upload_service: CvUploadService,
+    opener: CvFileOpener,
+    generation_service: CvGenerationBatchService,
+) -> None:
     """Load and render the editable Job Details page."""
 
     try:
@@ -68,11 +81,126 @@ def render_job_details(service: JobService) -> None:
         return
 
     st.title(f"Job details — {detail.job.job_title} ({detail.job.company})")
-    job_tab, assessment_tab = st.tabs(["Job", "Assessment"])
+    job_tab, assessment_tab, cv_tab = st.tabs(["Job", "Assessment", "CV"])
     with job_tab:
         render_edit_job_form(detail.job, service)
     with assessment_tab:
         render_assessment_detail(detail, service)
+    with cv_tab:
+        _render_cv_tab(detail, cv_service, upload_service, opener, generation_service)
+
+
+def _render_cv_tab(
+    detail: JobAssessmentDetail,
+    cv_service: CvService,
+    upload_service: CvUploadService,
+    opener: CvFileOpener,
+    generation_service: CvGenerationBatchService,
+) -> None:
+    """Render CV actions from the durable active-CV state."""
+
+    cv = cv_service.get_for_job(detail.job.id)
+    if cv is None:
+        st.info("No CV is associated with this job yet.")
+        _render_cv_generation(detail.job.id, generation_service, regenerate=False)
+        with st.form(f"upload_cv_{detail.job.id}", clear_on_submit=True):
+            upload = st.file_uploader("Existing CV (DOCX)", type=["docx"])
+            submitted = st.form_submit_button("Upload existing CV")
+        if submitted:
+            if upload is None:
+                st.error("Choose a DOCX file to upload.")
+            else:
+                try:
+                    upload_service.upload(
+                        job_id=detail.job.id, filename=upload.name, content=upload.getvalue()
+                    )
+                except CvUploadValidationError as error:
+                    st.error(str(error))
+                except SQLAlchemyError:
+                    logger.exception("cv_upload_failed job_id=%s", detail.job.id)
+                    st.error("The CV could not be saved. See the private UI log for details.")
+                else:
+                    st.rerun()
+        return
+
+    st.caption(f"Status: {_label(cv.status.value)}")
+    if cv.status is CvStatus.FAILED:
+        st.error(cv.error_message or "CV generation failed.")
+        _render_cv_generation(detail.job.id, generation_service, regenerate=True)
+        return
+    if cv.status in {CvStatus.PENDING, CvStatus.GENERATING, CvStatus.SELECTED}:
+        st.info("CV generation is in progress.")
+        return
+
+    st.write(f"**Filename:** {cv.file_name}")
+    st.write(f"**Local path:** {cv.file_path}")
+    st.write(f"**Source:** {_label(cv.source.value)}")
+    if st.button("Open CV", key=f"open_cv_{detail.job.id}"):
+        try:
+            opener.open(cv.file_path or "")
+        except (CvFileOpenError, CvFileMissingError) as error:
+            st.error(str(error))
+    if cv.status is CvStatus.READY_FOR_REVIEW:
+        _render_cv_review_navigation(detail.job.id, cv_service)
+        with st.form(f"approve_cv_{detail.job.id}"):
+            notes = st.text_area("Review notes (optional)")
+            confirmed = st.checkbox("I have reviewed this CV in Word and approve it.")
+            approved = st.form_submit_button("Approve CV", disabled=not confirmed)
+        if approved:
+            try:
+                cv_service.approve(detail.job.id, review_notes=notes)
+            except SQLAlchemyError:
+                logger.exception("cv_approval_failed job_id=%s", detail.job.id)
+                st.error("The CV approval could not be saved. See the private UI log for details.")
+            else:
+                st.rerun()
+    else:
+        st.write(f"**Approved at:** {cv.approved_at}")
+        if cv.review_notes:
+            st.write(f"**Review notes:** {cv.review_notes}")
+
+
+def _render_cv_generation(
+    job_id: int, service: CvGenerationBatchService, *, regenerate: bool
+) -> None:
+    label = "Regenerate CV" if regenerate else "Generate CV"
+    confirmed = st.checkbox(
+        f"I want to {label.lower()} for this job.",
+        key=f"confirm_{label}_{job_id}",
+    )
+    if st.button(label, key=f"{label}_{job_id}", disabled=not confirmed):
+        result = (
+            service.queue_regeneration_selected((job_id,))
+            if regenerate
+            else service.queue_selected((job_id,))
+        )
+        if result.batch_id is None:
+            st.warning("This job is not currently eligible for CV generation.")
+        else:
+            st.success("CV generation has been queued.")
+
+
+def _render_cv_review_navigation(job_id: int, service: CvService) -> None:
+    navigation = service.review_navigation(job_id)
+    previous, next_job = st.columns(2)
+    with previous:
+        st.page_link(
+            "pages/job_details.py",
+            label="Previous CV",
+            disabled=navigation.previous_job_id is None,
+            query_params={"job_id": str(navigation.previous_job_id)}
+            if navigation.previous_job_id
+            else None,
+        )
+    with next_job:
+        st.page_link(
+            "pages/job_details.py",
+            label="Next CV",
+            disabled=navigation.next_job_id is None,
+            query_params={"job_id": str(navigation.next_job_id)}
+            if navigation.next_job_id
+            else None,
+        )
 
 
 def render_assessment_detail(detail: JobAssessmentDetail, service: JobService) -> None:

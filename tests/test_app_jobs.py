@@ -899,7 +899,7 @@ def test_job_details_assessment_tab_displays_assessed_handover_and_stale_warning
         app.switch_page("pages/job_details.py").run()
 
         assert not app.exception
-        assert [tab.label for tab in app.tabs] == ["Job", "Assessment"]
+        assert [tab.label for tab in app.tabs] == ["Job", "Assessment", "CV"]
         assert any("This assessment is stale" in warning.value for warning in app.warning)
         assert any(
             metric.label == "Model relevance" and metric.value == "High" for metric in app.metric

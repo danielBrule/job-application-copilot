@@ -33,6 +33,11 @@ from job_application_copilot.services.cv_document_renderer import (
     CvDocumentRendererService,
     CvDocumentStorageError,
 )
+from job_application_copilot.services.cv_file_opener import (
+    CvFileMissingError,
+    CvFileOpener,
+    CvFileOpenError,
+)
 from job_application_copilot.services.cv_generation_batch import (
     CvGenerationBatchQueueResult,
     CvGenerationBatchService,
@@ -69,7 +74,11 @@ from job_application_copilot.services.cv_selection import (
     CvSelectionSkip,
     CvSelectionSkipReason,
 )
-from job_application_copilot.services.cv_service import CvFileValidationError, CvService
+from job_application_copilot.services.cv_service import (
+    CvFileValidationError,
+    CvReviewNavigation,
+    CvService,
+)
 from job_application_copilot.services.cv_template_contract import (
     CvTemplateContractError,
     CvTemplateContractService,
@@ -217,6 +226,9 @@ __all__ = [
     "CvGenerationWorkerHandler",
     "CvDocumentRendererService",
     "CvDocumentStorageError",
+    "CvFileMissingError",
+    "CvFileOpenError",
+    "CvFileOpener",
     "CvTemplateContractError",
     "CvTemplateContractService",
     "CvTemplateManifestError",
@@ -266,6 +278,7 @@ __all__ = [
     "CvSelectionSkip",
     "CvSelectionSkipReason",
     "CvFileValidationError",
+    "CvReviewNavigation",
     "CvService",
     "CvUploadService",
     "CvUploadStorageError",
