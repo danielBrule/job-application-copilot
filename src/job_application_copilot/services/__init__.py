@@ -33,6 +33,12 @@ from job_application_copilot.services.cv_document_renderer import (
     CvDocumentRendererService,
     CvDocumentStorageError,
 )
+from job_application_copilot.services.cv_generation_batch import (
+    CvGenerationBatchQueueResult,
+    CvGenerationBatchService,
+    CvGenerationQueueSkip,
+    CvGenerationQueueSkipReason,
+)
 from job_application_copilot.services.cv_generation_brief import (
     CvGenerationBriefResult,
     CvGenerationBriefService,
@@ -197,8 +203,12 @@ __all__ = [
     "CvGenerationBriefService",
     "CvGenerationDraftResult",
     "CvGenerationDraftService",
+    "CvGenerationBatchQueueResult",
+    "CvGenerationBatchService",
     "CvGenerationFinalResult",
     "CvGenerationFinalService",
+    "CvGenerationQueueSkip",
+    "CvGenerationQueueSkipReason",
     "CvGenerationWorkerHandler",
     "CvDocumentRendererService",
     "CvDocumentStorageError",

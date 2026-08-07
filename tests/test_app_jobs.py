@@ -8,6 +8,7 @@ from job_application_copilot.domain import (
     AssessmentDecision,
     AssessmentStatus,
     CreateJob,
+    CvSelectionStatus,
     DashboardAssessmentStatus,
     DocumentBRoutingSetStatus,
     Language,
@@ -263,6 +264,59 @@ def test_jobs_dashboard_links_to_first_assessed_job_awaiting_review(
             link for link in app.get("page_link") if link.label == "Review assessed jobs"
         )
         assert not review_link.disabled
+    finally:
+        reset_logging()
+
+
+def test_jobs_dashboard_queues_all_eligible_pursued_jobs_for_cv_generation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+
+    try:
+        database_path = data_dir / "database" / "job_application_copilot.db"
+        service = get_job_service(database_path)
+        eligible = _create_job_for_edit(service)
+        missing_assessment = service.create(
+            CreateJob(
+                company="Missing assessment Ltd",
+                job_title="Platform Engineer",
+                location=Location.UK,
+                language=Language.EN,
+                source="LinkedIn",
+                job_description="Build reliable systems.",
+                date_added=date(2026, 8, 7),
+                user_decision=UserDecision.PURSUE,
+            )
+        )
+        _add_assessed_job_with_cv_lanes(database_path, eligible)
+        with get_database(database_path).session() as session:
+            stored_job = session.get(Job, eligible.id)
+            assessment = AssessmentRepository(session).require_for_job(eligible.id)
+            stored_missing_assessment = session.get(Job, missing_assessment.id)
+            assert stored_job is not None
+            assert stored_missing_assessment is not None
+            stored_job.cv_selection_status = CvSelectionStatus.SELECTED
+            stored_missing_assessment.cv_selection_status = CvSelectionStatus.SELECTED
+            assessment.selected_cv_lane = "ARCHITECTURE"
+
+        app.run()
+        app.checkbox(key="confirm_generate_all_pursued_cvs").check().run()
+        app.button(key="generate_all_pursued_cvs").click().run()
+
+        assert not app.exception
+        assert "Queued 1 job for CV generation in batch" in app.success[0].value
+        assert "missing an assessment" in app.success[0].value
+        with get_database(database_path).session() as session:
+            tasks = BackgroundTaskRepository(session).list()
+            assert len(tasks) == 1
+            assert tasks[0].job_id == eligible.id
+            assert tasks[0].operation.value == "CV_GENERATION"
+        assert missing_assessment.id not in [task.job_id for task in tasks]
     finally:
         reset_logging()
 
