@@ -49,6 +49,9 @@ CV_GENERATION_CONFIRMATION_KEY = "confirm_generate_selected_cvs"
 CV_GENERATION_SUCCESS_KEY = "generate_selected_cvs_success"
 ALL_PURSUED_CV_GENERATION_CONFIRMATION_KEY = "confirm_generate_all_pursued_cvs"
 ALL_PURSUED_CV_GENERATION_SUCCESS_KEY = "generate_all_pursued_cvs_success"
+CV_REGENERATION_CONFIRMATION_IDS_KEY = "cv_regeneration_confirmation_job_ids"
+CV_REGENERATION_CONFIRMATION_KEY = "confirm_regenerate_selected_cvs"
+CV_REGENERATION_SUCCESS_KEY = "regenerate_selected_cvs_success"
 CLEAR_TABLE_SELECTION_ON_RERUN_KEY = "clear_jobs_dashboard_table_selection_on_rerun"
 LOAD_ERROR_MESSAGE = "The jobs could not be loaded. See the private UI log for details."
 TABLE_COLUMN_ORDER = (
@@ -229,6 +232,8 @@ def render_jobs_dashboard(
         st.success(cv_generation_message)
     if all_pursued_message := st.session_state.pop(ALL_PURSUED_CV_GENERATION_SUCCESS_KEY, None):
         st.success(all_pursued_message)
+    if regeneration_message := st.session_state.pop(CV_REGENERATION_SUCCESS_KEY, None):
+        st.success(regeneration_message)
     try:
         all_jobs = service.list()
         first_review_job_id = service.first_assessment_review_job_id()
@@ -370,6 +375,7 @@ def render_jobs_dashboard(
         _render_reassess_selected_jobs(assessment_batch_service, selected_ids)
     _render_select_for_cv_generation(cv_selection_service, selected_ids)
     _render_generate_selected_cvs(cv_generation_batch_service, selected_ids)
+    _render_regenerate_selected_cvs(cv_generation_batch_service, selected_ids)
     _render_generate_all_pursued_cvs(cv_generation_batch_service)
     _render_delete_selected_jobs(service, selected_ids)
 
@@ -624,6 +630,49 @@ def _render_generate_all_pursued_cvs(service: CvGenerationBatchService) -> None:
     )
 
 
+def _render_regenerate_selected_cvs(
+    service: CvGenerationBatchService,
+    selected_ids: tuple[int, ...],
+) -> None:
+    """Require selection-bound approval before fully restarting selected CV generations."""
+
+    if not selected_ids:
+        return
+    if st.session_state.get(CV_REGENERATION_CONFIRMATION_IDS_KEY) != selected_ids:
+        st.session_state[CV_REGENERATION_CONFIRMATION_IDS_KEY] = selected_ids
+        st.session_state[CV_REGENERATION_CONFIRMATION_KEY] = False
+
+    count = len(selected_ids)
+    noun = "job" if count == 1 else "jobs"
+    st.divider()
+    st.info(f"Fully restart CV generation for {count} selected {noun} that have prior CV work.")
+    confirmed = st.checkbox(
+        f"I want to regenerate CVs for these {count} selected {noun}.",
+        key=CV_REGENERATION_CONFIRMATION_KEY,
+    )
+    if not st.button(
+        f"Regenerate selected CVs for {noun}",
+        key="regenerate_selected_cvs",
+        disabled=not confirmed,
+    ):
+        return
+    try:
+        result = service.queue_regeneration_selected(selected_ids)
+    except JobNotFoundError:
+        logger.exception("jobs_dashboard_cv_regeneration_missing_job job_ids=%s", selected_ids)
+        st.error("One or more selected jobs no longer exist. Refresh the selection and try again.")
+        return
+    except SQLAlchemyError:
+        logger.exception("jobs_dashboard_cv_regeneration_queue_failed job_ids=%s", selected_ids)
+        st.error("The selected CVs could not be regenerated. See the private UI log for details.")
+        return
+    _show_cv_generation_queue_result(
+        result,
+        success_key=CV_REGENERATION_SUCCESS_KEY,
+        action="CV regeneration",
+    )
+
+
 def _show_cv_generation_queue_result(
     result: CvGenerationBatchQueueResult,
     *,
@@ -657,6 +706,7 @@ def _cv_generation_skip_summary(result: CvGenerationBatchQueueResult) -> str:
         CvGenerationQueueSkipReason.MISSING_CV_LANE: "missing a confirmed CV lane",
         CvGenerationQueueSkipReason.CV_LANE_NOT_CURRENT: "CV lane is no longer current",
         CvGenerationQueueSkipReason.CV_GENERATION_ALREADY_QUEUED: "CV generation is already queued",
+        CvGenerationQueueSkipReason.NO_GENERATION_TO_RESTART: "no generated or failed CV to restart",
     }
     details = "; ".join(f"job {skip.job_id}: {labels[skip.reason]}" for skip in result.skipped)
     return f"Skipped {len(result.skipped)} ineligible jobs ({details})."
