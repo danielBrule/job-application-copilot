@@ -27,6 +27,7 @@ from job_application_copilot.repositories import (
     create_database,
 )
 from job_application_copilot.repositories.models import BackgroundBatch, BackgroundTask, Job
+from job_application_copilot.services import CvService
 from job_application_copilot.services.background_worker import BackgroundWorker
 from job_application_copilot.services.cv_generation_worker_handler import (
     CvGenerationMetadata,
@@ -202,6 +203,15 @@ def test_failed_task_does_not_stop_a_sibling_cv_task(
 ) -> None:
     failed, completed = add_tasks(database, ["Failure Ltd", "Success Ltd"])
     settings = AppSettings(_env_file=None, data_dir=tmp_path / "data")
+    settings.cv_folder.mkdir(parents=True)
+    prior_file = settings.cv_folder / "prior.docx"
+    prior_file.write_bytes(b"prior rendered DOCX")
+    CvService(database, settings).record_ready(
+        job_id=failed.job_id,
+        source=CvSource.GENERATED,
+        language=Language.EN,
+        file_path=prior_file,
+    )
     first_client = FakeClient()
     second_client = FakeClient()
     clients = iter((first_client, second_client))
@@ -230,7 +240,9 @@ def test_failed_task_does_not_stop_a_sibling_cv_task(
             BackgroundTaskRepository(session).require(completed.id).status
             is BackgroundTaskStatus.COMPLETED
         )
-        assert CvRepository(session).get_for_job(failed.job_id) is None
+        prior_cv = CvRepository(session).require_for_job(failed.job_id)
+        assert prior_cv.status is CvStatus.READY_FOR_REVIEW
+        assert prior_cv.file_path == str(prior_file)
         assert (
             CvRepository(session).require_for_job(completed.job_id).status
             is CvStatus.READY_FOR_REVIEW

@@ -13,6 +13,7 @@ from job_application_copilot.domain import (
     BackgroundOperation,
     BackgroundTaskStatus,
     CvSelectionStatus,
+    CvSource,
     DocumentBRoutingSetStatus,
     UserDecision,
 )
@@ -20,6 +21,7 @@ from job_application_copilot.repositories import (
     AssessmentRepository,
     BackgroundBatchRepository,
     BackgroundTaskRepository,
+    CvRepository,
     Database,
     JobRepository,
 )
@@ -48,6 +50,7 @@ class CvGenerationQueueSkipReason(StrEnum):
     MISSING_CV_LANE = "MISSING_CV_LANE"
     CV_LANE_NOT_CURRENT = "CV_LANE_NOT_CURRENT"
     CV_GENERATION_ALREADY_QUEUED = "CV_GENERATION_ALREADY_QUEUED"
+    NO_GENERATION_TO_RESTART = "NO_GENERATION_TO_RESTART"
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,17 +98,38 @@ class CvGenerationBatchService:
             )
             return self._queue(session, pursued_jobs, requested_from="jobs_dashboard_all_pursued")
 
+    def queue_regeneration_selected(
+        self,
+        job_ids: tuple[int, ...],
+    ) -> CvGenerationBatchQueueResult:
+        """Queue full restarts only for selected jobs with generated or failed CV work."""
+
+        selected_job_ids = tuple(dict.fromkeys(job_ids))
+        if not selected_job_ids:
+            return CvGenerationBatchQueueResult(None, (), ())
+        with self.database.session() as session:
+            jobs = JobRepository(session)
+            requested_jobs = tuple(jobs.require(job_id) for job_id in selected_job_ids)
+            return self._queue(
+                session,
+                requested_jobs,
+                requested_from="jobs_dashboard_regeneration",
+                require_prior_generation=True,
+            )
+
     def _queue(
         self,
         session: Session,
         requested_jobs: tuple[Job, ...],
         *,
         requested_from: str,
+        require_prior_generation: bool = False,
     ) -> CvGenerationBatchQueueResult:
         """Create no-or-one batch after determining each job's durable eligibility."""
 
         assessments = AssessmentRepository(session)
         tasks = BackgroundTaskRepository(session)
+        cvs = CvRepository(session)
         current_lanes = self._current_lanes(session)
         queued_job_ids: list[int] = []
         skipped: list[CvGenerationQueueSkip] = []
@@ -116,7 +140,9 @@ class CvGenerationBatchService:
                 assessment,
                 assessments,
                 tasks,
+                cvs,
                 current_lanes,
+                require_prior_generation=require_prior_generation,
             )
             if reason is None:
                 queued_job_ids.append(job.id)
@@ -162,7 +188,10 @@ class CvGenerationBatchService:
         assessment: Assessment | None,
         assessments: AssessmentRepository,
         tasks: BackgroundTaskRepository,
+        cvs: CvRepository,
         current_lanes: frozenset[str],
+        *,
+        require_prior_generation: bool,
     ) -> CvGenerationQueueSkipReason | None:
         if job.user_decision is not UserDecision.PURSUE:
             return CvGenerationQueueSkipReason.NOT_PURSUED
@@ -185,4 +214,25 @@ class CvGenerationBatchService:
             for task in tasks.list(job_id=job.id)
         ):
             return CvGenerationQueueSkipReason.CV_GENERATION_ALREADY_QUEUED
+        if require_prior_generation and not CvGenerationBatchService._has_restartable_generation(
+            cvs,
+            tasks,
+            job.id,
+        ):
+            return CvGenerationQueueSkipReason.NO_GENERATION_TO_RESTART
         return None
+
+    @staticmethod
+    def _has_restartable_generation(
+        cvs: CvRepository,
+        tasks: BackgroundTaskRepository,
+        job_id: int,
+    ) -> bool:
+        cv = cvs.get_for_job(job_id)
+        if cv is not None and cv.source is CvSource.GENERATED:
+            return True
+        return any(
+            task.operation is BackgroundOperation.CV_GENERATION
+            and task.status is BackgroundTaskStatus.FAILED
+            for task in tasks.list(job_id=job_id)
+        )

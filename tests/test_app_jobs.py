@@ -9,6 +9,8 @@ from job_application_copilot.domain import (
     AssessmentStatus,
     CreateJob,
     CvSelectionStatus,
+    CvSource,
+    CvStatus,
     DashboardAssessmentStatus,
     DocumentBRoutingSetStatus,
     Language,
@@ -22,6 +24,7 @@ from job_application_copilot.observability import reset_logging
 from job_application_copilot.repositories import AssessmentRepository, BackgroundTaskRepository
 from job_application_copilot.repositories.models import (
     Assessment,
+    Cv,
     DocumentBLaneRoute,
     DocumentBRoutingSet,
     Job,
@@ -317,6 +320,52 @@ def test_jobs_dashboard_queues_all_eligible_pursued_jobs_for_cv_generation(
             assert tasks[0].job_id == eligible.id
             assert tasks[0].operation.value == "CV_GENERATION"
         assert missing_assessment.id not in [task.job_id for task in tasks]
+    finally:
+        reset_logging()
+
+
+def test_jobs_dashboard_queues_selected_generated_cv_for_regeneration(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH), default_timeout=10).run()
+
+    try:
+        database_path = data_dir / "database" / "job_application_copilot.db"
+        service = get_job_service(database_path)
+        job = _create_job_for_edit(service)
+        _add_assessed_job_with_cv_lanes(database_path, job)
+        with get_database(database_path).session() as session:
+            stored_job = session.get(Job, job.id)
+            assessment = AssessmentRepository(session).require_for_job(job.id)
+            assert stored_job is not None
+            stored_job.cv_selection_status = CvSelectionStatus.SELECTED
+            assessment.selected_cv_lane = "ARCHITECTURE"
+            session.add(
+                Cv(
+                    job_id=job.id,
+                    source=CvSource.GENERATED,
+                    status=CvStatus.READY_FOR_REVIEW,
+                    language=Language.EN,
+                    file_name="prior.docx",
+                    file_path="C:/private/cvs/prior.docx",
+                )
+            )
+
+        app.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": [0]}}
+        app.run()
+        app.checkbox(key="confirm_regenerate_selected_cvs").check().run()
+        app.button(key="regenerate_selected_cvs").click().run()
+
+        assert not app.exception
+        assert "Queued 1 job for CV regeneration in batch" in app.success[0].value
+        with get_database(database_path).session() as session:
+            tasks = BackgroundTaskRepository(session).list(job_id=job.id)
+            assert len(tasks) == 1
+            assert tasks[0].payload_metadata == {}
     finally:
         reset_logging()
 

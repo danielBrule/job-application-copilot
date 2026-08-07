@@ -8,7 +8,10 @@ from job_application_copilot.domain import (
     AssessmentDecision,
     AssessmentStatus,
     BackgroundOperation,
+    BackgroundTaskStatus,
     CvSelectionStatus,
+    CvSource,
+    CvStatus,
     Language,
     Location,
     Relevance,
@@ -25,6 +28,7 @@ from job_application_copilot.repositories.models import (
     Assessment,
     BackgroundBatch,
     BackgroundTask,
+    Cv,
     Job,
 )
 from job_application_copilot.services.cv_generation_batch import (
@@ -199,4 +203,59 @@ def test_queue_selected_reports_noncurrent_lane_and_existing_pending_work(
     assert {(skip.job_id, skip.reason) for skip in result.skipped} == {
         (noncurrent_lane.id, CvGenerationQueueSkipReason.CV_LANE_NOT_CURRENT),
         (already_queued.id, CvGenerationQueueSkipReason.CV_GENERATION_ALREADY_QUEUED),
+    }
+
+
+def test_regeneration_queues_generated_and_failed_jobs_but_not_new_or_uploaded_jobs(
+    database: Database,
+) -> None:
+    generated = add_job(database, "Generated Ltd")
+    failed = add_job(database, "Failed Ltd")
+    new = add_job(database, "New Ltd")
+    uploaded = add_job(database, "Uploaded Ltd")
+    for job in (generated, failed, new, uploaded):
+        add_assessment(database, job)
+    with database.session() as session:
+        session.add(
+            Cv(
+                job_id=generated.id,
+                source=CvSource.GENERATED,
+                status=CvStatus.READY_FOR_REVIEW,
+                language=Language.EN,
+                file_name="generated.docx",
+                file_path="C:/private/cvs/generated.docx",
+            )
+        )
+        session.add(
+            Cv(
+                job_id=uploaded.id,
+                source=CvSource.UPLOADED,
+                status=CvStatus.READY_FOR_REVIEW,
+                language=Language.EN,
+                file_name="uploaded.docx",
+                file_path="C:/private/cvs/uploaded.docx",
+            )
+        )
+        failed_batch = BackgroundBatchRepository(session).add(
+            BackgroundBatch(operation=BackgroundOperation.CV_GENERATION)
+        )
+        BackgroundTaskRepository(session).add(
+            BackgroundTask(
+                batch_id=failed_batch.id,
+                job_id=failed.id,
+                operation=BackgroundOperation.CV_GENERATION,
+                status=BackgroundTaskStatus.FAILED,
+                error_message="Generation failed.",
+            )
+        )
+
+    result = CvGenerationBatchService(database).queue_regeneration_selected(
+        (generated.id, failed.id, new.id, uploaded.id)
+    )
+
+    assert result.batch_id is not None
+    assert result.queued_job_ids == (generated.id, failed.id)
+    assert {(skip.job_id, skip.reason) for skip in result.skipped} == {
+        (new.id, CvGenerationQueueSkipReason.NO_GENERATION_TO_RESTART),
+        (uploaded.id, CvGenerationQueueSkipReason.NO_GENERATION_TO_RESTART),
     }
