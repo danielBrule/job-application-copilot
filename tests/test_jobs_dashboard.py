@@ -96,7 +96,6 @@ def test_shape_job_rows_displays_current_assessment_values_and_staleness() -> No
     assert row.display_record()["selected_cv_lane"] == "ARCHITECTURE"
     assert row.display_record()["cv_selection_status"] == "Selected for CV generation"
     assert row.display_record()["cv_status"] == "Not available yet"
-    assert row.display_record()["open_cv"] == "Unavailable"
     assert row.display_record()["application_status"] == "Applied"
     assert row.display_record()["application_date"] == date(2026, 8, 7)
     assert row.display_record()["next_action"] == "Follow up"

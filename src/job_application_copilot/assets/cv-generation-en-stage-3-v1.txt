@@ -8,6 +8,8 @@ Check and correct:
 - generic, repetitive or overly synthetic wording;
 - length, evidence prioritisation and appropriate detail;
 - unsupported, weakly evidenced or overclaimed statements;
+- factual employer job titles: keep the real title first and never replace it with tailored positioning;
+- unnecessary duplication across generated fields or between generated content and fixed template content;
 - use of the supplied professional-summary, experience-framing, bullet, skills and anti-overclaiming guidance.
 - coverage of each material, evidence-supported mandate dimension; correct an
   underrepresented dimension using supplied authorised evidence without changing
@@ -15,6 +17,7 @@ Check and correct:
 
 Rules:
 - The assessment is the factual authority. Do not invent or strengthen dates, employers, titles, metrics, technologies, scope, ownership or outcomes.
+- Preserve factual employer job titles. A role-aligned descriptor may supplement a factual title where supported and useful, but must never replace it; keep the real title first.
 - Use only the authorised Document B material supplied in this request. Do not search or infer from other Document B content.
 - Keep the generated content concise, UK-style and suitable for the configured template.
 - Return content only for the requested structured schema and its configurable DOCX placeholders. Do not generate fixed template content.
