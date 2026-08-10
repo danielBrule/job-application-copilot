@@ -32,6 +32,16 @@
       "supports": "Credibility for architecture leadership while preserving shared ownership."
     }
   ],
+  "material_mandate_dimensions": [
+    {
+      "id": "architecture_delivery",
+      "description": "Architecture leadership and delivery improvement",
+      "importance": 8,
+      "evidence_strength": "DIRECT",
+      "evidence_anchor_refs": ["A-FICTIONAL-01"],
+      "should_shape_cv": true
+    }
+  ],
   "evidence_confidence": 8,
   "recommended_document_b_lane": "FICTIONAL_ARCHITECTURE_LEAD",
   "secondary_cv_angle": null,

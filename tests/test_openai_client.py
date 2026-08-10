@@ -14,6 +14,8 @@ from job_application_copilot.llm import (
     OpenAIClientError,
     OpenAIConfigurationError,
     OpenAIVectorStoreFileStatus,
+    PromptStageInput,
+    PromptStageRequest,
     openai_client,
 )
 from job_application_copilot.llm.openai_client import (
@@ -106,6 +108,56 @@ def test_runs_structured_assessment_with_explicit_cache_breakpoint() -> None:
     assert content[1]["prompt_cache_breakpoint"] == {"mode": "explicit"}
     assert request["text"]["format"]["strict"] is True
     assert result.cached_input_tokens == 80
+
+
+def test_omits_unsupported_unique_items_from_prompt_stage_schema() -> None:
+    client, sdk_client = make_client()
+    response_client = Mock()
+    sdk_client.with_options.return_value = response_client
+    response_client.responses.create.return_value = SimpleNamespace(
+        id="resp_123",
+        _request_id="req_123",
+        model="gpt-5.6-sol",
+        output_text='{"selected_section_ids":["section-1"]}',
+        incomplete_details=None,
+        service_tier="default",
+        usage=None,
+        prompt_cache_options=None,
+    )
+    schema: dict[str, object] = {
+        "type": "object",
+        "properties": {
+            "selected_section_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "uniqueItems": True,
+            },
+            "secondary_angle": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        },
+    }
+
+    client.run_prompt_stage(
+        PromptStageRequest(
+            model_identifier="gpt-5.6-sol",
+            input=(PromptStageInput(section="instructions", text="Generate safely."),),
+            cache_identity_hash="a" * 64,
+            cache_identity_version=1,
+            execution_identity_hash="b" * 64,
+            response_schema=schema,
+        )
+    )
+
+    submitted = response_client.responses.create.call_args.kwargs["text"]["format"]["schema"]
+    assert "uniqueItems" not in submitted["properties"]["selected_section_ids"]
+    assert submitted["required"] == ["selected_section_ids", "secondary_angle"]
+    assert schema["properties"] == {
+        "selected_section_ids": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": True,
+        },
+        "secondary_angle": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+    }
 
 
 def test_uploads_exact_docx_content_as_user_data() -> None:

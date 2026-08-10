@@ -66,14 +66,14 @@ The failed-task KPI links to Background Runs filtered to failed tasks.
 
 ### Batch actions
 
-- Assess selected
-- Reassess selected stale jobs
-- Select for CV generation
-- Generate selected CVs
-- Regenerate selected CVs
+- Assess all unassessed jobs
+- Generate CVs for selected jobs without a completed generated CV
+- Review generated CVs whose application status is still empty
 - Delete selected jobs, with confirmation
 
-The Open CV action is available directly in the table when a valid file exists.
+Assessment and CV-generation actions create background batches; CV generation still requires
+explicit confirmation. Review generated CVs opens the Job Details CV tab and provides previous/
+next navigation across review-ready generated CVs with no recorded application status.
 
 ## 3. Add / edit job
 

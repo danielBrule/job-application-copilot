@@ -5,7 +5,7 @@ import json
 from dataclasses import asdict, dataclass
 
 from job_application_copilot.config import AppSettings
-from job_application_copilot.domain import CvGenerationBriefOutput
+from job_application_copilot.domain import CvGenerationBriefOutput, DocumentBRouteRole
 from job_application_copilot.llm import (
     OpenAIPromptStageOperations,
     PromptStageInput,
@@ -50,7 +50,7 @@ class CvGenerationBriefService:
             task.job_id,
             stage=1,
             model_identifier=self.settings.cv_generation_model,
-            response_schema=CvGenerationBriefOutput.model_json_schema(),
+            response_schema=self._model_response_schema(),
         )
         stage = OrderedPromptStage(
             position=1,
@@ -95,25 +95,55 @@ class CvGenerationBriefService:
             cache_identity_hash=context.cache_identity.identity_hash,
             cache_identity_version=context.cache_identity.identity_version,
             execution_identity_hash=execution_identity,
-            response_schema=CvGenerationBriefOutput.model_json_schema(),
+            response_schema=self._model_response_schema(),
             reasoning_effort=self.settings.cv_generation_reasoning_effort,
         )
 
     @staticmethod
+    def _model_response_schema() -> dict[str, object]:
+        """Return the stage-one schema without application-controlled values."""
+
+        schema = CvGenerationBriefOutput.model_json_schema()
+        properties = schema["properties"]
+        assert isinstance(properties, dict)
+        application_controlled_fields = {
+            "target_cv_lane",
+            "selected_passage_ids",
+            "guardrail_ids",
+        }
+        for field in application_controlled_fields:
+            properties.pop(field)
+        required = schema.get("required")
+        if isinstance(required, list):
+            schema["required"] = [
+                field for field in required if field not in application_controlled_fields
+            ]
+        return schema
+
+    @staticmethod
     def _validated_output(text: str, context: CvGenerationContext) -> CvGenerationBriefOutput:
-        output = CvGenerationBriefOutput.model_validate_json(text)
-        if output.target_cv_lane != context.cache_identity.primary_lane:
-            raise ValueError(
-                "CV-generation brief target lane must match the confirmed primary lane."
-            )
+        raw_output = json.loads(text)
+        if not isinstance(raw_output, dict):
+            raise ValueError("CV-generation brief must be a JSON object.")
+        output = CvGenerationBriefOutput.model_validate(
+            {
+                **raw_output,
+                "target_cv_lane": context.cache_identity.primary_lane,
+                "selected_passage_ids": [],
+                "guardrail_ids": [],
+            }
+        )
         mandatory = next(item for item in context.input if item.section == "mandatory_document_b")
         entries = json.loads(mandatory.text)
         section_ids = {entry["section_id"] for entry in entries}
-        logical_ids = {entry["logical_id"] for entry in entries}
+        guardrail_ids = {
+            entry["logical_id"]
+            for entry in entries
+            if entry.get("role") == DocumentBRouteRole.GUARDRAIL
+        }
+        output = output.model_copy(update={"guardrail_ids": frozenset(guardrail_ids)})
         if not output.selected_section_ids.issubset(section_ids):
             raise ValueError("CV-generation brief selected an unauthorised Document B section.")
         if output.selected_passage_ids:
             raise ValueError("Stage-one brief cannot select passages that were not supplied.")
-        if not output.guardrail_ids.issubset(logical_ids):
-            raise ValueError("CV-generation brief selected an unauthorised guardrail.")
         return output

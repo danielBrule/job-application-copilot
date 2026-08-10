@@ -372,6 +372,36 @@ def test_assessment_review_navigation_uses_newest_assessed_undecided_order(
     assert service.first_assessment_review_job_id() == newest.id
 
 
+def test_next_outstanding_assessment_review_job_excludes_the_current_job(
+    database_and_service: tuple[Database, JobService],
+) -> None:
+    database, service = database_and_service
+    oldest = service.create(create_command("Oldest"))
+    middle = service.create(
+        replace(
+            create_command("Middle"),
+            job_url="https://example.com/middle",
+            date_added=date(2026, 7, 25),
+        )
+    )
+    newest = service.create(
+        replace(
+            create_command("Newest"),
+            job_url="https://example.com/newest",
+            date_added=date(2026, 7, 26),
+        )
+    )
+    for job in (oldest, middle, newest):
+        _add_assessed_job(database, job)
+
+    assert (
+        service.next_outstanding_assessment_review_job_id(excluding_job_id=newest.id) == middle.id
+    )
+    assert (
+        service.next_outstanding_assessment_review_job_id(excluding_job_id=middle.id) == newest.id
+    )
+
+
 def _add_assessed_job(database: Database, job: Job) -> None:
     with database.session() as session:
         session.add(

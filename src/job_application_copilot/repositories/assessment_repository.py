@@ -130,6 +130,9 @@ class AssessmentRepository:
         assessment.sustainability_risks = list(output.sustainability_risks)
         assessment.evidence_gaps = list(output.evidence_gaps)
         assessment.evidence_anchors = [anchor.model_dump() for anchor in output.evidence_anchors]
+        assessment.material_mandate_dimensions = [
+            dimension.model_dump() for dimension in output.material_mandate_dimensions
+        ]
         assessment.evidence_confidence = output.evidence_confidence
         assessment.recommended_document_b_lane = output.recommended_document_b_lane
         assessment.secondary_cv_angle = output.secondary_cv_angle

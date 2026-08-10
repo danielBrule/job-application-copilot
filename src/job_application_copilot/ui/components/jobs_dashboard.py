@@ -56,6 +56,10 @@ ALL_PURSUED_CV_GENERATION_SUCCESS_KEY = "generate_all_pursued_cvs_success"
 CV_REGENERATION_CONFIRMATION_IDS_KEY = "cv_regeneration_confirmation_job_ids"
 CV_REGENERATION_CONFIRMATION_KEY = "confirm_regenerate_selected_cvs"
 CV_REGENERATION_SUCCESS_KEY = "regenerate_selected_cvs_success"
+ALL_UNASSESSED_CONFIRMATION_KEY = "confirm_assess_all_unassessed"
+ALL_UNASSESSED_SUCCESS_KEY = "assess_all_unassessed_success"
+ALL_SELECTED_CV_GENERATION_CONFIRMATION_KEY = "confirm_generate_all_selected_cvs"
+ALL_SELECTED_CV_GENERATION_SUCCESS_KEY = "generate_all_selected_cvs_success"
 CLEAR_TABLE_SELECTION_ON_RERUN_KEY = "clear_jobs_dashboard_table_selection_on_rerun"
 LOAD_ERROR_MESSAGE = "The jobs could not be loaded. See the private UI log for details."
 TABLE_COLUMN_ORDER = (
@@ -74,7 +78,6 @@ TABLE_COLUMN_ORDER = (
     "selected_cv_lane",
     "cv_selection_status",
     "cv_status",
-    "open_cv",
     "application_status",
     "application_date",
     "next_action",
@@ -171,7 +174,6 @@ class JobDashboardRow:
             "cv_status": self.cv_status.replace("_", " ").title()
             if self.cv_status
             else "Not available yet",
-            "open_cv": "Unavailable",
             "application_status": self.application_status or "—",
             "application_date": self.application_date,
             "next_action": self.next_action or "—",
@@ -259,10 +261,8 @@ def _render_open_cv_actions(
 def render_jobs_dashboard(
     service: JobService,
     assessment_batch_service: AssessmentBatchService,
-    cv_selection_service: CvSelectionService,
     cv_generation_batch_service: CvGenerationBatchService,
     cv_service: CvService,
-    opener: CvFileOpener,
 ) -> None:
     """Load and render the initial Jobs dashboard."""
 
@@ -275,24 +275,21 @@ def render_jobs_dashboard(
         st.success(assessment_message)
     if reassessment_message := st.session_state.pop(REASSESSMENT_SUCCESS_KEY, None):
         st.success(reassessment_message)
-    if cv_selection_message := st.session_state.pop(CV_SELECTION_SUCCESS_KEY, None):
-        st.success(cv_selection_message)
-    if cv_generation_message := st.session_state.pop(CV_GENERATION_SUCCESS_KEY, None):
+    if assessment_message := st.session_state.pop(ALL_UNASSESSED_SUCCESS_KEY, None):
+        st.success(assessment_message)
+    if cv_generation_message := st.session_state.pop(ALL_SELECTED_CV_GENERATION_SUCCESS_KEY, None):
         st.success(cv_generation_message)
-    if all_pursued_message := st.session_state.pop(ALL_PURSUED_CV_GENERATION_SUCCESS_KEY, None):
-        st.success(all_pursued_message)
-    if regeneration_message := st.session_state.pop(CV_REGENERATION_SUCCESS_KEY, None):
-        st.success(regeneration_message)
     try:
         all_jobs = service.list()
         first_review_job_id = service.first_assessment_review_job_id()
+        first_cv_review_job_id = cv_service.first_default_application_status_review_job_id()
     except SQLAlchemyError:
         logger.exception("jobs_dashboard_load_failed")
         st.session_state[SELECTED_JOB_IDS_KEY] = ()
         st.error(LOAD_ERROR_MESSAGE)
         return
 
-    add_job_column, review_column, _ = st.columns((1, 1, 4))
+    add_job_column, review_column, cv_review_column, _ = st.columns((1, 1, 1, 3))
     with add_job_column:
         if st.button("Add job", key="add_job", type="primary"):
             st.switch_page("pages/add_job.py")
@@ -308,6 +305,13 @@ def render_jobs_dashboard(
                 "pages/job_details.py",
                 label="Review assessed jobs",
                 query_params={"job_id": str(first_review_job_id)},
+            )
+    if first_cv_review_job_id is not None:
+        with cv_review_column:
+            st.page_link(
+                "pages/job_details.py",
+                label="Review generated CVs",
+                query_params={"job_id": str(first_cv_review_job_id), "tab": "cv"},
             )
 
     filters = render_job_filters(
@@ -371,7 +375,6 @@ def render_jobs_dashboard(
             "selected_cv_lane": st.column_config.TextColumn("Selected CV lane"),
             "cv_selection_status": st.column_config.TextColumn("CV selection", width="small"),
             "cv_status": st.column_config.TextColumn("CV status", width="small"),
-            "open_cv": st.column_config.TextColumn("Open CV", width="small"),
             "application_status": st.column_config.TextColumn("Application status"),
             "application_date": st.column_config.DateColumn("Application date"),
             "next_action": st.column_config.TextColumn("Next action"),
@@ -390,7 +393,6 @@ def render_jobs_dashboard(
         table_state.selection.rows,  # type: ignore[attr-defined]
     )
     st.session_state[SELECTED_JOB_IDS_KEY] = selected_ids
-    _render_open_cv_actions(rows, cvs_by_job_id, opener)
     selected_count = len(selected_ids)
     label = "job" if selected_count == 1 else "jobs"
     st.caption(f"{selected_count} {label} selected.")
@@ -406,30 +408,69 @@ def render_jobs_dashboard(
             query_params={"job_id": str(selected_job_id)},
         )
 
-    try:
-        assessment_eligibility = assessment_batch_service.selection_eligibility(selected_ids)
-    except JobNotFoundError:
-        logger.exception(
-            "jobs_dashboard_assessment_eligibility_missing_job job_ids=%s", selected_ids
-        )
-        st.error("One or more selected jobs no longer exist. Refresh the selection and try again.")
-        return
-    except SQLAlchemyError:
-        logger.exception(
-            "jobs_dashboard_assessment_eligibility_load_failed job_ids=%s", selected_ids
-        )
-        st.error(LOAD_ERROR_MESSAGE)
-        return
-
-    if assessment_eligibility.initial_assessment_job_ids:
-        _render_assess_selected_jobs(assessment_batch_service, selected_ids)
-    if assessment_eligibility.reassessment_job_ids:
-        _render_reassess_selected_jobs(assessment_batch_service, selected_ids)
-    _render_select_for_cv_generation(cv_selection_service, selected_ids)
-    _render_generate_selected_cvs(cv_generation_batch_service, selected_ids)
-    _render_regenerate_selected_cvs(cv_generation_batch_service, selected_ids)
-    _render_generate_all_pursued_cvs(cv_generation_batch_service)
+    _render_assess_all_unassessed(assessment_batch_service)
+    _render_generate_all_selected_cvs(cv_generation_batch_service)
     _render_delete_selected_jobs(service, selected_ids)
+
+
+def _render_assess_all_unassessed(service: AssessmentBatchService) -> None:
+    """Queue every job that has not yet received an assessment."""
+
+    st.divider()
+    confirmed = st.checkbox(
+        "I want to assess every unassessed job.",
+        key=ALL_UNASSESSED_CONFIRMATION_KEY,
+    )
+    if not st.button(
+        "Assess all unassessed jobs",
+        key="assess_all_unassessed",
+        type="primary",
+        disabled=not confirmed,
+    ):
+        return
+    try:
+        result = service.queue_all_unassessed()
+    except SQLAlchemyError:
+        logger.exception("jobs_dashboard_all_unassessed_queue_failed")
+        st.error("The unassessed jobs could not be queued. See the private UI log for details.")
+        return
+    if result.batch_id is None:
+        st.info("There are no unassessed jobs ready to queue.")
+        return
+    count = len(result.queued_job_ids)
+    noun = "job" if count == 1 else "jobs"
+    st.session_state[ALL_UNASSESSED_SUCCESS_KEY] = (
+        f"Queued {count} unassessed {noun} in batch {result.batch_id}."
+    )
+    st.rerun()
+
+
+def _render_generate_all_selected_cvs(service: CvGenerationBatchService) -> None:
+    """Queue every selected job without a completed generated CV."""
+
+    st.divider()
+    confirmed = st.checkbox(
+        "I want to generate CVs for all selected jobs without a generated CV.",
+        key=ALL_SELECTED_CV_GENERATION_CONFIRMATION_KEY,
+    )
+    if not st.button(
+        "Generate CVs for selected jobs",
+        key="generate_all_selected_cvs",
+        type="primary",
+        disabled=not confirmed,
+    ):
+        return
+    try:
+        result = service.queue_all_selected_without_generated_cv()
+    except SQLAlchemyError:
+        logger.exception("jobs_dashboard_all_selected_cv_generation_queue_failed")
+        st.error("The selected jobs could not be queued. See the private UI log for details.")
+        return
+    _show_cv_generation_queue_result(
+        result,
+        success_key=ALL_SELECTED_CV_GENERATION_SUCCESS_KEY,
+        action="CV generation",
+    )
 
 
 def _render_assess_selected_jobs(

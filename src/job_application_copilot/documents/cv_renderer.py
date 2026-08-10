@@ -105,7 +105,14 @@ def _paragraphs(document: DocumentType) -> tuple[Paragraph, ...]:
     paragraphs: list[Paragraph] = list(document.paragraphs)
     for table in document.tables:
         paragraphs.extend(_table_paragraphs(table))
-    return tuple(paragraphs)
+    unique: list[Paragraph] = []
+    seen_elements: set[Any] = set()
+    for paragraph in paragraphs:
+        if paragraph._p in seen_elements:
+            continue
+        seen_elements.add(paragraph._p)
+        unique.append(paragraph)
+    return tuple(unique)
 
 
 def _table_paragraphs(table: Table) -> list[Paragraph]:

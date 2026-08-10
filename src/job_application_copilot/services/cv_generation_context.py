@@ -14,6 +14,7 @@ from job_application_copilot.domain import (
     DOCUMENT_B_KEY,
     AssessmentStatus,
     CvGenerationBriefOutput,
+    DocumentBRouteRole,
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
     RouteDeliveryMode,
@@ -172,13 +173,17 @@ class CvGenerationContextBuilder:
             raise CvGenerationContextError("A confirmed primary CV lane is required.")
         document_b_version, document_b_hash = self._active_document_b()
         primary = self.routing.resolve(document_b_version, lane)
-        secondary = _authorised_secondary(primary, assessment.secondary_role_family)
+        secondary = _authorised_supporting_lane(primary, assessment)
+        supporting = (
+            None if secondary is None else self.routing.resolve(document_b_version, secondary)
+        )
         passages = () if retrieval is None else retrieval.passages
-        self._validate_retrieval(primary, document_b_version, passages)
+        self._validate_retrieval(primary, supporting, document_b_version, passages)
         if stage > 1:
             self._validate_brief(
                 brief,
                 primary,
+                supporting,
                 assessment.document_a_version or 0,
                 document_b_version,
                 passages,
@@ -197,6 +202,8 @@ class CvGenerationContextBuilder:
             document_b_version,
             selected_section_ids=None if brief is None else brief.selected_section_ids,
             guardrail_ids=frozenset() if brief is None else brief.guardrail_ids,
+            supporting=supporting,
+            include_selection_scope=brief is None,
         )
         primary_text = _canonical_json(
             {
@@ -313,39 +320,58 @@ class CvGenerationContextBuilder:
         *,
         selected_section_ids: frozenset[str] | None,
         guardrail_ids: frozenset[str],
+        supporting: ResolvedRouting | None = None,
+        include_selection_scope: bool = False,
     ) -> str:
         sections: list[dict[str, object]] = []
         included: set[str] = set()
-        for entry in routing.packet.entries:
-            if (
-                entry.delivery_mode is not RouteDeliveryMode.DIRECT_CONTEXT
-                or entry.inclusion is not RouteInclusion.MANDATORY
-            ):
-                continue
-            for section_id in entry.expanded_section_ids:
+        routed_entries = [(routing, False)]
+        if supporting is not None:
+            routed_entries.append((supporting, True))
+        for resolved, is_supporting in routed_entries:
+            for entry in resolved.packet.entries:
+                if entry.inclusion is not RouteInclusion.MANDATORY:
+                    continue
+                if is_supporting and entry.role not in {
+                    DocumentBRouteRole.BULLET_LIBRARY,
+                    DocumentBRouteRole.SKILLS,
+                    DocumentBRouteRole.GUARDRAIL,
+                }:
+                    continue
                 if (
-                    selected_section_ids is not None
-                    and section_id not in selected_section_ids
-                    and entry.logical_id not in guardrail_ids
+                    entry.delivery_mode is not RouteDeliveryMode.DIRECT_CONTEXT
+                    and not include_selection_scope
+                    and selected_section_ids is None
                 ):
                     continue
-                if section_id in included:
-                    continue
-                included.add(section_id)
-                section = self.sections.require_section(version, section_id)
-                sections.append(
-                    {
-                        "logical_id": entry.logical_id,
-                        "role": entry.role,
-                        "section_id": section.section_id,
-                        "text": section.section_text,
-                    }
-                )
+                for section_id in entry.expanded_section_ids:
+                    if (
+                        selected_section_ids is not None
+                        and section_id not in selected_section_ids
+                        and entry.logical_id not in guardrail_ids
+                    ):
+                        continue
+                    if section_id in included:
+                        continue
+                    included.add(section_id)
+                    section = self.sections.require_section(version, section_id)
+                    sections.append(
+                        {
+                            "logical_id": entry.logical_id,
+                            "role": entry.role,
+                            "section_id": section.section_id,
+                            "supporting": is_supporting,
+                            "text": section.section_text,
+                        }
+                    )
         return _canonical_json(sections)
 
     @staticmethod
     def _validate_retrieval(
-        routing: ResolvedRouting, version: int, passages: tuple[Any, ...]
+        routing: ResolvedRouting,
+        supporting: ResolvedRouting | None,
+        version: int,
+        passages: tuple[Any, ...],
     ) -> None:
         authorised = {
             section_id
@@ -354,6 +380,13 @@ class CvGenerationContextBuilder:
             in (RouteDeliveryMode.VECTOR_SCOPE_REQUIRED, RouteDeliveryMode.VECTOR_SCOPE_OPTIONAL)
             for section_id in entry.expanded_section_ids
         }
+        if supporting is not None:
+            authorised.update(
+                section_id
+                for entry in supporting.packet.entries
+                if entry.role is DocumentBRouteRole.BULLET_LIBRARY
+                for section_id in entry.expanded_section_ids
+            )
         for passage in passages:
             if passage.document_b_version != version or passage.section_id not in authorised:
                 raise CvGenerationContextError(
@@ -364,6 +397,7 @@ class CvGenerationContextBuilder:
     def _validate_brief(
         brief: CvGenerationBriefInput | None,
         routing: ResolvedRouting,
+        supporting: ResolvedRouting | None,
         document_a_version: int,
         version: int,
         passages: tuple[Any, ...],
@@ -386,12 +420,22 @@ class CvGenerationContextBuilder:
         available_sections = {
             section_id
             for entry in routing.packet.entries
-            if (
-                entry.delivery_mode is RouteDeliveryMode.DIRECT_CONTEXT
-                and entry.inclusion is RouteInclusion.MANDATORY
-            )
+            if entry.inclusion is RouteInclusion.MANDATORY
             for section_id in entry.expanded_section_ids
         }
+        if supporting is not None:
+            available_sections.update(
+                section_id
+                for entry in supporting.packet.entries
+                if entry.inclusion is RouteInclusion.MANDATORY
+                and entry.role
+                in {
+                    DocumentBRouteRole.BULLET_LIBRARY,
+                    DocumentBRouteRole.SKILLS,
+                    DocumentBRouteRole.GUARDRAIL,
+                }
+                for section_id in entry.expanded_section_ids
+            )
         if not brief.selected_section_ids.issubset(available_sections):
             raise CvGenerationContextError(
                 "CV-generation brief contains unauthorised Document B sections."
@@ -420,6 +464,7 @@ class CvGenerationContextBuilder:
                         "primary_role_family": assessment.primary_role_family,
                         "secondary_role_family": assessment.secondary_role_family,
                         "secondary_cv_angle": assessment.secondary_cv_angle,
+                        "material_mandate_dimensions": assessment.material_mandate_dimensions,
                         "evidence_anchors": assessment.evidence_anchors,
                         "evidence_gaps": assessment.evidence_gaps,
                         "strong_fit_signals": assessment.strong_fit_signals,
@@ -473,6 +518,25 @@ def _authorised_secondary(routing: ResolvedRouting, suggested: str | None) -> st
     if any(item["lane"] == suggested for item in routing.constraints.cautious):
         return suggested
     return None
+
+
+def _authorised_supporting_lane(routing: ResolvedRouting, assessment: Any) -> str | None:
+    """Prefer an evidence-supported CV angle; retain existing role-family fallback."""
+
+    material_dimensions = getattr(assessment, "material_mandate_dimensions", ())
+    has_credible_support = any(
+        dimension.get("should_shape_cv", False)
+        and dimension.get("evidence_strength") in {"DIRECT", "ADJACENT"}
+        if isinstance(dimension, dict)
+        else dimension.should_shape_cv
+        and dimension.evidence_strength.value in {"DIRECT", "ADJACENT"}
+        for dimension in material_dimensions
+    )
+    if has_credible_support:
+        angle = _authorised_secondary(routing, assessment.secondary_cv_angle)
+        if angle is not None:
+            return angle
+    return _authorised_secondary(routing, assessment.secondary_role_family)
 
 
 def _cache_identity(

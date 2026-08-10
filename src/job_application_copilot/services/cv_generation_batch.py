@@ -14,6 +14,7 @@ from job_application_copilot.domain import (
     BackgroundTaskStatus,
     CvSelectionStatus,
     CvSource,
+    CvStatus,
     DocumentBRoutingSetStatus,
     UserDecision,
 )
@@ -50,6 +51,7 @@ class CvGenerationQueueSkipReason(StrEnum):
     MISSING_CV_LANE = "MISSING_CV_LANE"
     CV_LANE_NOT_CURRENT = "CV_LANE_NOT_CURRENT"
     CV_GENERATION_ALREADY_QUEUED = "CV_GENERATION_ALREADY_QUEUED"
+    CV_ALREADY_GENERATED = "CV_ALREADY_GENERATED"
     NO_GENERATION_TO_RESTART = "NO_GENERATION_TO_RESTART"
 
 
@@ -98,6 +100,22 @@ class CvGenerationBatchService:
             )
             return self._queue(session, pursued_jobs, requested_from="jobs_dashboard_all_pursued")
 
+    def queue_all_selected_without_generated_cv(self) -> CvGenerationBatchQueueResult:
+        """Queue selected jobs that do not already have a completed generated CV."""
+
+        with self.database.session() as session:
+            selected_jobs = tuple(
+                job
+                for job in JobRepository(session).list()
+                if job.cv_selection_status is CvSelectionStatus.SELECTED
+            )
+            return self._queue(
+                session,
+                selected_jobs,
+                requested_from="jobs_dashboard_all_selected",
+                skip_completed_generated_cv=True,
+            )
+
     def queue_regeneration_selected(
         self,
         job_ids: tuple[int, ...],
@@ -124,6 +142,7 @@ class CvGenerationBatchService:
         *,
         requested_from: str,
         require_prior_generation: bool = False,
+        skip_completed_generated_cv: bool = False,
     ) -> CvGenerationBatchQueueResult:
         """Create no-or-one batch after determining each job's durable eligibility."""
 
@@ -143,6 +162,7 @@ class CvGenerationBatchService:
                 cvs,
                 current_lanes,
                 require_prior_generation=require_prior_generation,
+                skip_completed_generated_cv=skip_completed_generated_cv,
             )
             if reason is None:
                 queued_job_ids.append(job.id)
@@ -192,6 +212,7 @@ class CvGenerationBatchService:
         current_lanes: frozenset[str],
         *,
         require_prior_generation: bool,
+        skip_completed_generated_cv: bool,
     ) -> CvGenerationQueueSkipReason | None:
         if job.user_decision is not UserDecision.PURSUE:
             return CvGenerationQueueSkipReason.NOT_PURSUED
@@ -214,6 +235,14 @@ class CvGenerationBatchService:
             for task in tasks.list(job_id=job.id)
         ):
             return CvGenerationQueueSkipReason.CV_GENERATION_ALREADY_QUEUED
+        cv = cvs.get_for_job(job.id)
+        if (
+            skip_completed_generated_cv
+            and cv is not None
+            and cv.source is CvSource.GENERATED
+            and cv.status in {CvStatus.READY_FOR_REVIEW, CvStatus.APPROVED}
+        ):
+            return CvGenerationQueueSkipReason.CV_ALREADY_GENERATED
         if require_prior_generation and not CvGenerationBatchService._has_restartable_generation(
             cvs,
             tasks,

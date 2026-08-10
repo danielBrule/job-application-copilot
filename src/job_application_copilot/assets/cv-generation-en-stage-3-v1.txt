@@ -9,6 +9,9 @@ Check and correct:
 - length, evidence prioritisation and appropriate detail;
 - unsupported, weakly evidenced or overclaimed statements;
 - use of the supplied professional-summary, experience-framing, bullet, skills and anti-overclaiming guidance.
+- coverage of each material, evidence-supported mandate dimension; correct an
+  underrepresented dimension using supplied authorised evidence without changing
+  the primary lane or factual authority.
 
 Rules:
 - The assessment is the factual authority. Do not invent or strengthen dates, employers, titles, metrics, technologies, scope, ownership or outcomes.

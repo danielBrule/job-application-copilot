@@ -129,6 +129,23 @@ def test_queues_selected_eligible_jobs_in_one_batch_only(database: Database) -> 
         assert BackgroundTaskRepository(session).list(job_id=unselected_id) == []
 
 
+def test_queues_all_unassessed_jobs_and_skips_active_work(database: Database) -> None:
+    eligible_id = add_job(database, "Eligible")
+    assessed_id = add_job(database, "Assessed")
+    queued_id = add_job(database, "Queued")
+    add_assessment(database, assessed_id)
+    add_active_task(database, queued_id)
+
+    result = AssessmentBatchService(database).queue_all_unassessed()
+
+    assert result.batch_id is not None
+    assert result.queued_job_ids == (eligible_id,)
+    assert {(skip.job_id, skip.reason) for skip in result.skipped} == {
+        (assessed_id, AssessmentQueueSkipReason.EXISTING_ASSESSMENT),
+        (queued_id, AssessmentQueueSkipReason.ASSESSMENT_ALREADY_QUEUED),
+    }
+
+
 def test_selection_eligibility_separates_initial_and_reassessment_actions(
     database: Database,
 ) -> None:

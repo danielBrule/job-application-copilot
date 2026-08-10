@@ -2,10 +2,10 @@
 
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from job_application_copilot.domain import CvStatus, is_valid_cv_transition
+from job_application_copilot.domain import CvSource, CvStatus, is_valid_cv_transition
 from job_application_copilot.errors import ApplicationNotFoundError, ApplicationValidationError
 from job_application_copilot.repositories.models import Cv, Job
 
@@ -31,11 +31,17 @@ class CvRepository:
     def get_for_job(self, job_id: int) -> Cv | None:
         return self.session.scalar(select(Cv).where(Cv.job_id == job_id))
 
-    def list_review_ready_job_ids(self) -> tuple[int, ...]:
+    def list_default_application_status_review_job_ids(self) -> tuple[int, ...]:
+        """Return ready-to-review CVs whose application status is still unknown."""
+
         statement = (
             select(Cv.job_id)
             .join(Job, Job.id == Cv.job_id)
-            .where(Cv.status == CvStatus.READY_FOR_REVIEW)
+            .where(
+                Cv.status == CvStatus.READY_FOR_REVIEW,
+                Cv.source == CvSource.GENERATED,
+                or_(Job.application_status.is_(None), Job.application_status == ""),
+            )
             .order_by(Job.date_added.desc(), Job.id.desc())
         )
         return tuple(self.session.scalars(statement))

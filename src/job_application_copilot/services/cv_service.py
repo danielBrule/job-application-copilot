@@ -105,7 +105,7 @@ class CvService:
 
     def review_navigation(self, job_id: int) -> CvReviewNavigation:
         with self.database.session() as session:
-            job_ids = CvRepository(session).list_review_ready_job_ids()
+            job_ids = CvRepository(session).list_default_application_status_review_job_ids()
         try:
             position = job_ids.index(job_id)
         except ValueError:
@@ -114,6 +114,13 @@ class CvService:
             previous_job_id=job_ids[position - 1] if position else None,
             next_job_id=job_ids[position + 1] if position + 1 < len(job_ids) else None,
         )
+
+    def first_default_application_status_review_job_id(self) -> int | None:
+        """Return one generated CV awaiting review before application tracking begins."""
+
+        with self.database.session() as session:
+            job_ids = CvRepository(session).list_default_application_status_review_job_ids()
+        return job_ids[0] if job_ids else None
 
     def _require_shared_cv_file(self, file_path: Path) -> Path:
         try:
