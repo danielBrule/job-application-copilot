@@ -2,22 +2,170 @@
 
 ## Relationships
 
-```text
-Job 1 ── 0..1 Current Assessment
-Job 1 ── 0..1 Active CV
-Job 1 ── 0..* Contacts
-Job 1 ── 0..* Background Tasks
-Job 1 ── 0..* LLM Calls
-Background Batch 1 ── 1..* Background Tasks
-Background Task 1 ── 0..* Execution Attempts
-Background Task 1 ── 0..* LLM Calls
-Execution Attempt 1 ── 0..* LLM Calls
-Reference Asset Type 1 ── 0..* Versions
-Prompt Definition 1 ── 0..* Prompt Reference-Asset Versions
-Document B Version 1 ── 0..* Lane Routing Sets
-Lane Routing Set 1 ── 1..* Lane Routes
-CV Generation 1 ── 1 Structured CV-generation Brief
+This diagram shows the **implemented SQLite schema only**. It includes database-enforced foreign
+keys, not logical links represented by version numbers, asset keys or JSON payloads.
+
+```mermaid
+erDiagram
+    JOB {
+        integer id PK
+        string company
+        string job_title
+        string location
+        string language
+        datetime assessment_input_updated_at
+    }
+    ASSESSMENT {
+        integer id PK
+        integer job_id FK
+        string status
+        string selected_cv_lane
+        integer document_a_version
+        integer prompt_version
+    }
+    CV {
+        integer id PK
+        integer job_id FK
+        string source
+        string status
+        string selected_cv_lane
+    }
+    BACKGROUND_BATCH {
+        integer id PK
+        string operation
+        json payload_metadata
+    }
+    BACKGROUND_TASK {
+        integer id PK
+        integer batch_id FK
+        integer job_id FK
+        string operation
+        string status
+        integer retry_count
+    }
+    BACKGROUND_TASK_ATTEMPT {
+        integer id PK
+        integer task_id FK
+        integer attempt_number
+        string status
+    }
+    LLM_CALL {
+        integer id PK
+        integer job_id FK
+        integer task_id FK
+        integer task_attempt_id FK
+        string operation
+        string pipeline_step
+        string status
+    }
+    PROMPT_PIPELINE_STAGE {
+        integer id PK
+        integer task_id FK
+        integer stage_position
+        string status
+    }
+    CV_GENERATION_BRIEF {
+        integer id PK
+        integer task_id FK
+        json payload
+    }
+    CV_GENERATION_DRAFT {
+        integer id PK
+        integer task_id FK
+        json payload
+    }
+    CV_GENERATION_FINAL {
+        integer id PK
+        integer task_id FK
+        json payload
+    }
+
+    REFERENCE_ASSET {
+        integer id PK
+        string asset_key
+        string asset_type
+        integer version
+        boolean is_active
+        string processing_status
+    }
+    CV_TEMPLATE_MANIFEST {
+        integer id PK
+        integer template_asset_id FK
+        string status
+    }
+    DOCUMENT_B_SECTION {
+        integer id PK
+        integer reference_asset_id FK
+        string section_id
+        integer sequence
+    }
+    DOCUMENT_B_ROUTING_SET {
+        integer id PK
+        integer reference_asset_id FK
+        string routing_config_version
+        string status
+        boolean is_current
+    }
+    DOCUMENT_B_LANE_ROUTE {
+        integer id PK
+        integer routing_set_id FK
+        string lane_id
+        text ordered_route_json
+    }
+    DOCUMENT_B_VECTOR_RECORD {
+        integer id PK
+        integer reference_asset_id FK
+        string section_id
+        string openai_file_id
+    }
+    DOCUMENT_B_RETRIEVAL_TRACE {
+        integer id PK
+        integer reference_asset_id FK
+        integer routing_set_id FK
+        text query_text
+    }
+    DOCUMENT_B_RETRIEVAL_TRACE_RESULT {
+        integer id PK
+        integer trace_id FK
+        integer vector_record_id FK
+        string passage_id
+        float score
+    }
+
+    JOB ||--o| ASSESSMENT : "has current assessment"
+    JOB ||--o| CV : "has active CV"
+    JOB ||--o{ BACKGROUND_TASK : "has"
+    JOB ||--o{ LLM_CALL : "records"
+    BACKGROUND_BATCH ||--o{ BACKGROUND_TASK : "groups"
+    BACKGROUND_TASK ||--o{ BACKGROUND_TASK_ATTEMPT : "retains"
+    BACKGROUND_TASK ||--o{ LLM_CALL : "may incur"
+    BACKGROUND_TASK_ATTEMPT ||--o{ LLM_CALL : "may incur"
+    BACKGROUND_TASK ||--o{ PROMPT_PIPELINE_STAGE : "persists"
+    BACKGROUND_TASK ||--o| CV_GENERATION_BRIEF : "has"
+    BACKGROUND_TASK ||--o| CV_GENERATION_DRAFT : "has"
+    BACKGROUND_TASK ||--o| CV_GENERATION_FINAL : "has"
+
+    REFERENCE_ASSET ||--o| CV_TEMPLATE_MANIFEST : "maps"
+    REFERENCE_ASSET ||--o{ DOCUMENT_B_SECTION : "contains"
+    REFERENCE_ASSET ||--o{ DOCUMENT_B_ROUTING_SET : "binds"
+    DOCUMENT_B_ROUTING_SET ||--o{ DOCUMENT_B_LANE_ROUTE : "contains"
+    REFERENCE_ASSET ||--o{ DOCUMENT_B_VECTOR_RECORD : "indexes"
+    REFERENCE_ASSET ||--o{ DOCUMENT_B_RETRIEVAL_TRACE : "is queried"
+    DOCUMENT_B_ROUTING_SET ||--o{ DOCUMENT_B_RETRIEVAL_TRACE : "authorises"
+    DOCUMENT_B_RETRIEVAL_TRACE ||--o{ DOCUMENT_B_RETRIEVAL_TRACE_RESULT : "returns"
+    DOCUMENT_B_VECTOR_RECORD ||--o{ DOCUMENT_B_RETRIEVAL_TRACE_RESULT : "sources"
 ```
+
+`LLM_CALL.task_id` and `LLM_CALL.task_attempt_id` are nullable; the optional relationships above
+show the foreign keys when those values are present. The one-to-zero-or-one relationships use
+unique foreign keys (`ASSESSMENT.job_id`, `CV.job_id`, each CV-generation output's `task_id`, and
+`CV_TEMPLATE_MANIFEST.template_asset_id`).
+
+`PROMPT_DEFINITION.asset_key` logically identifies the versions held in `REFERENCE_ASSET.asset_key`,
+but it is intentionally not a foreign key. Likewise, assessment/CV version fields and the
+CV-generation `routing_set_id` are retained version snapshots, not relational foreign keys.
+Deletion behaviour (`CASCADE` or `RESTRICT`) is defined by the SQLAlchemy models and Alembic
+migrations; the diagram intentionally does not duplicate it.
 
 ## Job
 
@@ -165,9 +313,11 @@ The final CV is structured generated content for a user-managed DOCX template. E
 experience block and skills block records its bracketed template placeholder. Template-owned contact
 details, education, languages, static employer headings and static roles remain outside model output.
 
-## Contact
+## Contact (planned, not yet persisted)
 
-Multiple records per job.
+The product specification describes multiple contacts per job, but the current implemented schema
+does not contain a `contacts` table. The fields below are planned data-model requirements, not part
+of the ERD above.
 
 - `job_id`
 - `name`
@@ -367,7 +517,7 @@ The local retrieval trace records the private query text, routing-set identity a
 version, followed by the returned passage IDs, scores, verified source-record IDs and metadata.
 It is retained for reproducibility, not application logging.
 
-## Application settings
+## Application settings (configuration, not a persisted entity)
 
 - database path
 - shared CV folder for generated and uploaded CVs
