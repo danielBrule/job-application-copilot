@@ -8,7 +8,7 @@ import pytest
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import CvSource, CvStatus, Language, Location
 from job_application_copilot.repositories import CvRepository, Database, create_database
-from job_application_copilot.repositories.models import Job
+from job_application_copilot.repositories.models import Cv, Job
 from job_application_copilot.services import CvFileValidationError, CvService
 from job_application_copilot.services.database_bootstrap import initialize_database
 
@@ -94,6 +94,50 @@ def test_replacement_resets_prior_approval_only_after_new_file_exists(
     assert replacement.status is CvStatus.READY_FOR_REVIEW
     assert replacement.file_name == "second.docx"
     assert replacement.approved_at is None
+
+
+def test_review_navigation_only_includes_generated_cvs_with_default_application_status(
+    service_with_job: tuple[CvService, Database, Job, AppSettings],
+) -> None:
+    service, database, first, _ = service_with_job
+    with database.session() as session:
+        second = Job(
+            company="Second Ltd",
+            job_title="Architect",
+            location=Location.UK,
+            language=Language.EN,
+            source="LinkedIn",
+            job_description="Design reliable platforms.",
+            date_added=date(2026, 8, 7),
+        )
+        applied = Job(
+            company="Applied Ltd",
+            job_title="Architect",
+            location=Location.UK,
+            language=Language.EN,
+            source="LinkedIn",
+            job_description="Design reliable platforms.",
+            date_added=date(2026, 8, 8),
+            application_status="Applied",
+        )
+        session.add_all((second, applied))
+        session.flush()
+        for job in (first, second, applied):
+            session.add(
+                Cv(
+                    job_id=job.id,
+                    source=CvSource.GENERATED,
+                    status=CvStatus.READY_FOR_REVIEW,
+                    language=Language.EN,
+                    file_name=f"{job.id}.docx",
+                    file_path=f"C:/private/cvs/{job.id}.docx",
+                )
+            )
+
+    assert service.first_default_application_status_review_job_id() == second.id
+    navigation = service.review_navigation(first.id)
+    assert navigation.previous_job_id == second.id
+    assert navigation.next_job_id is None
 
 
 @pytest.mark.parametrize("inside", [False, True])

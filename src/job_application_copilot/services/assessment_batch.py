@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
+from sqlalchemy.orm import Session
+
 from job_application_copilot.domain import (
     AssessmentStatus,
     BackgroundOperation,
@@ -104,46 +106,69 @@ class AssessmentBatchService:
             return AssessmentBatchQueueResult(None, (), ())
 
         with self.database.session() as session:
-            jobs = JobRepository(session)
-            assessments = AssessmentRepository(session)
-            tasks = BackgroundTaskRepository(session)
-            eligible_job_ids: list[int] = []
-            skipped: list[AssessmentQueueSkip] = []
+            return self._queue_initial_assessments(
+                session,
+                selected_job_ids,
+                requested_from="jobs_dashboard_selected",
+            )
 
-            for job_id in selected_job_ids:
-                jobs.require(job_id)
-                if assessments.get_for_job(job_id) is not None:
-                    skipped.append(
-                        AssessmentQueueSkip(job_id, AssessmentQueueSkipReason.EXISTING_ASSESSMENT)
-                    )
-                elif self._has_active_assessment_task(tasks, job_id):
-                    skipped.append(
-                        AssessmentQueueSkip(
-                            job_id,
-                            AssessmentQueueSkipReason.ASSESSMENT_ALREADY_QUEUED,
-                        )
-                    )
-                else:
-                    eligible_job_ids.append(job_id)
+    def queue_all_unassessed(self) -> AssessmentBatchQueueResult:
+        """Queue every job that does not yet have an assessment."""
 
-            if not eligible_job_ids:
-                return AssessmentBatchQueueResult(None, (), tuple(skipped))
+        with self.database.session() as session:
+            job_ids = tuple(job.id for job in JobRepository(session).list())
+            return self._queue_initial_assessments(
+                session,
+                job_ids,
+                requested_from="jobs_dashboard_all_unassessed",
+            )
 
-            batch = BackgroundBatchRepository(session).add(
-                BackgroundBatch(
+    def _queue_initial_assessments(
+        self,
+        session: Session,
+        job_ids: tuple[int, ...],
+        *,
+        requested_from: str,
+    ) -> AssessmentBatchQueueResult:
+        """Queue initial assessments after atomically rechecking durable state."""
+
+        jobs = JobRepository(session)
+        assessments = AssessmentRepository(session)
+        tasks = BackgroundTaskRepository(session)
+        eligible_job_ids: list[int] = []
+        skipped: list[AssessmentQueueSkip] = []
+
+        for job_id in job_ids:
+            jobs.require(job_id)
+            if assessments.get_for_job(job_id) is not None:
+                skipped.append(
+                    AssessmentQueueSkip(job_id, AssessmentQueueSkipReason.EXISTING_ASSESSMENT)
+                )
+            elif self._has_active_assessment_task(tasks, job_id):
+                skipped.append(
+                    AssessmentQueueSkip(job_id, AssessmentQueueSkipReason.ASSESSMENT_ALREADY_QUEUED)
+                )
+            else:
+                eligible_job_ids.append(job_id)
+
+        if not eligible_job_ids:
+            return AssessmentBatchQueueResult(None, (), tuple(skipped))
+
+        batch = BackgroundBatchRepository(session).add(
+            BackgroundBatch(
+                operation=BackgroundOperation.ASSESSMENT,
+                payload_metadata={"requested_from": requested_from},
+            )
+        )
+        for job_id in eligible_job_ids:
+            tasks.add(
+                BackgroundTask(
+                    batch_id=batch.id,
+                    job_id=job_id,
                     operation=BackgroundOperation.ASSESSMENT,
-                    payload_metadata={"requested_from": "jobs_dashboard"},
                 )
             )
-            for job_id in eligible_job_ids:
-                tasks.add(
-                    BackgroundTask(
-                        batch_id=batch.id,
-                        job_id=job_id,
-                        operation=BackgroundOperation.ASSESSMENT,
-                    )
-                )
-            return AssessmentBatchQueueResult(batch.id, tuple(eligible_job_ids), tuple(skipped))
+        return AssessmentBatchQueueResult(batch.id, tuple(eligible_job_ids), tuple(skipped))
 
     def queue_reassessment_selected(self, job_ids: tuple[int, ...]) -> AssessmentBatchQueueResult:
         """Queue failed or stale successful assessments after rechecking eligibility."""

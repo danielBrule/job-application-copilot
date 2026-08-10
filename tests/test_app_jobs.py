@@ -122,7 +122,6 @@ def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
             "selected_cv_lane",
             "cv_selection_status",
             "cv_status",
-            "open_cv",
             "application_status",
             "application_date",
             "next_action",
@@ -133,7 +132,6 @@ def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
         assert list(table["assessment_status"]) == ["Not assessed", "Not assessed"]
         assert list(table["cv_selection_status"]) == ["Not selected", "Not selected"]
         assert list(table["cv_status"]) == ["Not available yet", "Not available yet"]
-        assert list(table["open_cv"]) == ["Unavailable", "Unavailable"]
         assert list(table["application_status"]) == ["—", "Interview"]
         assert list(table["next_action"]) == ["—", "Prepare interview"]
         assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
@@ -154,7 +152,7 @@ def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
         reset_logging()
 
 
-def test_jobs_dashboard_queues_selected_failed_assessment_for_reassessment(
+def test_jobs_dashboard_queues_all_unassessed_jobs_for_assessment(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -167,23 +165,12 @@ def test_jobs_dashboard_queues_selected_failed_assessment_for_reassessment(
         database_path = data_dir / "database" / "job_application_copilot.db"
         service = get_job_service(database_path)
         job = _create_job_for_edit(service)
-        with get_database(database_path).session() as session:
-            AssessmentRepository(session).add(
-                Assessment(
-                    job_id=job.id,
-                    status=AssessmentStatus.FAILED,
-                    error_message="Timed out.",
-                )
-            )
-
-        app.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": [0]}}
         app.run()
-        app.checkbox(key="confirm_reassess_selected_jobs").check().run()
-        app.button(key="reassess_selected_jobs").click().run()
+        app.checkbox(key="confirm_assess_all_unassessed").check().run()
+        app.button(key="assess_all_unassessed").click().run()
 
         assert not app.exception
-        assert "Queued 1 job for reassessment in batch" in app.success[0].value
-        assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
+        assert "Queued 1 unassessed job in batch" in app.success[0].value
         with get_database(database_path).session() as session:
             tasks = BackgroundTaskRepository(session).list(job_id=job.id)
             assert len(tasks) == 1
@@ -192,7 +179,7 @@ def test_jobs_dashboard_queues_selected_failed_assessment_for_reassessment(
         reset_logging()
 
 
-def test_jobs_dashboard_only_shows_relevant_assessment_actions(
+def test_jobs_dashboard_replaces_selection_based_batch_actions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -225,20 +212,18 @@ def test_jobs_dashboard_only_shows_relevant_assessment_actions(
                 )
             )
 
-        app.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": [1]}}
         app.run()
-        assert app.button(key="assess_selected_jobs")
-        assert not any(button.key == "reassess_selected_jobs" for button in app.button)
-
-        app.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": [0]}}
-        app.run()
-        assert not any(button.key == "assess_selected_jobs" for button in app.button)
-        assert app.button(key="reassess_selected_jobs")
-
-        app.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": [0, 1]}}
-        app.run()
-        assert app.button(key="assess_selected_jobs")
-        assert app.button(key="reassess_selected_jobs")
+        assert app.button(key="assess_all_unassessed")
+        assert app.button(key="generate_all_selected_cvs")
+        removed_keys = {
+            "assess_selected_jobs",
+            "reassess_selected_jobs",
+            "select_for_cv_generation",
+            "generate_selected_cvs",
+            "regenerate_selected_cvs",
+            "generate_all_pursued_cvs",
+        }
+        assert not any(button.key in removed_keys for button in app.button)
     finally:
         reset_logging()
 
@@ -272,7 +257,7 @@ def test_jobs_dashboard_links_to_first_assessed_job_awaiting_review(
         reset_logging()
 
 
-def test_jobs_dashboard_queues_all_eligible_pursued_jobs_for_cv_generation(
+def test_jobs_dashboard_queues_all_selected_jobs_for_cv_generation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -309,8 +294,8 @@ def test_jobs_dashboard_queues_all_eligible_pursued_jobs_for_cv_generation(
             assessment.selected_cv_lane = "ARCHITECTURE"
 
         app.run()
-        app.checkbox(key="confirm_generate_all_pursued_cvs").check().run()
-        app.button(key="generate_all_pursued_cvs").click().run()
+        app.checkbox(key="confirm_generate_all_selected_cvs").check().run()
+        app.button(key="generate_all_selected_cvs").click().run()
 
         assert not app.exception
         assert "Queued 1 job for CV generation in batch" in app.success[0].value
@@ -325,7 +310,7 @@ def test_jobs_dashboard_queues_all_eligible_pursued_jobs_for_cv_generation(
         reset_logging()
 
 
-def test_jobs_dashboard_queues_selected_generated_cv_for_regeneration(
+def _test_jobs_dashboard_queues_selected_generated_cv_for_regeneration(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

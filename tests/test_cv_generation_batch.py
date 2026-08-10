@@ -165,6 +165,43 @@ def test_queue_all_eligible_pursued_returns_actionable_skips(database: Database)
     }
 
 
+def test_queues_all_selected_jobs_without_completed_generated_cvs(database: Database) -> None:
+    eligible = add_job(database, "Eligible Ltd")
+    completed = add_job(database, "Completed Ltd")
+    uploaded = add_job(database, "Uploaded Ltd")
+    for job in (eligible, completed, uploaded):
+        add_assessment(database, job)
+    with database.session() as session:
+        session.add(
+            Cv(
+                job_id=completed.id,
+                source=CvSource.GENERATED,
+                status=CvStatus.READY_FOR_REVIEW,
+                language=Language.EN,
+                file_name="completed.docx",
+                file_path="C:/private/cvs/completed.docx",
+            )
+        )
+        session.add(
+            Cv(
+                job_id=uploaded.id,
+                source=CvSource.UPLOADED,
+                status=CvStatus.READY_FOR_REVIEW,
+                language=Language.EN,
+                file_name="uploaded.docx",
+                file_path="C:/private/cvs/uploaded.docx",
+            )
+        )
+
+    result = CvGenerationBatchService(database).queue_all_selected_without_generated_cv()
+
+    assert result.batch_id is not None
+    assert result.queued_job_ids == (uploaded.id, eligible.id)
+    assert [(skip.job_id, skip.reason) for skip in result.skipped] == [
+        (completed.id, CvGenerationQueueSkipReason.CV_ALREADY_GENERATED)
+    ]
+
+
 def test_selected_queue_is_atomic_when_a_job_is_missing(database: Database) -> None:
     eligible = add_job(database, "Eligible Ltd")
     add_assessment(database, eligible)

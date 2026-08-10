@@ -78,7 +78,8 @@ def render_job_details(
         return
 
     st.title(f"Job details — {detail.job.job_title} ({detail.job.company})")
-    job_tab, assessment_tab, cv_tab = st.tabs(["Job", "Assessment", "CV"])
+    default_tab = "CV" if st.query_params.get("tab") == "cv" else "Job"
+    job_tab, assessment_tab, cv_tab = st.tabs(["Job", "Assessment", "CV"], default=default_tab)
     with job_tab:
         render_edit_job_form(detail.job, service)
     with assessment_tab:
@@ -243,7 +244,7 @@ def _render_cv_review_navigation(job_id: int, service: CvService) -> None:
             "pages/job_details.py",
             label="Previous CV",
             disabled=navigation.previous_job_id is None,
-            query_params={"job_id": str(navigation.previous_job_id)}
+            query_params={"job_id": str(navigation.previous_job_id)} | {"tab": "cv"}
             if navigation.previous_job_id
             else None,
         )
@@ -252,7 +253,7 @@ def _render_cv_review_navigation(job_id: int, service: CvService) -> None:
             "pages/job_details.py",
             label="Next CV",
             disabled=navigation.next_job_id is None,
-            query_params={"job_id": str(navigation.next_job_id)}
+            query_params={"job_id": str(navigation.next_job_id)} | {"tab": "cv"}
             if navigation.next_job_id
             else None,
         )
