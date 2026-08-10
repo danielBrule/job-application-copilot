@@ -14,6 +14,7 @@ Rules:
   requirement should normally have visible, differentiated proof somewhere in
   the CV; do not crowd it out with repetitive technical bullets.
 - Never invent or strengthen dates, employers, titles, metrics, technologies, scope, ownership or outcomes.
+- Preserve factual employer job titles. A role-aligned descriptor may supplement a factual title where supported and useful, but must never replace it; keep the real title first.
 - Keep the CV concise, UK-style and suitable for a maximum two-page CV.
 - Do not add commentary inside the CV itself.
 - Return valid structured output matching the requested schema.
