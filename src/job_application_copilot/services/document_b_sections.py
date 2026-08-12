@@ -51,12 +51,7 @@ class DocumentBSectionService:
     def extract_and_store(self, version: int) -> tuple[DocumentBSectionRecord, ...]:
         """Idempotently replace one version's sections from its retained DOCX."""
 
-        reference_asset_id, file_path, expected_hash = self._source(version)
-        content = self._read_verified(version, file_path, expected_hash)
-        try:
-            extracted = extract_document_b_sections(content)
-        except DocumentBExtractionError as error:
-            raise DocumentBSectionError(str(error)) from error
+        reference_asset_id, extracted = self._extract(version)
 
         with self.database.session() as session:
             asset = ReferenceAssetRepository(session).require_version(DOCUMENT_B_KEY, version)
@@ -77,6 +72,12 @@ class DocumentBSectionService:
                 for section in extracted
             ]
             DocumentBSectionRepository(session).replace(reference_asset_id, models)
+        return tuple(_record(version, section) for section in extracted)
+
+    def extract(self, version: int) -> tuple[DocumentBSectionRecord, ...]:
+        """Extract a heading catalogue without changing persisted sections."""
+
+        _, extracted = self._extract(version)
         return tuple(_record(version, section) for section in extracted)
 
     def list_sections(self, version: int) -> tuple[DocumentBSectionRecord, ...]:
@@ -133,6 +134,14 @@ class DocumentBSectionService:
             asset = ReferenceAssetRepository(session).require_version(DOCUMENT_B_KEY, version)
             self._validate_document_b(asset.asset_key, asset.asset_type)
             return asset.id, asset.file_path, asset.file_hash
+
+    def _extract(self, version: int) -> tuple[int, tuple[ExtractedDocumentBSection, ...]]:
+        reference_asset_id, file_path, expected_hash = self._source(version)
+        content = self._read_verified(version, file_path, expected_hash)
+        try:
+            return reference_asset_id, extract_document_b_sections(content)
+        except DocumentBExtractionError as error:
+            raise DocumentBSectionError(str(error)) from error
 
     def _read_verified(self, version: int, file_path: str, expected_hash: str) -> bytes:
         path = self._resolve_stored_path(file_path)

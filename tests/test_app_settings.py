@@ -2,8 +2,10 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+from conftest import install_document_b_routing_config
 from streamlit.testing.v1 import AppTest
 
+from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import (
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
@@ -20,7 +22,9 @@ from job_application_copilot.services import (
     DocumentBProcessingService,
     ReferenceAssetRemoteCleanupResult,
     ReferenceAssetRemoteCleanupService,
+    ReferenceAssetStorageService,
 )
+from job_application_copilot.services.database_bootstrap import initialize_database
 from job_application_copilot.services.document_b_progress import DocumentBProcessingProgress
 from job_application_copilot.ui.components.document_b_processing import (
     DOCUMENT_B_PROCESSING_BUTTON_KEY,
@@ -108,6 +112,40 @@ def test_settings_page_displays_seeded_prompt_completeness(
             5,
             200,
         ]
+    finally:
+        reset_logging()
+
+
+def test_settings_page_offers_routing_review_for_retained_document_b(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    settings = AppSettings(_env_file=None, data_dir=data_dir)
+    install_document_b_routing_config(settings)
+    settings.database_path.parent.mkdir(parents=True)
+    initialize_database(settings.database_path)
+    database = get_database(settings.database_path)
+    ReferenceAssetStorageService(database, settings).store(
+        filename="document-b.docx",
+        content=make_docx("Document B"),
+        asset_key="document-b",
+        asset_type=ReferenceAssetType.DOCUMENT,
+        name="Document B",
+    )
+
+    try:
+        app = AppTest.from_file(
+            str(APP_PATH),
+            default_timeout=SETTINGS_APP_TIMEOUT,
+        ).run()
+        app.switch_page("pages/settings.py").run()
+
+        assert not app.exception
+        assert "Document B routing" in [item.value for item in app.subheader]
+        assert "Review routing for Document B v1" in [item.label for item in app.expander]
     finally:
         reset_logging()
 

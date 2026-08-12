@@ -183,6 +183,34 @@ def test_replaces_stores_and_activates_document_b_in_one_workflow(
     client.create_vector_store.assert_called_once()
 
 
+def test_reuploading_failed_identical_document_reuses_candidate(
+    processing_context: tuple[
+        DocumentBProcessingService,
+        ReferenceAssetStorageService,
+        Database,
+        Mock,
+    ],
+) -> None:
+    service, _, database, client = processing_context
+    content = make_docx("Retryable Document B")
+    client.upload_docx.side_effect = OpenAIClientError(
+        "OpenAI could not be reached after the configured retries.",
+        operation="upload",
+        retryable=True,
+    )
+
+    with pytest.raises(DocumentBProcessingError, match="could not be reached"):
+        service.replace_and_process(filename="document-b.docx", content=content)
+
+    client.upload_docx.side_effect = None
+    activated = service.replace_and_process(filename="document-b.docx", content=content)
+
+    assert activated.version == 1
+    assert activated.is_active
+    with database.session() as session:
+        assert len(ReferenceAssetRepository(session).list_versions("document-b")) == 1
+
+
 def test_existing_openai_file_is_not_uploaded_again(
     processing_context: tuple[
         DocumentBProcessingService,

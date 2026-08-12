@@ -7,6 +7,9 @@ from job_application_copilot.domain import DOCUMENT_A_KEY, DOCUMENT_B_KEY
 from job_application_copilot.ui.components.document_b_processing import (
     render_document_b_processing,
 )
+from job_application_copilot.ui.components.document_b_routing_configuration import (
+    render_document_b_routing_configuration,
+)
 from job_application_copilot.ui.components.prompt_settings import render_prompt_settings
 from job_application_copilot.ui.components.reference_asset_overview import (
     render_reference_asset_overview,
@@ -24,6 +27,7 @@ from job_application_copilot.ui.dependencies import (
     get_cv_template_manifest_service,
     get_document_a_processing_service,
     get_document_b_processing_service,
+    get_document_b_routing_configuration_service,
     get_prompt_service,
     get_reference_asset_overview_service,
     get_reference_asset_remote_cleanup_service,
@@ -65,6 +69,10 @@ render_reference_asset_replacements(
 render_english_template_manifest(get_cv_template_manifest_service(settings))
 render_document_b_processing(
     document_b_processing_service,
+    document_b_overview,
+)
+render_document_b_routing_configuration(
+    get_document_b_routing_configuration_service(settings),
     document_b_overview,
 )
 render_reference_asset_remote_cleanup(

@@ -35,9 +35,10 @@ Document B DOCX
 3. Change `routing_config_version` whenever the routing decisions change.
 4. Replace the template heading paths and routes with values matching the installation's own
    Document B.
-5. Process Document B so the application validates every configured path and persists a routing
-   set bound to that exact document version.
-6. Inspect the result with `./dev.ps1 document-b-routing`.
+5. In Settings, review the candidate's extracted heading catalogue and validate/save the YAML
+   against that exact document version.
+6. Process Document B so the application persists a routing set bound to that exact document
+   version, then inspect the result with `./dev.ps1 document-b-routing`.
 
 When `JAC_DATA_DIR` or `JAC_REFERENCE_FOLDER` is overridden, the default private routing path moves
 with it. `JAC_DOCUMENT_B_ROUTING_CONFIG_PATH` may explicitly override the complete file path.
@@ -143,7 +144,7 @@ selected primary lane authorises it.
 
 ## Review checklist
 
-1. Process the new Document B version and inspect the heading catalogue.
+1. In Settings, inspect the retained new Document B version's heading catalogue.
 2. Update only heading paths that genuinely moved or were renamed.
 3. Confirm each supported lane has one summary, experience block and positioning playbook.
 4. Check bullet scopes and conditional guardrails for newly routable sensitive material.
