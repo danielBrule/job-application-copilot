@@ -134,6 +134,11 @@ from job_application_copilot.services.document_b_routing import (
     ResolvedRouting,
     RoutingSetSummary,
 )
+from job_application_copilot.services.document_b_routing_configuration import (
+    DocumentBRoutingConfigurationError,
+    DocumentBRoutingConfigurationService,
+    DocumentBRoutingConfigurationStorageError,
+)
 from job_application_copilot.services.document_b_sections import (
     DocumentBSectionError,
     DocumentBSectionRecord,
@@ -261,6 +266,9 @@ __all__ = [
     "DocumentBRetrievalPacket",
     "DocumentBRetrievalService",
     "DocumentBRoutingError",
+    "DocumentBRoutingConfigurationError",
+    "DocumentBRoutingConfigurationService",
+    "DocumentBRoutingConfigurationStorageError",
     "DocumentBRoutingManifestService",
     "ResolvedLanePacket",
     "ResolvedRouteEntry",

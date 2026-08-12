@@ -173,6 +173,12 @@ class DocumentBRoutingManifestService:
                 raise
             raise DocumentBRoutingError(message) from error
 
+    def validate_config(self, version: int, config: DocumentBRoutingConfig) -> None:
+        """Validate authored routes against one retained Document B without persistence."""
+
+        sections = self.section_service.extract(version)
+        _compile_packets(config, sections)
+
     def resolve(self, version: int, lane: LaneId) -> ResolvedRouting:
         """Resolve an exact lane from the current validated set for one version."""
 

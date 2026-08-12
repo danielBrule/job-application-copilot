@@ -149,18 +149,27 @@ def load_document_b_routing_config(path: Path) -> DocumentBRoutingConfig:
     """Load and validate one installation's private UTF-8 YAML."""
 
     try:
-        raw: Any = yaml.safe_load(path.read_text(encoding="utf-8"))
-        return DocumentBRoutingConfig.model_validate(raw)
+        return parse_document_b_routing_config(path.read_text(encoding="utf-8"))
     except FileNotFoundError as error:
         raise RoutingConfigError(
             "Document B routing configuration is missing at "
             f"'{path}'. Copy 'templates/document-b-lane-routes.template.yaml' to this "
             "private path and customise it for the active Document B."
         ) from error
-    except (OSError, yaml.YAMLError, ValueError) as error:
+    except (OSError, RoutingConfigError) as error:
         raise RoutingConfigError(
             f"Document B routing configuration at '{path}' is invalid: {error}"
         ) from error
+
+
+def parse_document_b_routing_config(content: str) -> DocumentBRoutingConfig:
+    """Parse and validate private routing YAML supplied by an editor or file."""
+
+    try:
+        raw: Any = yaml.safe_load(content)
+        return DocumentBRoutingConfig.model_validate(raw)
+    except (yaml.YAMLError, ValueError) as error:
+        raise RoutingConfigError(f"Document B routing configuration is invalid: {error}") from error
 
 
 def referenced_logical_section_ids(config: DocumentBRoutingConfig) -> set[str]:

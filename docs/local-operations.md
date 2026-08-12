@@ -84,12 +84,17 @@ Inspect the local Document B routing manifest without changing data or making mo
 .\dev.ps1 document-b-routing
 .\dev.ps1 document-b-routing -DocumentBVersion 3
 .\dev.ps1 document-b-routing -DocumentBVersion 3 -Lane HEAD_OF_SOLUTIONS_ARCHITECTURE
+.\dev.ps1 document-b-routing -DocumentBVersion 3 -Headings
+.\dev.ps1 document-b-routing -DocumentBVersion 3 -Validate
 ```
 
 Each installation owns its editable routing file at
 `data/reference/routing/document-b-lane-routes.yaml`, initially copied from
 [`templates/document-b-lane-routes.template.yaml`](../templates/document-b-lane-routes.template.yaml).
 See [Document B routing manifest](document-b-routing-manifest.md) before editing it.
+Settings provides the primary workflow: review a retained Document B candidate's exact headings,
+validate and save the private YAML, then process and activate that candidate. The commands above
+are read-only inspection and validation helpers for power users.
 
 For development only, reset all retained reference assets with explicit confirmation:
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import (
     DOCUMENT_B_KEY,
+    ReferenceAssetProcessingStatus,
     ReferenceAssetType,
 )
 from job_application_copilot.errors import ExternalServiceError
@@ -12,6 +13,7 @@ from job_application_copilot.llm import OpenAIClient
 from job_application_copilot.repositories import Database
 from job_application_copilot.repositories.models import ReferenceAsset
 from job_application_copilot.repositories.reference_asset_repository import (
+    ReferenceAssetRepository,
     ReferenceAssetVersionNotFoundError,
 )
 from job_application_copilot.services.document_b_progress import (
@@ -30,6 +32,7 @@ from job_application_copilot.services.openai_file_upload import (
     ReferenceAssetIntegrityError,
 )
 from job_application_copilot.services.reference_asset_storage import (
+    DuplicateReferenceAssetError,
     ReferenceAssetStorageService,
 )
 from job_application_copilot.services.remote_reference_operation import (
@@ -80,17 +83,41 @@ class DocumentBProcessingService:
             self.client_factory,
             DocumentBProcessingError,
         ) as operation:
-            candidate = ReferenceAssetStorageService(
-                self.database,
-                self.settings,
-            ).replace(
-                filename=filename,
-                content=content,
-                asset_key=DOCUMENT_B_KEY,
-                asset_type=ReferenceAssetType.DOCUMENT,
-                name="Document B",
-            )
+            try:
+                candidate = ReferenceAssetStorageService(
+                    self.database,
+                    self.settings,
+                ).replace(
+                    filename=filename,
+                    content=content,
+                    asset_key=DOCUMENT_B_KEY,
+                    asset_type=ReferenceAssetType.DOCUMENT,
+                    name="Document B",
+                )
+            except DuplicateReferenceAssetError as error:
+                failed_candidate = self._failed_duplicate_candidate(error)
+                if failed_candidate is None:
+                    raise
+                candidate = failed_candidate
             return self._process(candidate.version, operation)
+
+    def _failed_duplicate_candidate(
+        self,
+        error: DuplicateReferenceAssetError,
+    ) -> ReferenceAsset | None:
+        """Reuse an immutable failed Document B candidate on an identical re-upload."""
+
+        with self.database.session() as session:
+            candidate = ReferenceAssetRepository(session).require_version(
+                DOCUMENT_B_KEY,
+                error.existing_version,
+            )
+            if (
+                not candidate.is_active
+                and candidate.processing_status is ReferenceAssetProcessingStatus.FAILED
+            ):
+                return candidate
+        return None
 
     def _process(
         self,

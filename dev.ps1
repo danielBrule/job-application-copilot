@@ -10,7 +10,13 @@ param(
     [int]$DocumentBVersion,
 
     [Parameter()]
-    [string]$Lane
+    [string]$Lane,
+
+    [Parameter()]
+    [switch]$Headings,
+
+    [Parameter()]
+    [switch]$Validate
 )
 
 Set-StrictMode -Version Latest
@@ -33,7 +39,7 @@ Usage:
   .\dev.ps1 database   Migrate and validate the local SQLite database
   .\dev.ps1 database-sql Preview pending database migrations as SQL
   .\dev.ps1 reset-reference-assets -Force Reset all development Settings assets
-  .\dev.ps1 document-b-routing [-DocumentBVersion N] [-Lane LANE] Inspect routing
+  .\dev.ps1 document-b-routing [-DocumentBVersion N] [-Lane LANE] [-Headings] [-Validate] Inspect routing
   .\dev.ps1 test       Run the Pytest suite
   .\dev.ps1 coverage   Run Pytest with branch coverage reporting
   .\dev.ps1 test-openai Run opt-in tests against real OpenAI files and vector stores
@@ -308,6 +314,12 @@ function Show-DocumentBRouting {
     }
     if (-not [string]::IsNullOrWhiteSpace($Lane)) {
         $arguments += @("--lane", $Lane)
+    }
+    if ($Headings) {
+        $arguments += "--headings"
+    }
+    if ($Validate) {
+        $arguments += "--validate"
     }
     Invoke-ProjectTool -Executable $python -Arguments $arguments
 }

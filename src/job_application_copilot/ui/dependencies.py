@@ -18,6 +18,7 @@ from job_application_copilot.services import (
     DashboardKpiService,
     DocumentAProcessingService,
     DocumentBProcessingService,
+    DocumentBRoutingConfigurationService,
     JobService,
     PromptService,
     ReferenceAssetOverviewService,
@@ -108,6 +109,17 @@ def get_document_b_processing_service(
     """Build the synchronous Settings workflow over shared local persistence."""
 
     return DocumentBProcessingService(
+        get_database(settings.database_path),
+        settings,
+    )
+
+
+def get_document_b_routing_configuration_service(
+    settings: AppSettings,
+) -> DocumentBRoutingConfigurationService:
+    """Build the local, no-OpenAI Document B route-authoring workflow."""
+
+    return DocumentBRoutingConfigurationService(
         get_database(settings.database_path),
         settings,
     )
