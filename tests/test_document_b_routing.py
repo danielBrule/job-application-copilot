@@ -167,7 +167,7 @@ def test_genai_scope_carries_conditional_guardrail_dependencies(tmp_path: Path) 
     assert genai_rule.required_section_ids == (
         "skills-and-keyword-bank-keywords-to-use-carefully-genai-confidence-rule",
         "cv-assembly-rules-and-anti-overclaiming-guardrails-anti-overclaiming-"
-        "guardrails-t2d-implementation-and-mvp-limitation-guardrail",
+        "guardrails-t2d-scope-and-external-production-boundary",
         "cv-assembly-rules-and-anti-overclaiming-guardrails-applied-genai-positioning-guidance",
     )
     assert service.conditional_guardrails_for_selection(
