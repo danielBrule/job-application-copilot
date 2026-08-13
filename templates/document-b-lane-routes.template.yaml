@@ -411,13 +411,6 @@ section_catalog:
     - Anti-overclaiming guardrails
     - T2D scope and external-production boundary
     include_descendants: true
-  guardrails.talk_to_data_mvp:
-    toc_hint: 7.5.2
-    heading_path:
-    - CV assembly rules and anti-overclaiming guardrails
-    - Anti-overclaiming guardrails
-    - Job Application Copilot scope boundary
-    include_descendants: true  
   positioning.applied_ai_deployment_leadership:
     toc_hint: 7.10.2
     heading_path:
