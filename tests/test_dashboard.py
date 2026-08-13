@@ -42,6 +42,13 @@ def test_dashboard_shows_usage_and_failed_task_kpis(
             metric.label == "Failed tasks requiring attention" and metric.value == "0"
             for metric in app.metric
         )
+        assert {metric.label for metric in app.metric}.issuperset(
+            {
+                "Jobs",
+                "Assessed awaiting review",
+                "Generated CVs awaiting application",
+            }
+        )
         assert any(page_link.label == "Review failed tasks" for page_link in app.get("page_link"))
     finally:
         reset_logging()

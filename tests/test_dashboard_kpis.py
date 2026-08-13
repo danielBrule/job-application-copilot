@@ -6,6 +6,8 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from job_application_copilot.domain import (
+    AssessmentDecision,
+    AssessmentStatus,
     BackgroundOperation,
     CvSource,
     CvStatus,
@@ -13,9 +15,11 @@ from job_application_copilot.domain import (
     LlmCallStatus,
     LlmFailureCategory,
     Location,
+    Relevance,
+    UserDecision,
 )
 from job_application_copilot.repositories import Database, LlmCallRepository, create_database
-from job_application_copilot.repositories.models import Cv, Job, LlmCall
+from job_application_copilot.repositories.models import Assessment, Cv, Job, LlmCall
 from job_application_copilot.services.dashboard_kpis import DashboardKpiService
 from job_application_copilot.services.database_bootstrap import initialize_database
 
@@ -95,27 +99,33 @@ def test_usage_returns_zero_totals_and_no_averages_without_successful_calls(tmp_
         database.dispose()
 
 
-def test_workflow_counts_jobs_cvs_by_source_and_approved_cvs(tmp_path: Path) -> None:
+def test_workflow_counts_review_and_application_queues(tmp_path: Path) -> None:
     database = _migrated_database(tmp_path)
     try:
         with database.session() as session:
-            generated_job = _add_job(session, "Generated")
-            uploaded_job = _add_job(session, "Uploaded")
-            unapproved_job = _add_job(session, "Unapproved")
+            awaiting_review_job = _add_job(session, "Awaiting review")
+            reviewed_job = _add_job(session, "Reviewed")
+            awaiting_application_job = _add_job(session, "Awaiting application")
+            blank_application_status_job = _add_job(session, "Blank application status")
+            applied_job = _add_job(session, "Applied")
+            reviewed_job.user_decision = UserDecision.PURSUE
+            blank_application_status_job.application_status = "   "
+            applied_job.application_status = "Applied"
             session.add_all(
                 [
-                    _make_cv(generated_job.id, CvSource.GENERATED, CvStatus.APPROVED),
-                    _make_cv(uploaded_job.id, CvSource.UPLOADED, CvStatus.READY_FOR_REVIEW),
-                    _make_cv(unapproved_job.id, CvSource.GENERATED, CvStatus.READY_FOR_REVIEW),
+                    _make_assessed_assessment(awaiting_review_job),
+                    _make_assessed_assessment(reviewed_job),
+                    _make_generated_cv(awaiting_application_job.id, CvStatus.READY_FOR_REVIEW),
+                    _make_generated_cv(blank_application_status_job.id, CvStatus.APPROVED),
+                    _make_generated_cv(applied_job.id, CvStatus.APPROVED),
                 ]
             )
 
         kpis = DashboardKpiService(database).workflow()
 
-        assert kpis.jobs_entered == 3
-        assert kpis.cvs_generated == 2
-        assert kpis.cvs_uploaded == 1
-        assert kpis.cvs_approved == 1
+        assert kpis.jobs_entered == 5
+        assert kpis.assessed_jobs_awaiting_review == 1
+        assert kpis.generated_cvs_awaiting_application == 2
     finally:
         database.dispose()
 
@@ -164,13 +174,33 @@ def _make_call(job_id: int, **overrides: object) -> LlmCall:
     return LlmCall(**values)
 
 
-def _make_cv(job_id: int, source: CvSource, status: CvStatus) -> Cv:
+def _make_assessed_assessment(job: Job) -> Assessment:
+    return Assessment(
+        job_id=job.id,
+        status=AssessmentStatus.ASSESSED,
+        model_relevance=Relevance.HIGH,
+        role_snapshot="Platform leadership role.",
+        real_mandate="Improve delivery.",
+        primary_role_family="ARCHITECTURE",
+        seniority_fit=8,
+        technical_bar="Strong architecture judgement.",
+        fit_score=8,
+        priority_score=7,
+        decision=AssessmentDecision.GO,
+        decision_reason="Evidence supports the mandate.",
+        recommended_document_b_lane="ARCHITECTURE",
+        assessed_at=job.assessment_input_updated_at,
+        source_job_updated_at=job.assessment_input_updated_at,
+    )
+
+
+def _make_generated_cv(job_id: int, status: CvStatus) -> Cv:
     return Cv(
         job_id=job_id,
-        source=source,
+        source=CvSource.GENERATED,
         status=status,
         language=Language.EN,
-        file_name=f"{job_id}.docx",
-        file_path=f"C:/private/cvs/{job_id}.docx",
-        approved_at=datetime(2026, 7, 29, 12, 0, 0) if status is CvStatus.APPROVED else None,
+        file_name="generated-cv.docx",
+        file_path="/private/generated-cv.docx",
+        approved_at=(datetime(2026, 7, 29, 10, 0, 0) if status == CvStatus.APPROVED else None),
     )

@@ -2,11 +2,18 @@
 
 from dataclasses import dataclass
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
-from job_application_copilot.domain import BackgroundOperation, CvSource, CvStatus, LlmUsageTotals
+from job_application_copilot.domain import (
+    AssessmentStatus,
+    BackgroundOperation,
+    CvSource,
+    CvStatus,
+    LlmUsageTotals,
+    UserDecision,
+)
 from job_application_copilot.repositories import Database, LlmCallRepository
-from job_application_copilot.repositories.models import Cv, Job
+from job_application_copilot.repositories.models import Assessment, Cv, Job
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,9 +55,8 @@ class DashboardUsageKpis:
 @dataclass(frozen=True, slots=True)
 class DashboardWorkflowKpis:
     jobs_entered: int
-    cvs_generated: int
-    cvs_uploaded: int
-    cvs_approved: int
+    assessed_jobs_awaiting_review: int
+    generated_cvs_awaiting_application: int
 
 
 class DashboardKpiService:
@@ -75,16 +81,28 @@ class DashboardKpiService:
         with self.database.session() as session:
             return DashboardWorkflowKpis(
                 jobs_entered=session.scalar(select(func.count()).select_from(Job)) or 0,
-                cvs_generated=session.scalar(
-                    select(func.count()).select_from(Cv).where(Cv.source == CvSource.GENERATED)
+                assessed_jobs_awaiting_review=session.scalar(
+                    select(func.count())
+                    .select_from(Assessment)
+                    .join(Job, Job.id == Assessment.job_id)
+                    .where(
+                        Assessment.status == AssessmentStatus.ASSESSED,
+                        Job.user_decision == UserDecision.UNDECIDED,
+                    )
                 )
                 or 0,
-                cvs_uploaded=session.scalar(
-                    select(func.count()).select_from(Cv).where(Cv.source == CvSource.UPLOADED)
-                )
-                or 0,
-                cvs_approved=session.scalar(
-                    select(func.count()).select_from(Cv).where(Cv.status == CvStatus.APPROVED)
+                generated_cvs_awaiting_application=session.scalar(
+                    select(func.count())
+                    .select_from(Job)
+                    .join(Cv, Cv.job_id == Job.id)
+                    .where(
+                        or_(
+                            Job.application_status.is_(None),
+                            func.trim(Job.application_status) == "",
+                        ),
+                        Cv.source == CvSource.GENERATED,
+                        Cv.status.in_((CvStatus.READY_FOR_REVIEW, CvStatus.APPROVED)),
+                    )
                 )
                 or 0,
             )
