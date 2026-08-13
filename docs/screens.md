@@ -14,10 +14,8 @@ Job Details opens from the Jobs table.
 ### KPI cards
 
 - Jobs entered
-- Jobs assessed
-- CVs generated
-- CVs uploaded
-- CVs approved
+- Assessed jobs awaiting human review (decision is `Undecided`)
+- Generated CVs awaiting a recorded application (application status is empty)
 - Assessment tokens: total / average
 - CV-generation tokens: total / average
 - Assessment time: total / average

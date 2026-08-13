@@ -72,14 +72,13 @@ def _render_usage_kpis(kpis: DashboardUsageKpis) -> None:
 
 
 def _render_workflow_kpis(kpis: DashboardWorkflowKpis) -> None:
-    """Render counts for the entered-job and CV workflow."""
+    """Render a compact view of the job-to-submission workflow."""
 
     st.subheader("Workflow")
-    jobs, generated, uploaded, approved = st.columns(4)
-    jobs.metric("Jobs entered", kpis.jobs_entered)
-    generated.metric("CVs generated", kpis.cvs_generated)
-    uploaded.metric("CVs uploaded", kpis.cvs_uploaded)
-    approved.metric("CVs approved", kpis.cvs_approved)
+    jobs, assessed, generated = st.columns(3)
+    jobs.metric("Jobs", kpis.jobs_entered)
+    assessed.metric("Assessed awaiting review", kpis.assessed_jobs_awaiting_review)
+    generated.metric("Generated CVs awaiting application", kpis.generated_cvs_awaiting_application)
 
 
 def _render_failed_task_kpi(failed_task_count: int) -> None:

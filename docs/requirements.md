@@ -232,10 +232,8 @@ task preserves earlier attempt timings and errors and does not modify completed 
 Simple cards appear on the Dashboard page:
 
 - Jobs entered
-- Jobs assessed
-- CVs generated
-- CVs uploaded
-- CVs approved
+- Assessed jobs awaiting human review (decision is `Undecided`)
+- Generated CVs awaiting a recorded application (application status is empty)
 - Total and average assessment tokens
 - Total and average CV-generation tokens
 - Total and average assessment processing time
