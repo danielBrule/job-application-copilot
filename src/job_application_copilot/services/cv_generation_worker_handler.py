@@ -14,6 +14,7 @@ from job_application_copilot.domain import (
 )
 from job_application_copilot.llm import OpenAIClient
 from job_application_copilot.repositories import (
+    AssessmentRepository,
     CvGenerationBriefRepository,
     CvGenerationDraftRepository,
     CvGenerationFinalRepository,
@@ -27,6 +28,9 @@ from job_application_copilot.repositories.models import BackgroundTask
 from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
 )
+from job_application_copilot.services.assessment_context import AssessmentContextBuilder
+from job_application_copilot.services.assessment_execution import AssessmentExecutionService
+from job_application_copilot.services.assessment_persistence import AssessmentPersistenceService
 from job_application_copilot.services.cv_document_renderer import CvDocumentRendererService
 from job_application_copilot.services.cv_generation_brief import CvGenerationBriefService
 from job_application_copilot.services.cv_generation_draft import CvGenerationDraftService
@@ -34,6 +38,11 @@ from job_application_copilot.services.cv_generation_final import CvGenerationFin
 from job_application_copilot.services.cv_service import CvService
 
 CV_RENDER_PIPELINE_STEP = "CV_GENERATION_RENDER_DOCX"
+ASSESSMENT_CONTRACT_REFRESH_PIPELINE_STEP = "ASSESSMENT_CONTRACT_REFRESH"
+
+
+class CvGenerationAssessmentRefreshError(RuntimeError):
+    """Raised when required assessment refresh prevents CV generation."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,6 +71,7 @@ class CvGenerationWorkerHandler:
         self.settings = settings
         self.client_factory = client_factory
         self.cv_service = CvService(database, settings)
+        self.assessment_persistence = AssessmentPersistenceService(database)
 
     def __call__(self, task: BackgroundTask) -> None:
         """Execute every English stage, render its DOCX, and make it ready for review."""
@@ -73,6 +83,7 @@ class CvGenerationWorkerHandler:
         client: OpenAIClient | None = None
         try:
             client = self.client_factory(self.settings)
+            self._refresh_assessment_if_contract_stale(task, task_attempt_id, client)
             CvGenerationBriefService(self.database, self.settings, client).run(
                 task, task_attempt_id=task_attempt_id
             )
@@ -103,6 +114,37 @@ class CvGenerationWorkerHandler:
             if client is not None:
                 client.close()
 
+    def _refresh_assessment_if_contract_stale(
+        self,
+        task: BackgroundTask,
+        task_attempt_id: int,
+        client: OpenAIClient,
+    ) -> None:
+        """Refresh an obsolete assessment before CV-generation stage one."""
+
+        contract = AssessmentContextBuilder(self.database, self.settings).current_contract()
+        with self.database.session() as session:
+            assessment = AssessmentRepository(session).require_for_job(task.job_id)
+            if AssessmentRepository.is_current_contract(
+                assessment,
+                document_a_version=contract.document_a_version,
+                prompt_version=contract.prompt_version,
+            ):
+                return
+
+        self._set_pipeline_step(task.id, ASSESSMENT_CONTRACT_REFRESH_PIPELINE_STEP)
+        result = AssessmentExecutionService(self.database, self.settings, client).assess(
+            task.job_id,
+            task_id=task.id,
+            task_attempt_id=task_attempt_id,
+        )
+        self.assessment_persistence.persist(result)
+        if not result.succeeded:
+            raise CvGenerationAssessmentRefreshError(
+                "CV generation requires a refreshed assessment: "
+                f"{result.error_message or 'assessment did not complete.'}"
+            )
+
     def _task_attempt_id(self, task_id: int) -> int:
         with self.database.session() as session:
             attempt = BackgroundTaskRepository(session).get_running_attempt(task_id)
@@ -119,8 +161,6 @@ class CvGenerationWorkerHandler:
         with self.database.session() as session:
             task = BackgroundTaskRepository(session).require(task_id)
             job = JobRepository(session).require(task.job_id)
-            if job.language is not Language.EN:
-                raise ValueError("English CV generation requires an English-language job.")
             brief = CvGenerationBriefRepository(session).require_for_task(task_id)
             draft = CvGenerationDraftRepository(session).require_for_task(task_id)
             final = CvGenerationFinalRepository(session).require_for_task(task_id)

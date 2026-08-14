@@ -242,9 +242,11 @@ only after a relevant job edit makes it stale. The successful row remains availa
 reassessment runs, and a failed reassessment must not replace it; operational retry and failure
 details remain on the background task and its retained attempts.
 
-Staleness compares `Assessment.source_job_updated_at` with
+Job-input staleness compares `Assessment.source_job_updated_at` with
 `Job.assessment_input_updated_at`. Administrative, application-tracking and human-review edits do
-not advance the job timestamp and therefore do not make an assessment stale.
+not advance the job timestamp and therefore do not make an assessment stale. Before CV generation,
+assessment-contract currentness also compares stored Document A and assessment-prompt versions with
+the active READY versions; a mismatch requires successful reassessment.
 
 An `ASSESSED` row must populate the model relevance, role snapshot, real mandate, primary and
 secondary role families, fit and priority scores, strong-fit signals, red flags, sustainability

@@ -3,6 +3,7 @@
 import logging
 import re
 from datetime import date
+from html import escape
 
 import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
@@ -13,7 +14,7 @@ from job_application_copilot.errors import ApplicationValidationError
 from job_application_copilot.observability import get_logger, log_event
 from job_application_copilot.repositories.assessment_repository import AssessmentNotFoundError
 from job_application_copilot.repositories.job_repository import JobNotFoundError
-from job_application_copilot.repositories.models import Cv
+from job_application_copilot.repositories.models import Cv, Job
 from job_application_copilot.services import (
     AssessmentReviewNotEligibleError,
     CvFileMissingError,
@@ -77,7 +78,7 @@ def render_job_details(
         st.page_link("pages/jobs.py", label="Back to Jobs")
         return
 
-    st.title(f"Job details — {detail.job.job_title} ({detail.job.company})")
+    _render_job_details_heading(detail.job)
     default_tab = "CV" if st.query_params.get("tab") == "cv" else "Job"
     job_tab, assessment_tab, cv_tab = st.tabs(["Job", "Assessment", "CV"], default=default_tab)
     with job_tab:
@@ -86,6 +87,20 @@ def render_job_details(
         render_assessment_detail(detail, service)
     with cv_tab:
         _render_cv_tab(detail, service, cv_service, upload_service, opener, generation_service)
+
+
+def _render_job_details_heading(job: Job) -> None:
+    """Render the title, linking the job title to its original posting when available."""
+
+    if job.job_url is None:
+        st.title(f"Job details — {job.job_title} ({job.company})")
+        return
+    st.markdown(
+        "# Job details — "
+        f'<a href="{escape(job.job_url, quote=True)}" target="_blank" '
+        f'rel="noopener noreferrer">{escape(job.job_title)}</a> ({escape(job.company)})',
+        unsafe_allow_html=True,
+    )
 
 
 def _render_cv_tab(
@@ -238,6 +253,9 @@ def _render_cv_generation(
 
 def _render_cv_review_navigation(job_id: int, service: CvService) -> None:
     navigation = service.review_navigation(job_id)
+    next_job_id = service.next_outstanding_default_application_status_review_job_id(
+        excluding_job_id=job_id
+    )
     previous, next_job = st.columns(2)
     with previous:
         st.page_link(
@@ -249,14 +267,16 @@ def _render_cv_review_navigation(job_id: int, service: CvService) -> None:
             else None,
         )
     with next_job:
-        st.page_link(
-            "pages/job_details.py",
-            label="Next CV",
-            disabled=navigation.next_job_id is None,
-            query_params={"job_id": str(navigation.next_job_id)} | {"tab": "cv"}
-            if navigation.next_job_id
-            else None,
-        )
+        if st.button(
+            "Next CV",
+            key=f"next_cv_review_{job_id}",
+            disabled=next_job_id is None,
+        ):
+            assert next_job_id is not None
+            st.switch_page(
+                "pages/job_details.py",
+                query_params={"job_id": str(next_job_id), "tab": "cv"},
+            )
 
 
 def render_assessment_detail(detail: JobAssessmentDetail, service: JobService) -> None:

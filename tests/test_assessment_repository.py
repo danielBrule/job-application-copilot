@@ -50,6 +50,28 @@ def add_job(database: Database) -> Job:
         return job
 
 
+def assessed(job: Job, *, document_a_version: int | None, prompt_version: int | None) -> Assessment:
+    return Assessment(
+        job_id=job.id,
+        status=AssessmentStatus.ASSESSED,
+        model_relevance=Relevance.HIGH,
+        role_snapshot="Role snapshot",
+        real_mandate="Real mandate",
+        primary_role_family="Primary",
+        fit_score=8,
+        priority_score=7,
+        technical_bar="Technical bar",
+        seniority_fit=9,
+        decision=AssessmentDecision.GO,
+        decision_reason="Strong fit",
+        recommended_document_b_lane="HEAD_OF_SOLUTIONS_ARCHITECTURE",
+        assessed_at=datetime(2026, 7, 29, 10, 0, 0),
+        source_job_updated_at=job.assessment_input_updated_at,
+        document_a_version=document_a_version,
+        prompt_version=prompt_version,
+    )
+
+
 def test_add_get_require_and_missing(migrated_database: Database) -> None:
     job = add_job(migrated_database)
     with migrated_database.session() as session:
@@ -133,3 +155,55 @@ def test_stale_compares_only_assessment_input_timestamp(
 
         stored_job.assessment_input_updated_at = datetime(2026, 7, 29, 10, 0, 1)
         assert repository.is_stale(assessment, stored_job) is True
+
+
+def test_current_contract_requires_matching_active_document_a_and_prompt_versions(
+    migrated_database: Database,
+) -> None:
+    job = add_job(migrated_database)
+    with migrated_database.session() as session:
+        assessment = AssessmentRepository(session).add(
+            assessed(job, document_a_version=2, prompt_version=3)
+        )
+
+        assert AssessmentRepository.is_current_contract(
+            assessment,
+            document_a_version=2,
+            prompt_version=3,
+        )
+        assert not AssessmentRepository.is_current_contract(
+            assessment,
+            document_a_version=4,
+            prompt_version=3,
+        )
+        assert not AssessmentRepository.is_current_contract(
+            assessment,
+            document_a_version=2,
+            prompt_version=4,
+        )
+
+
+def test_current_contract_rejects_legacy_or_unsuccessful_assessments(
+    migrated_database: Database,
+) -> None:
+    job = add_job(migrated_database)
+    with migrated_database.session() as session:
+        legacy = AssessmentRepository(session).add(
+            assessed(job, document_a_version=None, prompt_version=None)
+        )
+        assert not AssessmentRepository.is_current_contract(
+            legacy,
+            document_a_version=1,
+            prompt_version=1,
+        )
+
+        legacy.status = AssessmentStatus.FAILED
+        legacy.assessed_at = None
+        legacy.error_message = "Assessment failed."
+        legacy.document_a_version = 1
+        legacy.prompt_version = 1
+        assert not AssessmentRepository.is_current_contract(
+            legacy,
+            document_a_version=1,
+            prompt_version=1,
+        )

@@ -152,6 +152,14 @@ class _PromptInput:
 
 
 @dataclass(frozen=True, slots=True)
+class AssessmentContract:
+    """The active READY inputs that define an assessment's validity."""
+
+    document_a_version: int
+    prompt_version: int
+
+
+@dataclass(frozen=True, slots=True)
 class _RoutingInput:
     routing_set_id: int
     routing_config_version: str
@@ -235,6 +243,16 @@ class AssessmentContextBuilder:
             response_schema=schema,
             traceability=traceability,
             cache_identity=cache_identity,
+        )
+
+    def current_contract(self) -> AssessmentContract:
+        """Return versions of the active READY inputs required for assessment."""
+
+        document_a = self._document_a()
+        prompt = self._assessment_prompt()
+        return AssessmentContract(
+            document_a_version=document_a.version,
+            prompt_version=prompt.version,
         )
 
     def _resolve_model_identifier(self, explicit_model: str | None) -> str:

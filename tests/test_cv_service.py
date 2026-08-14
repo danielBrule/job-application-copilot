@@ -138,6 +138,59 @@ def test_review_navigation_only_includes_generated_cvs_with_default_application_
     navigation = service.review_navigation(first.id)
     assert navigation.previous_job_id == second.id
     assert navigation.next_job_id is None
+    assert (
+        service.next_outstanding_default_application_status_review_job_id(excluding_job_id=first.id)
+        == second.id
+    )
+
+
+def test_next_outstanding_review_cv_excludes_the_just_recorded_application(
+    service_with_job: tuple[CvService, Database, Job, AppSettings],
+) -> None:
+    service, database, completed, _ = service_with_job
+    with database.session() as session:
+        next_job = Job(
+            company="Next Ltd",
+            job_title="Architect",
+            location=Location.UK,
+            language=Language.EN,
+            source="LinkedIn",
+            job_description="Design reliable platforms.",
+            date_added=date(2026, 8, 7),
+        )
+        stored_completed = session.get(Job, completed.id)
+        assert stored_completed is not None
+        stored_completed.application_status = "Applied"
+        session.add(next_job)
+        session.flush()
+        session.add_all(
+            (
+                Cv(
+                    job_id=completed.id,
+                    source=CvSource.GENERATED,
+                    status=CvStatus.READY_FOR_REVIEW,
+                    language=Language.EN,
+                    file_name="completed.docx",
+                    file_path="C:/private/cvs/completed.docx",
+                ),
+                Cv(
+                    job_id=next_job.id,
+                    source=CvSource.GENERATED,
+                    status=CvStatus.READY_FOR_REVIEW,
+                    language=Language.EN,
+                    file_name="next.docx",
+                    file_path="C:/private/cvs/next.docx",
+                ),
+            )
+        )
+
+    assert service.review_navigation(completed.id) == (None, None)
+    assert (
+        service.next_outstanding_default_application_status_review_job_id(
+            excluding_job_id=completed.id
+        )
+        == next_job.id
+    )
 
 
 @pytest.mark.parametrize("inside", [False, True])

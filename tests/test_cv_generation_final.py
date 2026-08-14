@@ -62,6 +62,33 @@ def test_contract_rejects_missing_or_invented_experience_placeholder() -> None:
         contract.validate(output)
 
 
+def test_contract_validation_is_available_to_the_stage_output_validator() -> None:
+    contract = CvTemplateContract(
+        CvTemplateManifest(
+            template_asset_id=1,
+            status=CvTemplateManifestStatus.CONFIRMED,
+            placeholders=("[OPENING_TITLE]", "[OPENING_PROFILE]", "[SKILLS]", "[EXPERIENCE_ONE]"),
+            slots=(
+                CvTemplateSlotMapping(
+                    placeholder="[OPENING_TITLE]", kind=CvTemplateSlotKind.OPENING_TITLE
+                ),
+                CvTemplateSlotMapping(
+                    placeholder="[OPENING_PROFILE]", kind=CvTemplateSlotKind.OPENING_PROFILE
+                ),
+                CvTemplateSlotMapping(placeholder="[SKILLS]", kind=CvTemplateSlotKind.SKILLS),
+                CvTemplateSlotMapping(
+                    placeholder="[EXPERIENCE_ONE]",
+                    kind=CvTemplateSlotKind.EXPERIENCE,
+                    experience_target="One",
+                ),
+            ),
+        )
+    )
+
+    with pytest.raises(CvTemplateContractError, match="experience placeholders"):
+        CvGenerationFinalService._validated_contract_output(json.dumps(payload()), contract)
+
+
 def test_contract_normalises_an_experience_title_to_its_matching_slot() -> None:
     output = CvGenerationFinalService._validated_output(json.dumps(payload()))
     first_placeholder = output.experience[0].placeholder

@@ -15,6 +15,7 @@ from job_application_copilot.services.assessment_context import (
     AssessmentContext,
     AssessmentContextBuilder,
     AssessmentContextError,
+    AssessmentContract,
     AssessmentFileInput,
     AssessmentTextInput,
     AssessmentTraceability,
@@ -66,6 +67,7 @@ from job_application_copilot.services.cv_generation_final import (
     CvGenerationFinalService,
 )
 from job_application_copilot.services.cv_generation_worker_handler import (
+    CvGenerationAssessmentRefreshError,
     CvGenerationWorkerHandler,
 )
 from job_application_copilot.services.cv_selection import (
@@ -204,6 +206,7 @@ __all__ = [
     "AssessmentBatchQueueResult",
     "AssessmentBatchService",
     "AssessmentContext",
+    "AssessmentContract",
     "AssessmentContextBuilder",
     "AssessmentContextError",
     "AssessmentExecutionResult",
@@ -224,6 +227,7 @@ __all__ = [
     "CvGenerationDraftResult",
     "CvGenerationDraftService",
     "CvGenerationBatchQueueResult",
+    "CvGenerationAssessmentRefreshError",
     "CvGenerationBatchService",
     "CvGenerationFinalResult",
     "CvGenerationFinalService",

@@ -93,6 +93,10 @@ at `ui/app.py` and `ui/dependencies.py`.
 
 Background processing uses a separate local worker polling a SQLite-backed task table.
 
+Before CV-generation stage one, the worker verifies that the current assessment used the active
+READY assessment prompt and Document A versions. It reassesses mismatches in the claimed task and
+stops that task when reassessment fails; the prior successful assessment remains retained.
+
 - Default concurrency is one.
 - Assessment and CV generation may have separate configured worker counts.
 - Each concurrent worker uses its own database session.
