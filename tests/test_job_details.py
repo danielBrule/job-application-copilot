@@ -19,6 +19,7 @@ from job_application_copilot.services.database_bootstrap import initialize_datab
 from job_application_copilot.ui.components.job_details import (
     _can_record_application,
     _effective_relevance,
+    _render_job_details_heading,
     parse_job_id,
     summary_bullets,
 )
@@ -32,6 +33,57 @@ def test_parse_job_id_rejects_missing_or_invalid_values(value: str | None) -> No
 
 def test_parse_job_id_accepts_positive_integer() -> None:
     assert parse_job_id("42") == 42
+
+
+def test_job_details_heading_links_the_job_title_to_the_posting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    job = Job(
+        company="Example & Co",
+        job_title="Platform <Architect>",
+        job_url="https://example.com/job?source=jobs&role=architect",
+        location=Location.UK,
+        language=Language.EN,
+        source="LinkedIn",
+        job_description="Lead architecture.",
+        date_added=date(2026, 7, 30),
+    )
+    rendered: dict[str, object] = {}
+    monkeypatch.setattr(
+        "job_application_copilot.ui.components.job_details.st.markdown",
+        lambda *args, **kwargs: rendered.update(text=args[0], **kwargs),
+    )
+
+    _render_job_details_heading(job)
+
+    assert rendered["unsafe_allow_html"] is True
+    assert (
+        rendered["text"]
+        == '# Job details — <a href="https://example.com/job?source=jobs&amp;role=architect" '
+        'target="_blank" rel="noopener noreferrer">Platform &lt;Architect&gt;</a> (Example &amp; Co)'
+    )
+
+
+def test_job_details_heading_without_url_uses_a_standard_title(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    job = Job(
+        company="Example Ltd",
+        job_title="Platform Architect",
+        location=Location.UK,
+        language=Language.EN,
+        source="LinkedIn",
+        job_description="Lead architecture.",
+        date_added=date(2026, 7, 30),
+    )
+    rendered: list[str] = []
+    monkeypatch.setattr(
+        "job_application_copilot.ui.components.job_details.st.title", rendered.append
+    )
+
+    _render_job_details_heading(job)
+
+    assert rendered == ["Job details — Platform Architect (Example Ltd)"]
 
 
 def test_assessment_detail_returns_current_result_and_detects_staleness(tmp_path) -> None:

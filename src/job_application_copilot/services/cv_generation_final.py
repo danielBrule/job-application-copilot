@@ -27,7 +27,10 @@ from job_application_copilot.services.cv_generation_context import (
     CvGenerationContext,
     CvGenerationContextBuilder,
 )
-from job_application_copilot.services.cv_template_contract import CvTemplateContractService
+from job_application_copilot.services.cv_template_contract import (
+    CvTemplateContract,
+    CvTemplateContractService,
+)
 from job_application_copilot.services.ordered_prompt_pipeline import (
     OrderedPromptPipelineResult,
     OrderedPromptPipelineService,
@@ -73,15 +76,16 @@ class CvGenerationFinalService:
             position=3,
             pipeline_step=CV_FINAL_PIPELINE_STEP,
             request_factory=lambda prior: self._request(context, prior),
-            output_validator=lambda text: self._validated_output(text).model_dump_json(),
+            output_validator=lambda text: self._validated_contract_output(
+                text, contract
+            ).model_dump_json(),
         )
         pipeline = OrderedPromptPipelineService(
             self.database,
             self.client,
             max_retries=self.settings.cv_generation_max_retries,
         ).run(task, task_attempt_id=task_attempt_id, stages=(stage,))
-        output = contract.normalise_experience_titles(self._validated_output(pipeline.outputs[0]))
-        contract.validate(output)
+        output = self._validated_contract_output(pipeline.outputs[0], contract)
         with self.database.session() as session:
             CvGenerationFinalRepository(session).store(
                 task_id=task.id,
@@ -140,3 +144,9 @@ class CvGenerationFinalService:
     @staticmethod
     def _validated_output(text: str) -> FinalCvOutput:
         return FinalCvOutput.model_validate_json(text)
+
+    @classmethod
+    def _validated_contract_output(cls, text: str, contract: CvTemplateContract) -> FinalCvOutput:
+        output = contract.normalise_experience_titles(cls._validated_output(text))
+        contract.validate(output)
+        return output

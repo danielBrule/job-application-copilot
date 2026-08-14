@@ -119,8 +119,6 @@ class CvGenerationWorkerHandler:
         with self.database.session() as session:
             task = BackgroundTaskRepository(session).require(task_id)
             job = JobRepository(session).require(task.job_id)
-            if job.language is not Language.EN:
-                raise ValueError("English CV generation requires an English-language job.")
             brief = CvGenerationBriefRepository(session).require_for_task(task_id)
             draft = CvGenerationDraftRepository(session).require_for_task(task_id)
             final = CvGenerationFinalRepository(session).require_for_task(task_id)

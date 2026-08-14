@@ -279,6 +279,8 @@ def render_jobs_dashboard(
         st.success(assessment_message)
     if cv_generation_message := st.session_state.pop(ALL_SELECTED_CV_GENERATION_SUCCESS_KEY, None):
         st.success(cv_generation_message)
+    if cv_regeneration_message := st.session_state.pop(CV_REGENERATION_SUCCESS_KEY, None):
+        st.success(cv_regeneration_message)
     try:
         all_jobs = service.list()
         first_review_job_id = service.first_assessment_review_job_id()
@@ -410,6 +412,7 @@ def render_jobs_dashboard(
 
     _render_assess_all_unassessed(assessment_batch_service)
     _render_generate_all_selected_cvs(cv_generation_batch_service)
+    _render_regenerate_selected_cvs(cv_generation_batch_service, selected_ids)
     _render_delete_selected_jobs(service, selected_ids)
 
 
@@ -799,6 +802,7 @@ def _cv_generation_skip_summary(result: CvGenerationBatchQueueResult) -> str:
         CvGenerationQueueSkipReason.MISSING_CV_LANE: "missing a confirmed CV lane",
         CvGenerationQueueSkipReason.CV_LANE_NOT_CURRENT: "CV lane is no longer current",
         CvGenerationQueueSkipReason.CV_GENERATION_ALREADY_QUEUED: "CV generation is already queued",
+        CvGenerationQueueSkipReason.CV_ALREADY_GENERATED: "already has a generated CV",
         CvGenerationQueueSkipReason.NO_GENERATION_TO_RESTART: "no generated or failed CV to restart",
     }
     details = "; ".join(f"job {skip.job_id}: {labels[skip.reason]}" for skip in result.skipped)

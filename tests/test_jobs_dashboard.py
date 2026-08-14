@@ -15,13 +15,31 @@ from job_application_copilot.domain import (
     UserDecision,
 )
 from job_application_copilot.repositories.models import Cv, Job
+from job_application_copilot.services.cv_generation_batch import (
+    CvGenerationBatchQueueResult,
+    CvGenerationQueueSkip,
+    CvGenerationQueueSkipReason,
+)
 from job_application_copilot.services.job_service import JobAssessmentSummary
 from job_application_copilot.ui.components.jobs_dashboard import (
     TABLE_COLUMN_ORDER,
     JobDashboardRow,
+    _cv_generation_skip_summary,
     selected_job_ids,
     shape_job_rows,
 )
+
+
+def test_cv_generation_skip_summary_handles_previously_generated_cv() -> None:
+    result = CvGenerationBatchQueueResult(
+        batch_id=None,
+        queued_job_ids=(),
+        skipped=(CvGenerationQueueSkip(42, CvGenerationQueueSkipReason.CV_ALREADY_GENERATED),),
+    )
+
+    assert _cv_generation_skip_summary(result) == (
+        "Skipped 1 ineligible jobs (job 42: already has a generated CV)."
+    )
 
 
 def make_job(job_id: int, company: str) -> Job:

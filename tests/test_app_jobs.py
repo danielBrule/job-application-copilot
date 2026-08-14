@@ -310,7 +310,7 @@ def test_jobs_dashboard_queues_all_selected_jobs_for_cv_generation(
         reset_logging()
 
 
-def _test_jobs_dashboard_queues_selected_generated_cv_for_regeneration(
+def test_jobs_dashboard_queues_selected_generated_cv_for_regeneration(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -648,7 +648,10 @@ def test_job_details_form_loads_existing_values_and_persists_edits(
         app.switch_page("pages/job_details.py").run()
 
         assert not app.exception
-        assert app.title[0].value == "Job details — Original title (Original Ltd)"
+        assert any(
+            "Original title" in markdown.value and "Original Ltd" in markdown.value
+            for markdown in app.markdown
+        )
         assert app.subheader[0].value == "Edit job"
         assert app.text_input(key=f"edit_job_{job.id}_company").value == "Original Ltd"
         assert app.text_input(key=f"edit_job_{job.id}_job_title").value == "Original title"

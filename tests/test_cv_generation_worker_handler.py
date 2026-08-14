@@ -110,7 +110,9 @@ def database(tmp_path: Path) -> Database:
         database.dispose()
 
 
-def add_tasks(database: Database, companies: list[str]) -> list[BackgroundTask]:
+def add_tasks(
+    database: Database, companies: list[str], *, language: Language = Language.EN
+) -> list[BackgroundTask]:
     with database.session() as session:
         batch = BackgroundBatchRepository(session).add(
             BackgroundBatch(operation=BackgroundOperation.CV_GENERATION)
@@ -121,7 +123,7 @@ def add_tasks(database: Database, companies: list[str]) -> list[BackgroundTask]:
                 company=company,
                 job_title="Platform Engineer",
                 location=Location.UK,
-                language=Language.EN,
+                language=language,
                 source="LinkedIn",
                 job_description="Build reliable systems.",
                 date_added=date(2026, 8, 7),
@@ -249,6 +251,45 @@ def test_failed_task_does_not_stop_a_sibling_cv_task(
         )
     assert first_client.close_count == 1
     assert second_client.close_count == 1
+
+
+def test_french_job_currently_runs_the_english_generation_pipeline(
+    database: Database,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (task,) = add_tasks(database, ["French job"], language=Language.FR)
+    settings = AppSettings(_env_file=None, data_dir=tmp_path / "data")
+    calls = StageFakes(settings.cv_folder / "rendered.docx").install(monkeypatch)
+    monkeypatch.setattr(
+        CvGenerationWorkerHandler,
+        "_metadata",
+        lambda self, task_id: metadata("French job"),
+    )
+    handler = CvGenerationWorkerHandler(
+        database,
+        settings,
+        client_factory=lambda _: FakeClient(),
+    )
+
+    assert BackgroundWorker(
+        database, {BackgroundOperation.CV_GENERATION: handler}
+    ).process_next_task()
+
+    with database.session() as session:
+        assert (
+            BackgroundTaskRepository(session).require(task.id).status
+            is BackgroundTaskStatus.COMPLETED
+        )
+        cv = CvRepository(session).require_for_job(task.job_id)
+        assert cv.language is Language.EN
+        assert cv.status is CvStatus.READY_FOR_REVIEW
+    assert calls == [
+        f"brief:{task.id}",
+        f"draft:{task.id}",
+        f"final:{task.id}",
+        "render:French job",
+    ]
 
 
 def test_rejects_non_cv_generation_task(database: Database, tmp_path: Path) -> None:
