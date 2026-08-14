@@ -67,6 +67,21 @@ class AssessmentRepository:
             and assessment.source_job_updated_at != job.assessment_input_updated_at
         )
 
+    @staticmethod
+    def is_current_contract(
+        assessment: Assessment,
+        *,
+        document_a_version: int,
+        prompt_version: int,
+    ) -> bool:
+        """Return whether an assessment used the active assessment inputs."""
+
+        return (
+            assessment.status is AssessmentStatus.ASSESSED
+            and assessment.document_a_version == document_a_version
+            and assessment.prompt_version == prompt_version
+        )
+
     def mark_running(self, assessment: Assessment) -> Assessment:
         """Start or retry an assessment that has not already succeeded."""
 

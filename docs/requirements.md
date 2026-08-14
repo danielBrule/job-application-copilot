@@ -127,6 +127,9 @@ French path:
 Requirements:
 
 - The stored assessment is input to CV generation.
+- Before generation starts, the assessment must match the active READY assessment prompt and
+  Document A versions. A mismatch triggers reassessment; if it fails, generation does not use the
+  obsolete assessment.
 - The selected CV lane is a controlled, data-driven identifier used as an exact key in a versioned
   routing configuration bound to the active Document B version.
 - Mandatory Document B section trees are selected deterministically from that routing configuration.

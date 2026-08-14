@@ -12,12 +12,15 @@ import pytest
 import job_application_copilot.services.cv_generation_worker_handler as handler_module
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import (
+    AssessmentDecision,
+    AssessmentStatus,
     BackgroundOperation,
     BackgroundTaskStatus,
     CvSource,
     CvStatus,
     Language,
     Location,
+    Relevance,
 )
 from job_application_copilot.repositories import (
     BackgroundBatchRepository,
@@ -26,7 +29,12 @@ from job_application_copilot.repositories import (
     Database,
     create_database,
 )
-from job_application_copilot.repositories.models import BackgroundBatch, BackgroundTask, Job
+from job_application_copilot.repositories.models import (
+    Assessment,
+    BackgroundBatch,
+    BackgroundTask,
+    Job,
+)
 from job_application_copilot.services import CvService
 from job_application_copilot.services.background_worker import BackgroundWorker
 from job_application_copilot.services.cv_generation_worker_handler import (
@@ -48,6 +56,7 @@ class FakeClient:
 class StageFakes:
     rendered_path: Path
     fail_task_id: int | None = None
+    bypass_contract_refresh: bool = True
 
     def install(self, monkeypatch: pytest.MonkeyPatch) -> list[str]:
         calls: list[str] = []
@@ -96,6 +105,12 @@ class StageFakes:
         monkeypatch.setattr(handler_module, "CvGenerationDraftService", Draft)
         monkeypatch.setattr(handler_module, "CvGenerationFinalService", Final)
         monkeypatch.setattr(handler_module, "CvDocumentRendererService", Renderer)
+        if self.bypass_contract_refresh:
+            monkeypatch.setattr(
+                CvGenerationWorkerHandler,
+                "_refresh_assessment_if_contract_stale",
+                lambda self, task, task_attempt_id, client: None,
+            )
         return calls
 
 
@@ -151,6 +166,39 @@ def metadata(company: str) -> CvGenerationMetadata:
         template_version=4,
         generation_prompt_versions={"stage_1": 5, "stage_2": 6, "stage_3": 7},
     )
+
+
+def add_assessment(
+    database: Database,
+    job_id: int,
+    *,
+    document_a_version: int,
+    prompt_version: int,
+) -> None:
+    with database.session() as session:
+        job = session.get(Job, job_id)
+        assert job is not None
+        session.add(
+            Assessment(
+                job_id=job_id,
+                status=AssessmentStatus.ASSESSED,
+                model_relevance=Relevance.HIGH,
+                role_snapshot="Role snapshot",
+                real_mandate="Real mandate",
+                primary_role_family="ARCHITECTURE",
+                fit_score=8,
+                priority_score=8,
+                technical_bar="Technical bar",
+                seniority_fit=8,
+                decision=AssessmentDecision.GO,
+                decision_reason="Strong fit.",
+                recommended_document_b_lane="ARCHITECTURE",
+                assessed_at=job.assessment_input_updated_at,
+                source_job_updated_at=job.assessment_input_updated_at,
+                document_a_version=document_a_version,
+                prompt_version=prompt_version,
+            )
+        )
 
 
 def test_english_task_runs_three_stages_renders_and_becomes_ready_for_review(
@@ -302,3 +350,136 @@ def test_rejects_non_cv_generation_task(database: Database, tmp_path: Path) -> N
 
     with pytest.raises(ValueError, match="non-CV-generation"):
         handler(task)
+
+
+def test_current_assessment_does_not_trigger_refresh(
+    database: Database,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (task,) = add_tasks(database, ["Current Ltd"])
+    add_assessment(database, task.job_id, document_a_version=2, prompt_version=3)
+
+    class ContextBuilder:
+        def __init__(self, *args: object) -> None:
+            del args
+
+        def current_contract(self) -> SimpleNamespace:
+            return SimpleNamespace(document_a_version=2, prompt_version=3)
+
+    class Execution:
+        def __init__(self, *args: object) -> None:
+            raise AssertionError("A current assessment must not be reassessed.")
+
+    monkeypatch.setattr(handler_module, "AssessmentContextBuilder", ContextBuilder)
+    monkeypatch.setattr(handler_module, "AssessmentExecutionService", Execution)
+    handler = CvGenerationWorkerHandler(
+        database,
+        AppSettings(_env_file=None, data_dir=tmp_path / "data"),
+        client_factory=lambda _: FakeClient(),
+    )
+
+    handler._refresh_assessment_if_contract_stale(task, task_attempt_id=1, client=FakeClient())
+
+
+@pytest.mark.parametrize(
+    ("stored_document_a_version", "stored_prompt_version"),
+    [(1, 3), (2, 2)],
+)
+def test_stale_assessment_contract_is_refreshed_before_cv_stages(
+    database: Database,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    stored_document_a_version: int,
+    stored_prompt_version: int,
+) -> None:
+    (task,) = add_tasks(database, ["Stale Ltd"])
+    add_assessment(
+        database,
+        task.job_id,
+        document_a_version=stored_document_a_version,
+        prompt_version=stored_prompt_version,
+    )
+    calls: list[str] = []
+
+    class ContextBuilder:
+        def __init__(self, *args: object) -> None:
+            del args
+
+        def current_contract(self) -> SimpleNamespace:
+            return SimpleNamespace(document_a_version=2, prompt_version=3)
+
+    class Execution:
+        def __init__(self, *args: object) -> None:
+            del args
+
+        def assess(self, job_id: int, **kwargs: object) -> SimpleNamespace:
+            assert job_id == task.job_id
+            assert kwargs == {"task_id": task.id, "task_attempt_id": 1}
+            calls.append("assess")
+            return SimpleNamespace(succeeded=True)
+
+    monkeypatch.setattr(handler_module, "AssessmentContextBuilder", ContextBuilder)
+    monkeypatch.setattr(handler_module, "AssessmentExecutionService", Execution)
+    handler = CvGenerationWorkerHandler(
+        database,
+        AppSettings(_env_file=None, data_dir=tmp_path / "data"),
+        client_factory=lambda _: FakeClient(),
+    )
+    monkeypatch.setattr(handler, "_set_pipeline_step", lambda *_: calls.append("step"))
+    monkeypatch.setattr(
+        handler.assessment_persistence, "persist", lambda _: calls.append("persist")
+    )
+
+    handler._refresh_assessment_if_contract_stale(task, task_attempt_id=1, client=FakeClient())
+
+    assert calls == ["step", "assess", "persist"]
+
+
+def test_failed_assessment_refresh_stops_cv_generation_before_stage_one(
+    database: Database,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (task,) = add_tasks(database, ["Failure Ltd"])
+    add_assessment(database, task.job_id, document_a_version=1, prompt_version=1)
+    settings = AppSettings(_env_file=None, data_dir=tmp_path / "data")
+    stage_calls = StageFakes(
+        settings.cv_folder / "rendered.docx",
+        bypass_contract_refresh=False,
+    ).install(monkeypatch)
+
+    class ContextBuilder:
+        def __init__(self, *args: object) -> None:
+            del args
+
+        def current_contract(self) -> SimpleNamespace:
+            return SimpleNamespace(document_a_version=2, prompt_version=2)
+
+    class Execution:
+        def __init__(self, *args: object) -> None:
+            del args
+
+        def assess(self, *args: object, **kwargs: object) -> SimpleNamespace:
+            del args, kwargs
+            return SimpleNamespace(succeeded=False, error_message="Assessment timed out")
+
+    monkeypatch.setattr(handler_module, "AssessmentContextBuilder", ContextBuilder)
+    monkeypatch.setattr(handler_module, "AssessmentExecutionService", Execution)
+    handler = CvGenerationWorkerHandler(database, settings, client_factory=lambda _: FakeClient())
+    persisted: list[object] = []
+    monkeypatch.setattr(handler.assessment_persistence, "persist", persisted.append)
+
+    assert BackgroundWorker(
+        database, {BackgroundOperation.CV_GENERATION: handler}
+    ).process_next_task()
+
+    with database.session() as session:
+        stored_task = BackgroundTaskRepository(session).require(task.id)
+        assessment = session.get(Assessment, task.job_id)
+        assert stored_task.status is BackgroundTaskStatus.FAILED
+        assert assessment is not None
+        assert assessment.document_a_version == 1
+        assert assessment.prompt_version == 1
+    assert len(persisted) == 1
+    assert stage_calls == []
