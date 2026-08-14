@@ -8,7 +8,7 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from job_application_copilot.domain import LaneId
+from job_application_copilot.domain import LaneId, MandateSupportCategory
 
 
 class RoutingConfigError(ValueError):
@@ -97,12 +97,19 @@ class ConditionalGuardrailConfig(ConfigModel):
     required_sections: tuple[str, ...]
 
 
+class MandateSupportCategoryConfig(ConfigModel):
+    """Narrow Document B material available for one controlled mandate category."""
+
+    sections: tuple[str, ...] = Field(min_length=1)
+
+
 class DocumentBRoutingConfig(ConfigModel):
     schema_version: Literal[1]
     routing_config_version: str = Field(min_length=1)
     resolution: ResolutionConfig
     section_catalog: dict[str, SectionCatalogEntry]
     conditional_guardrails: tuple[ConditionalGuardrailConfig, ...]
+    mandate_support_categories: dict[MandateSupportCategory, MandateSupportCategoryConfig]
     shared_route: SharedRouteConfig
     lanes: dict[LaneId, LaneRouteConfig]
     supporting_routes: dict[str, SupportingRouteConfig]
@@ -194,6 +201,8 @@ def referenced_logical_section_ids(config: DocumentBRoutingConfig) -> set[str]:
     for rule in config.conditional_guardrails:
         references.update(rule.trigger_sections)
         references.update(rule.required_sections)
+    for support in config.mandate_support_categories.values():
+        references.update(support.sections)
     for supporting_route in config.supporting_routes.values():
         references.update(supporting_route.available_sections)
         references.update(supporting_route.sections)

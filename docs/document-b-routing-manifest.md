@@ -56,6 +56,7 @@ runtime source of truth because it records the exact YAML, Document B and extrac
 | `resolution` | Fixed exact-heading matching policy. | Developers |
 | `section_catalog` | Stable logical names mapped to exact Document B heading paths. | Content owner |
 | `conditional_guardrails` | Safety sections required when later selection uses a trigger scope. | Content owner |
+| `mandate_support_categories` | Controlled assessment category to narrow thematic-section mappings. | Content owner |
 | `shared_route` | Material required for every supported lane. | Content owner |
 | `lanes` | The selectable role-family/CV-lane keys and their routes. | Content owner |
 | `supporting_routes` | Available supporting-only or incomplete directions, not valid primary lanes. | Content owner |

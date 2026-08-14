@@ -18,6 +18,10 @@ supporting dimension must not be discarded merely because it does not justify
 a secondary role family. For each returned material dimension, record its
 importance, Document A evidence strength, supporting evidence-anchor
 references and whether it should shape CV evidence selection.
+Assign zero or more controlled support categories only where they identify a
+narrow thematic Document B evidence need. Use support categories for evidence
+selection only; they must not change the primary role family or create a second
+CV narrative.
 
 Do not recommend pursuing a role merely because some requirements overlap.
 Identify structural misalignment, unsustainable expectations, seniority
@@ -78,7 +82,7 @@ concise, evidence-grounded bullet points. Put each point on its own line and
 prefix it with `- `. Do not use a single prose paragraph for these fields.
 
 Use only values allowed by the schema for relevance, decision, scores,
-role-family identifiers, and the recommended Document B lane.
+role-family identifiers, mandate support categories, and the recommended Document B lane.
 
 Do not force a secondary role family or secondary CV angle. A secondary role
 family is only for a genuinely distinct second mandate. A secondary CV angle

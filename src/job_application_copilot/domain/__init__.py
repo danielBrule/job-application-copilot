@@ -8,6 +8,7 @@ from job_application_copilot.domain.assessment import (
     AssessmentOutput,
     AssessmentStatus,
     MandateEvidenceStrength,
+    MandateSupportCategory,
     assessment_output_json_schema,
 )
 from job_application_copilot.domain.background_run import (
@@ -139,6 +140,7 @@ __all__ = [
     "Language",
     "LaneId",
     "Location",
+    "MandateSupportCategory",
     "LlmCallStatus",
     "LlmFailureCategory",
     "LlmUsageTotals",

@@ -71,6 +71,18 @@ class MandateEvidenceStrength(StrEnum):
     NONE = "NONE"
 
 
+class MandateSupportCategory(StrEnum):
+    """Controlled thematic routing tags for evidence-supported mandate dimensions."""
+
+    COMMERCIAL_POST_SALES = "COMMERCIAL_POST_SALES"
+    TEAM_LEADERSHIP = "TEAM_LEADERSHIP"
+    DATA_PRODUCT = "DATA_PRODUCT"
+    PE_VALUE_CREATION = "PE_VALUE_CREATION"
+    SOFTWARE_ENGINEERING = "SOFTWARE_ENGINEERING"
+    AI_DEPLOYMENT = "AI_DEPLOYMENT"
+    GOVERNANCE = "GOVERNANCE"
+
+
 class AssessmentMandateDimension(BaseModel):
     """A compact, evidence-grounded requirement retained for CV coverage planning."""
 
@@ -82,6 +94,7 @@ class AssessmentMandateDimension(BaseModel):
     evidence_strength: MandateEvidenceStrength
     evidence_anchor_refs: tuple[str, ...] = ()
     should_shape_cv: bool
+    support_categories: tuple[MandateSupportCategory, ...] = ()
 
     @field_validator("id", "description", mode="before")
     @classmethod

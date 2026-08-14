@@ -223,7 +223,7 @@ Key fields:
 - `evidence_gaps`
 - `evidence_anchors`
 - `material_mandate_dimensions`: compact requirement, importance, Document A evidence strength,
-  evidence-anchor references and CV-relevance handoff
+  evidence-anchor references, CV-relevance handoff and controlled thematic support categories
 - `evidence_confidence`: one overall 0-to-10 score
 - `recommended_document_b_lane`: configured lane identifier
 - `selected_cv_lane`: configured lane identifier

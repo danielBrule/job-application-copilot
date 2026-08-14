@@ -41,6 +41,7 @@ def test_parses_sanitized_saved_assessment_example() -> None:
     assert parsed.decision is AssessmentDecision.GO
     assert parsed.primary_role_family == "FICTIONAL_ARCHITECTURE_LEAD"
     assert parsed.secondary_cv_angle is None
+    assert parsed.material_mandate_dimensions[0].support_categories[0] == "AI_DEPLOYMENT"
     assert parsed.evidence_anchors[0].source_reference == "A-FICTIONAL-01"
 
 
@@ -179,6 +180,8 @@ def test_provider_schema_uses_configured_lanes_as_exact_enums() -> None:
     assert next(option for option in angle_options if option.get("type") == "string")[
         "enum"
     ] == sorted(ALLOWED_LANES)
+    support_category = schema["$defs"]["MandateSupportCategory"]
+    assert "COMMERCIAL_POST_SALES" in support_category["enum"]
 
 
 def test_provider_schema_describes_decision_boundaries() -> None:

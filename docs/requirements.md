@@ -133,6 +133,9 @@ Requirements:
 - The selected CV lane is a controlled, data-driven identifier used as an exact key in a versioned
   routing configuration bound to the active Document B version.
 - Mandatory Document B section trees are selected deterministically from that routing configuration.
+- Credible, CV-shaping material mandate dimensions may additionally authorise only their configured
+  thematic Document B sections. Controlled support categories, not free-text mandate IDs, perform
+  this mapping; they do not change the selected lane's summary, experience framing or positioning.
 - Vector retrieval may return optional CV material only from the section IDs authorised by that
   routing configuration. It must not determine the primary lane or replace mandatory sections.
 - Generation stage 1 produces a structured CV-generation brief recording selected section,

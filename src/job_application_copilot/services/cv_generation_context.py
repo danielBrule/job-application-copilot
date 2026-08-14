@@ -31,6 +31,7 @@ from job_application_copilot.repositories import (
 from job_application_copilot.services.document_b_retrieval import DocumentBRetrievalPacket
 from job_application_copilot.services.document_b_routing import (
     DocumentBRoutingManifestService,
+    ResolvedRouteEntry,
     ResolvedRouting,
 )
 from job_application_copilot.services.document_b_sections import DocumentBSectionService
@@ -177,8 +178,9 @@ class CvGenerationContextBuilder:
         supporting = (
             None if secondary is None else self.routing.resolve(document_b_version, secondary)
         )
+        mandate_support = _authorised_mandate_support(primary, assessment)
         passages = () if retrieval is None else retrieval.passages
-        self._validate_retrieval(primary, supporting, document_b_version, passages)
+        self._validate_retrieval(primary, supporting, document_b_version, passages, mandate_support)
         if stage > 1:
             self._validate_brief(
                 brief,
@@ -187,6 +189,7 @@ class CvGenerationContextBuilder:
                 assessment.document_a_version or 0,
                 document_b_version,
                 passages,
+                mandate_support,
             )
         elif brief is not None:
             raise CvGenerationContextError(
@@ -203,6 +206,7 @@ class CvGenerationContextBuilder:
             selected_section_ids=None if brief is None else brief.selected_section_ids,
             guardrail_ids=frozenset() if brief is None else brief.guardrail_ids,
             supporting=supporting,
+            mandate_support=mandate_support,
             include_selection_scope=brief is None,
         )
         primary_text = _canonical_json(
@@ -232,6 +236,7 @@ class CvGenerationContextBuilder:
             job_description=job.job_description,
             assessment=assessment,
             secondary=secondary,
+            mandate_support=mandate_support,
             passages=passages,
             brief=brief,
             prior_stage_output=prior_stage_output,
@@ -321,6 +326,7 @@ class CvGenerationContextBuilder:
         selected_section_ids: frozenset[str] | None,
         guardrail_ids: frozenset[str],
         supporting: ResolvedRouting | None = None,
+        mandate_support: tuple[ResolvedRouteEntry, ...] = (),
         include_selection_scope: bool = False,
     ) -> str:
         sections: list[dict[str, object]] = []
@@ -364,6 +370,28 @@ class CvGenerationContextBuilder:
                             "text": section.section_text,
                         }
                     )
+        for entry in mandate_support:
+            for section_id in entry.expanded_section_ids:
+                if (
+                    selected_section_ids is not None
+                    and section_id not in selected_section_ids
+                    and entry.logical_id not in guardrail_ids
+                ):
+                    continue
+                if section_id in included:
+                    continue
+                included.add(section_id)
+                section = self.sections.require_section(version, section_id)
+                sections.append(
+                    {
+                        "logical_id": entry.logical_id,
+                        "role": entry.role,
+                        "section_id": section.section_id,
+                        "supporting": True,
+                        "mandate_support": True,
+                        "text": section.section_text,
+                    }
+                )
         return _canonical_json(sections)
 
     @staticmethod
@@ -372,6 +400,7 @@ class CvGenerationContextBuilder:
         supporting: ResolvedRouting | None,
         version: int,
         passages: tuple[Any, ...],
+        mandate_support: tuple[ResolvedRouteEntry, ...] = (),
     ) -> None:
         authorised = {
             section_id
@@ -387,6 +416,9 @@ class CvGenerationContextBuilder:
                 if entry.role is DocumentBRouteRole.BULLET_LIBRARY
                 for section_id in entry.expanded_section_ids
             )
+        authorised.update(
+            section_id for entry in mandate_support for section_id in entry.expanded_section_ids
+        )
         for passage in passages:
             if passage.document_b_version != version or passage.section_id not in authorised:
                 raise CvGenerationContextError(
@@ -401,6 +433,7 @@ class CvGenerationContextBuilder:
         document_a_version: int,
         version: int,
         passages: tuple[Any, ...],
+        mandate_support: tuple[ResolvedRouteEntry, ...] = (),
     ) -> None:
         if brief is None:
             raise CvGenerationContextError(
@@ -436,6 +469,9 @@ class CvGenerationContextBuilder:
                 }
                 for section_id in entry.expanded_section_ids
             )
+        available_sections.update(
+            section_id for entry in mandate_support for section_id in entry.expanded_section_ids
+        )
         if not brief.selected_section_ids.issubset(available_sections):
             raise CvGenerationContextError(
                 "CV-generation brief contains unauthorised Document B sections."
@@ -451,6 +487,7 @@ class CvGenerationContextBuilder:
         job_description: str,
         assessment: Any,
         secondary: str | None,
+        mandate_support: tuple[ResolvedRouteEntry, ...],
         passages: tuple[Any, ...],
         brief: CvGenerationBriefInput | None,
         prior_stage_output: str | None,
@@ -483,6 +520,19 @@ class CvGenerationContextBuilder:
                         {
                             "secondary_lane": secondary,
                             "instruction": "This is supporting context only. Do not replace the primary lane, headline, summary or core employer framing.",
+                        }
+                    ),
+                ),
+            )
+        if mandate_support:
+            values.insert(
+                0,
+                CvGenerationTextInput(
+                    section="mandate_support",
+                    text=_canonical_json(
+                        {
+                            "logical_ids": sorted({entry.logical_id for entry in mandate_support}),
+                            "instruction": "This evidence is thematic support only. Do not change the primary lane, headline, summary, experience framing or positioning playbook.",
                         }
                     ),
                 ),
@@ -537,6 +587,35 @@ def _authorised_supporting_lane(routing: ResolvedRouting, assessment: Any) -> st
         if angle is not None:
             return angle
     return _authorised_secondary(routing, assessment.secondary_role_family)
+
+
+def _authorised_mandate_support(
+    routing: ResolvedRouting, assessment: Any
+) -> tuple[ResolvedRouteEntry, ...]:
+    """Return narrow thematic sections only for credible, CV-shaping dimensions."""
+
+    selected: list[ResolvedRouteEntry] = []
+    seen: set[str] = set()
+    for dimension in getattr(assessment, "material_mandate_dimensions", ()):
+        if isinstance(dimension, dict):
+            eligible = dimension.get("should_shape_cv", False) and dimension.get(
+                "evidence_strength"
+            ) in {"DIRECT", "ADJACENT"}
+            categories = dimension.get("support_categories", ())
+        else:
+            eligible = dimension.should_shape_cv and dimension.evidence_strength.value in {
+                "DIRECT",
+                "ADJACENT",
+            }
+            categories = dimension.support_categories
+        if not eligible:
+            continue
+        for category in categories:
+            for entry in routing.packet.mandate_support_categories.get(category, ()):
+                if entry.logical_id not in seen:
+                    seen.add(entry.logical_id)
+                    selected.append(entry)
+    return tuple(selected)
 
 
 def _cache_identity(

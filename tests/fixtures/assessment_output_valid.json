@@ -39,7 +39,8 @@
       "importance": 8,
       "evidence_strength": "DIRECT",
       "evidence_anchor_refs": ["A-FICTIONAL-01"],
-      "should_shape_cv": true
+      "should_shape_cv": true,
+      "support_categories": ["AI_DEPLOYMENT"]
     }
   ],
   "evidence_confidence": 8,

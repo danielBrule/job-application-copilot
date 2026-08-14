@@ -47,6 +47,12 @@ Primary role family, optional secondary role family and recommended lane use the
 The assessment structured-output schema restricts non-null values to the lane keys from the active
 validated routing set; local Pydantic validation repeats that membership check.
 
+Material mandate dimensions may additionally carry controlled support categories. The routing
+configuration maps each category to narrow thematic sections only when the dimension is marked
+`should_shape_cv` and has `DIRECT` or `ADJACENT` Document A evidence. Free-text dimension IDs never
+route Document B, and support categories cannot authorise another lane's summary, experience
+framing or positioning playbook.
+
 The assessment request is assembled as an exact reusable prefix followed by variable job content.
 Stable assessment instructions, the canonical structured-output schema and the complete active
 Document A file precede job metadata and the full job description. Traceability records the
@@ -112,9 +118,10 @@ Phase 4 reviews and rewrites it
 
 The primary lane always controls the headline, summary and dominant positioning. A controlled,
 evidence-supported secondary CV angle may authorise only supporting bullet, skills and guardrail
-material. One dominant narrative therefore does not imply one evidence category. The routing table
-provides control and reproducibility. Vector retrieval provides flexibility and job-specific
-relevance within the authorised scope.
+material. Credible material mandate dimensions may also authorise configured thematic bullet
+libraries without exposing a whole supporting lane. One dominant narrative therefore does not imply
+one evidence category. The routing table provides control and reproducibility. Vector retrieval
+provides flexibility and job-specific relevance within the authorised scope.
 
 ## English CV pipeline
 
