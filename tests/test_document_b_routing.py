@@ -133,6 +133,11 @@ def test_packet_distinguishes_direct_context_and_vector_scopes(tmp_path: Path) -
         for entry in packet.entries
         if entry.role is not DocumentBRouteRole.BULLET_LIBRARY
     )
+    commercial_entries = packet.mandate_support_categories["COMMERCIAL_POST_SALES"]
+    assert [entry.logical_id for entry in commercial_entries] == [
+        "bullets.expert_commercial_post_sales"
+    ]
+    assert all(entry.role is DocumentBRouteRole.BULLET_LIBRARY for entry in commercial_entries)
     assert all(
         entry.delivery_mode is RouteDeliveryMode.VECTOR_SCOPE_REQUIRED
         for entry in packet.entries

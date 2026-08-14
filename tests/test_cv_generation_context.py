@@ -14,6 +14,7 @@ from job_application_copilot.services.cv_generation_context import (
     CvGenerationBriefInput,
     CvGenerationContextBuilder,
     CvGenerationContextError,
+    _authorised_mandate_support,
     _authorised_secondary,
     _authorised_supporting_lane,
 )
@@ -184,6 +185,68 @@ def test_supporting_angle_requires_credible_material_evidence(
     )
 
     assert _authorised_supporting_lane(primary, assessment) == expected
+
+
+def test_credible_mandate_dimension_authorises_only_its_scoped_bullet_library() -> None:
+    commercial = ResolvedRouteEntry(
+        logical_id="bullets.expert_commercial_post_sales",
+        section_id="commercial-root",
+        heading="Commercial",
+        heading_path=("Bullets", "Commercial"),
+        role=DocumentBRouteRole.BULLET_LIBRARY,
+        inclusion=RouteInclusion.MANDATORY,
+        delivery_mode=RouteDeliveryMode.VECTOR_SCOPE_REQUIRED,
+        include_descendants=True,
+        expanded_section_ids=("commercial-root",),
+    )
+    primary = ResolvedRouting(
+        summary=routing().summary,
+        packet=ResolvedLanePacket(
+            lane="PRIMARY_LANE",
+            entries=(),
+            mandate_support_categories={"COMMERCIAL_POST_SALES": (commercial,)},
+            conditional_guardrails=(),
+        ),
+        constraints=routing().constraints,
+    )
+    assessment = SimpleNamespace(
+        material_mandate_dimensions=[
+            {
+                "should_shape_cv": True,
+                "evidence_strength": "DIRECT",
+                "support_categories": ["COMMERCIAL_POST_SALES"],
+            }
+        ]
+    )
+
+    assert _authorised_mandate_support(primary, assessment) == (commercial,)
+
+
+@pytest.mark.parametrize("strength", ["WEAK", "NONE"])
+def test_weak_or_unsupported_mandate_does_not_authorise_thematic_support(
+    strength: str,
+) -> None:
+    primary = ResolvedRouting(
+        summary=routing().summary,
+        packet=ResolvedLanePacket(
+            lane="PRIMARY_LANE",
+            entries=(),
+            mandate_support_categories={},
+            conditional_guardrails=(),
+        ),
+        constraints=routing().constraints,
+    )
+    assessment = SimpleNamespace(
+        material_mandate_dimensions=[
+            {
+                "should_shape_cv": True,
+                "evidence_strength": strength,
+                "support_categories": ["COMMERCIAL_POST_SALES"],
+            }
+        ]
+    )
+
+    assert _authorised_mandate_support(primary, assessment) == ()
 
 
 def test_later_stages_receive_only_brief_selected_sections_and_guardrails() -> None:

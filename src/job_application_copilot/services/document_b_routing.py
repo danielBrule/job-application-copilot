@@ -8,7 +8,7 @@ import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from job_application_copilot.config.document_b_routing import (
     DocumentBRoutingConfig,
@@ -22,6 +22,7 @@ from job_application_copilot.domain import (
     DocumentBRouteRole,
     DocumentBRoutingSetStatus,
     LaneId,
+    MandateSupportCategory,
     RouteDeliveryMode,
     RouteInclusion,
 )
@@ -90,6 +91,9 @@ class ResolvedLanePacket(BaseModel):
 
     lane: LaneId
     entries: tuple[ResolvedRouteEntry, ...]
+    mandate_support_categories: dict[MandateSupportCategory, tuple[ResolvedRouteEntry, ...]] = (
+        Field(default_factory=dict)
+    )
     conditional_guardrails: tuple[ConditionalGuardrailPacket, ...]
 
 
@@ -232,6 +236,11 @@ class DocumentBRoutingManifestService:
 
         packet = self.resolve(version, lane).packet
         authorised_ids = {entry.logical_id for entry in packet.entries}
+        authorised_ids.update(
+            entry.logical_id
+            for category_entries in packet.mandate_support_categories.values()
+            for entry in category_entries
+        )
         unsupported = sorted(selected_logical_ids - authorised_ids)
         if unsupported:
             raise DocumentBRoutingError(
@@ -370,17 +379,70 @@ def _compile_packets(
                     expanded_section_ids=expanded_ids,
                 )
             )
+        mandate_support_categories = {
+            category: tuple(
+                _resolved_entry(
+                    lane,
+                    logical_id,
+                    DocumentBRouteRole.BULLET_LIBRARY,
+                    RouteInclusion.MANDATORY,
+                    RouteDeliveryMode.VECTOR_SCOPE_REQUIRED,
+                    config,
+                    by_path,
+                    sections,
+                )
+                for logical_id in support.sections
+            )
+            for category, support in config.mandate_support_categories.items()
+        }
         conditional_guardrails = _conditional_guardrails(
             config,
-            set(entry.logical_id for entry in entries),
+            {entry.logical_id for entry in entries}
+            | {
+                entry.logical_id
+                for category_entries in mandate_support_categories.values()
+                for entry in category_entries
+            },
             by_path,
         )
         packets[lane] = ResolvedLanePacket(
             lane=lane,
             entries=tuple(entries),
+            mandate_support_categories=mandate_support_categories,
             conditional_guardrails=conditional_guardrails,
         )
     return packets
+
+
+def _resolved_entry(
+    lane: LaneId,
+    logical_id: str,
+    role: DocumentBRouteRole,
+    inclusion: RouteInclusion,
+    delivery_mode: RouteDeliveryMode,
+    config: DocumentBRoutingConfig,
+    by_path: dict[tuple[str, ...], DocumentBSectionRecord],
+    sections: tuple[DocumentBSectionRecord, ...],
+) -> ResolvedRouteEntry:
+    catalog = config.section_catalog[logical_id]
+    root = by_path.get(_normalized_path(catalog.heading_path))
+    if root is None:
+        raise DocumentBRoutingError(
+            f"{lane} cannot resolve exact heading path "
+            f"'{' > '.join(catalog.heading_path)}' for '{logical_id}'."
+        )
+    tree = _section_tree(sections, root) if catalog.include_descendants else (root,)
+    return ResolvedRouteEntry(
+        logical_id=logical_id,
+        section_id=root.section_id,
+        heading=root.heading_title,
+        heading_path=catalog.heading_path,
+        role=role,
+        inclusion=inclusion,
+        delivery_mode=delivery_mode,
+        include_descendants=catalog.include_descendants,
+        expanded_section_ids=tuple(section.section_id for section in tree),
+    )
 
 
 def _validate_referenced_paths(

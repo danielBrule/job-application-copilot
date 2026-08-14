@@ -133,6 +133,10 @@ Optional semantic retrieval may add relevant CV material only from section-deriv
 authorised by that routing set. It must never replace the fixed rules or lane sections, determine
 the primary lane, or establish factual evidence.
 
+Evidence-supported material mandate dimensions may add configured thematic bullet-library sections
+through controlled support-category tags retained in the assessment. The resolved primary lane
+remains the sole source of summary, experience framing and positioning-playbook material.
+
 Section-aware retrieval receives an already resolved routing packet; it does not select a lane.
 It queries only `VECTOR_SCOPE_REQUIRED` and `VECTOR_SCOPE_OPTIONAL` section IDs, applies the
 Document B version and section-ID filter at the vector-store boundary, then verifies the returned

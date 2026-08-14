@@ -508,6 +508,28 @@ conditional_guardrails:
 - trigger_sections:
   - supporting_experience.software_engineering_foundation
   required_sections: []
+mandate_support_categories:
+  COMMERCIAL_POST_SALES:
+    sections:
+    - bullets.expert_commercial_post_sales
+  TEAM_LEADERSHIP:
+    sections:
+    - bullets.leadership_team_build
+  DATA_PRODUCT:
+    sections:
+    - bullets.data_products_platforms
+  PE_VALUE_CREATION:
+    sections:
+    - bullets.private_equity_value_creation
+  SOFTWARE_ENGINEERING:
+    sections:
+    - bullets.software_engineering_foundation
+  AI_DEPLOYMENT:
+    sections:
+    - bullets.ai_deployment_zero_to_one
+  GOVERNANCE:
+    sections:
+    - bullets.governance_privacy
 shared_route:
   mandatory_workflow:
   - workflow.cv_generation_rules
