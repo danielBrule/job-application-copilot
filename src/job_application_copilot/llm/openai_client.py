@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import time
 from dataclasses import dataclass, field
@@ -284,12 +286,16 @@ class OpenAIClient:
         if request.reasoning_effort is not None:
             arguments["reasoning"] = {"effort": request.reasoning_effort}
         if request.response_schema is not None:
+            provider_schema = _provider_response_schema(request.response_schema)
+            schema_hash = hashlib.sha256(
+                json.dumps(provider_schema, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest()[:12]
             arguments["text"] = {
                 "format": {
                     "type": "json_schema",
-                    "name": "prompt_stage_output",
+                    "name": f"prompt_stage_output_{schema_hash}",
                     "strict": True,
-                    "schema": _provider_response_schema(request.response_schema),
+                    "schema": provider_schema,
                 }
             }
         if explicit_cache:

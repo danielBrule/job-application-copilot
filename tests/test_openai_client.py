@@ -148,6 +148,8 @@ def test_omits_unsupported_unique_items_from_prompt_stage_schema() -> None:
     )
 
     submitted = response_client.responses.create.call_args.kwargs["text"]["format"]["schema"]
+    format_specification = response_client.responses.create.call_args.kwargs["text"]["format"]
+    assert format_specification["name"].startswith("prompt_stage_output_")
     assert "uniqueItems" not in submitted["properties"]["selected_section_ids"]
     assert submitted["required"] == ["selected_section_ids", "secondary_angle"]
     assert schema["properties"] == {
