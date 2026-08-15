@@ -153,12 +153,16 @@ French references guide wording and conventions only. They cannot strengthen evi
 
 Assessment and final CV outputs use explicit schemas and Pydantic validation.
 
-The final CV structure includes:
+The final CV structure returned by stage 3 includes:
 
-- positioning title and profile, each with a configurable DOCX placeholder;
-- skills entries with a configurable DOCX placeholder;
-- ordered experience blocks, each with a configurable content placeholder, optional title placeholder,
-  optional introduction and bullets.
+- positioning title and profile;
+- skills entries;
+- ordered experience blocks for the template contract's declared experience targets, with optional
+  title, introduction and bullets.
+
+The model returns semantic content only. The local template contract deterministically binds each
+returned value to its configured DOCX placeholder, so the model never selects, repeats or omits a
+template placeholder.
 
 Education, contact details, languages, employer headings and other static content remain owned by the
 user-managed DOCX template rather than generated output.

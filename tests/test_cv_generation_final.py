@@ -20,6 +20,23 @@ from job_application_copilot.services.cv_template_contract import (
 from tests.test_final_cv import payload
 
 
+def semantic_payload() -> dict[str, object]:
+    values = payload()
+    return {
+        "opening_title": values["opening_title"]["content"],
+        "opening_profile": values["opening_profile"]["content"],
+        "experience": [
+            {
+                "title": None if item.get("title") is None else item["title"]["content"],
+                "introduction": item.get("introduction"),
+                "bullets": item["bullets"],
+            }
+            for item in values["experience"]
+        ],
+        "skills": values["skills"]["entries"],
+    }
+
+
 def test_validates_final_structured_output() -> None:
     output = CvGenerationFinalService._validated_output(json.dumps(payload()))
 
@@ -31,6 +48,14 @@ def test_rejects_invalid_final_structured_output() -> None:
     values["experience"] = []
 
     with pytest.raises(ValidationError):
+        CvGenerationFinalService._validated_output(json.dumps(values))
+
+
+def test_rejects_malformed_experience_serialization_before_final_output_is_stored() -> None:
+    values = payload()
+    values["experience"][0]["bullets"] = ["]},{"]  # type: ignore[index]
+
+    with pytest.raises(ValidationError, match="serialization fragment"):
         CvGenerationFinalService._validated_output(json.dumps(values))
 
 
@@ -85,8 +110,54 @@ def test_contract_validation_is_available_to_the_stage_output_validator() -> Non
         )
     )
 
-    with pytest.raises(CvTemplateContractError, match="experience placeholders"):
-        CvGenerationFinalService._validated_contract_output(json.dumps(payload()), contract)
+    with pytest.raises(CvTemplateContractError, match="experience blocks"):
+        CvGenerationFinalService._validated_contract_output(json.dumps(semantic_payload()), contract)
+
+
+def test_contract_rejects_a_missing_factual_experience_title_when_template_requires_one() -> None:
+    values = semantic_payload()
+    values["experience"][1]["title"] = None  # type: ignore[index]
+    contract = CvTemplateContract(
+        CvTemplateManifest(
+            template_asset_id=1,
+            status=CvTemplateManifestStatus.CONFIRMED,
+            placeholders=(
+                "[OPENING_TITLE]",
+                "[OPENING_PROFILE]",
+                "[SKILLS]",
+                "[EXPERIENCE_INDEPENDENT_GENAI]",
+                "[EXPERIENCE_EKIMETRICS]",
+                "[EKIMETRICS_TITLE]",
+            ),
+            slots=(
+                CvTemplateSlotMapping(
+                    placeholder="[OPENING_TITLE]", kind=CvTemplateSlotKind.OPENING_TITLE
+                ),
+                CvTemplateSlotMapping(
+                    placeholder="[OPENING_PROFILE]", kind=CvTemplateSlotKind.OPENING_PROFILE
+                ),
+                CvTemplateSlotMapping(placeholder="[SKILLS]", kind=CvTemplateSlotKind.SKILLS),
+                CvTemplateSlotMapping(
+                    placeholder="[EXPERIENCE_INDEPENDENT_GENAI]",
+                    kind=CvTemplateSlotKind.EXPERIENCE,
+                    experience_target="Independent GenAI",
+                ),
+                CvTemplateSlotMapping(
+                    placeholder="[EXPERIENCE_EKIMETRICS]",
+                    kind=CvTemplateSlotKind.EXPERIENCE,
+                    experience_target="Ekimetrics",
+                ),
+                CvTemplateSlotMapping(
+                    placeholder="[EKIMETRICS_TITLE]",
+                    kind=CvTemplateSlotKind.EXPERIENCE_TITLE,
+                    experience_target="Ekimetrics",
+                ),
+            ),
+        )
+    )
+
+    with pytest.raises(CvTemplateContractError, match="requires a resolved factual title"):
+        CvGenerationFinalService._validated_contract_output(json.dumps(values), contract)
 
 
 def test_contract_normalises_an_experience_title_to_its_matching_slot() -> None:

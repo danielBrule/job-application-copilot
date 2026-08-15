@@ -9,6 +9,7 @@ from job_application_copilot.domain import (
     CvGenerationBriefOutput,
     CvGenerationDraftOutput,
     FinalCvOutput,
+    SemanticFinalCvOutput,
 )
 from job_application_copilot.llm import (
     OpenAIPromptStageOperations,
@@ -67,7 +68,7 @@ class CvGenerationFinalService:
             task.job_id,
             stage=3,
             model_identifier=self.settings.cv_generation_model,
-            response_schema=FinalCvOutput.model_json_schema(),
+            response_schema=self._response_schema(contract),
             brief=brief,
             prior_stage_output=draft.model_dump_json(),
             template_contract=contract.prompt_input(),
@@ -75,7 +76,7 @@ class CvGenerationFinalService:
         stage = OrderedPromptStage(
             position=3,
             pipeline_step=CV_FINAL_PIPELINE_STEP,
-            request_factory=lambda prior: self._request(context, prior),
+            request_factory=lambda prior: self._request(context, prior, contract),
             output_validator=lambda text: self._validated_contract_output(
                 text, contract
             ).model_dump_json(),
@@ -117,7 +118,9 @@ class CvGenerationFinalService:
             CvGenerationDraftOutput.model_validate(stored_draft.payload),
         )
 
-    def _request(self, context: CvGenerationContext, prior: str | None) -> PromptStageRequest:
+    def _request(
+        self, context: CvGenerationContext, prior: str | None, contract: CvTemplateContract
+    ) -> PromptStageRequest:
         if prior is not None:
             raise ValueError(
                 "CV-generation stage three cannot receive pipeline output from another run."
@@ -128,8 +131,12 @@ class CvGenerationFinalService:
             )
             for item in context.input
         )
+        response_schema = self._response_schema(contract)
         execution_identity = hashlib.sha256(
-            json.dumps([asdict(item) for item in inputs], sort_keys=True).encode("utf-8")
+            json.dumps(
+                {"inputs": [asdict(item) for item in inputs], "response_schema": response_schema},
+                sort_keys=True,
+            ).encode("utf-8")
         ).hexdigest()
         return PromptStageRequest(
             model_identifier=context.traceability.model_identifier,
@@ -137,7 +144,7 @@ class CvGenerationFinalService:
             cache_identity_hash=context.cache_identity.identity_hash,
             cache_identity_version=context.cache_identity.identity_version,
             execution_identity_hash=execution_identity,
-            response_schema=FinalCvOutput.model_json_schema(),
+            response_schema=response_schema,
             reasoning_effort=self.settings.cv_generation_reasoning_effort,
         )
 
@@ -145,8 +152,27 @@ class CvGenerationFinalService:
     def _validated_output(text: str) -> FinalCvOutput:
         return FinalCvOutput.model_validate_json(text)
 
+    @staticmethod
+    def _response_schema(contract: CvTemplateContract) -> dict[str, object]:
+        """Constrain Stage 3 experience blocks to the active template's slots."""
+
+        schema = SemanticFinalCvOutput.model_json_schema()
+        properties = schema["properties"]
+        assert isinstance(properties, dict)
+        experience = properties["experience"]
+        assert isinstance(experience, dict)
+        expected = [
+            slot.placeholder
+            for slot in contract.manifest.slots
+            if slot.kind.value == "EXPERIENCE"
+        ]
+        experience["minItems"] = len(expected)
+        experience["maxItems"] = len(expected)
+        return schema
+
     @classmethod
     def _validated_contract_output(cls, text: str, contract: CvTemplateContract) -> FinalCvOutput:
-        output = contract.normalise_experience_titles(cls._validated_output(text))
+        semantic = SemanticFinalCvOutput.model_validate_json(text)
+        output = contract.bind_semantic_output(semantic)
         contract.validate(output)
         return output

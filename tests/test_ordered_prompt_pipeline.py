@@ -40,8 +40,10 @@ class FakeClient:
     def __init__(self, results: list[PromptStageOpenAIResponse | OpenAIClientError]) -> None:
         self.results = iter(results)
         self.prior_outputs: list[str | None] = []
+        self.requests: list[PromptStageRequest] = []
 
     def run_prompt_stage(self, request: PromptStageRequest) -> PromptStageOpenAIResponse:
+        self.requests.append(request)
         self.prior_outputs.append(
             next((item.text for item in request.input if item.section == "prior"), None)
         )
@@ -163,6 +165,47 @@ def test_allows_a_single_later_stage_to_keep_its_configured_position(database: D
 
     assert result.outputs == ("draft",)
     assert result.resumed_from_position == 2
+
+
+def test_validation_retry_adds_safe_correction_without_raw_error_text(database: Database) -> None:
+    task, attempt_id = claimed_task(database)
+    client = FakeClient([response("bad"), response("final")])
+    stage = OrderedPromptStage(
+        position=1,
+        pipeline_step="CV_GENERATION_STAGE_3_FINAL",
+        request_factory=stages()[0].request_factory,
+        output_validator=lambda text: (
+            text
+            if text == "final"
+            else (_ for _ in ()).throw(
+                ValueError("must not contain a structured-output serialization fragment")
+            )
+        ),
+    )
+
+    result = OrderedPromptPipelineService(database, client, max_retries=1, sleep=lambda _: None).run(
+        task, task_attempt_id=attempt_id, stages=(stage,)
+    )
+
+    assert result.outputs == ("final",)
+    assert len(client.requests) == 2
+    correction = client.requests[1].input[-1]
+    assert correction.section == "validation_correction"
+    assert "serialization fragments" in correction.text
+    assert "must not contain" not in correction.text
+
+
+def test_placeholder_validation_retry_requires_unique_slots() -> None:
+    request = stages()[0].request_factory(None)
+
+    corrected = OrderedPromptPipelineService._correction_request(
+        request, ValueError("each generated value must have a unique DOCX placeholder")
+    )
+
+    correction = corrected.input[-1]
+    assert correction.section == "validation_correction"
+    assert "exactly once" in correction.text
+    assert "do not reuse" in correction.text
 
 
 def test_manual_retry_resumes_from_failed_stage(database: Database) -> None:

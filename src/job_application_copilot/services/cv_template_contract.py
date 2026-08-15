@@ -6,11 +6,14 @@ from dataclasses import dataclass
 from job_application_copilot.domain import (
     ENGLISH_CV_TEMPLATE_KEY,
     CvExperienceBlock,
+    CvSkillsBlock,
     CvTemplateManifest,
     CvTemplateManifestStatus,
     CvTemplateSlotKind,
     CvTemplateSlotMapping,
+    CvTemplateText,
     FinalCvOutput,
+    SemanticFinalCvOutput,
 )
 from job_application_copilot.errors import ApplicationValidationError
 from job_application_copilot.repositories import Database
@@ -31,8 +34,16 @@ class CvTemplateContract:
     def prompt_input(self) -> str:
         return json.dumps(
             {
-                "required_slots": [slot.model_dump(mode="json") for slot in self.manifest.slots],
-                "instruction": "Return exactly one value for every required slot and no unlisted placeholders.",
+                "experience_targets": [
+                    {"target": slot.experience_target, "requires_title": any(
+                        title.kind is CvTemplateSlotKind.EXPERIENCE_TITLE
+                        and title.experience_target == slot.experience_target
+                        for title in self.manifest.slots
+                    )}
+                    for slot in self.manifest.slots
+                    if slot.kind is CvTemplateSlotKind.EXPERIENCE
+                ],
+                "instruction": "Return content in this exact experience-target order. Do not return DOCX placeholders; the application assigns them locally.",
             },
             sort_keys=True,
         )
@@ -66,9 +77,9 @@ class CvTemplateContract:
                 raise CvTemplateContractError(
                     "Final CV experience title placeholders do not match the template."
                 )
-            if expected_title is not None and actual_title not in {None, expected_title}:
+            if expected_title is not None and actual_title != expected_title:
                 raise CvTemplateContractError(
-                    "Final CV experience title placeholders do not match the template."
+                    "Final CV experience requires a resolved factual title for every title slot."
                 )
 
     def normalise_experience_titles(self, output: FinalCvOutput) -> FinalCvOutput:
@@ -100,6 +111,53 @@ class CvTemplateContract:
 
         experience = tuple(normalise_title(item) for item in output.experience)
         return output.model_copy(update={"experience": experience})
+
+    def bind_semantic_output(self, output: SemanticFinalCvOutput) -> FinalCvOutput:
+        """Assign every semantic stage-three value to its manifest-defined DOCX slot."""
+
+        slots = self.manifest.slots
+        experience_slots = tuple(slot for slot in slots if slot.kind is CvTemplateSlotKind.EXPERIENCE)
+        if len(output.experience) != len(experience_slots):
+            raise CvTemplateContractError("Final CV experience blocks do not match the template.")
+        title_slots = {
+            slot.experience_target: slot.placeholder
+            for slot in slots if slot.kind is CvTemplateSlotKind.EXPERIENCE_TITLE
+        }
+        experience = tuple(
+            CvExperienceBlock(
+                placeholder=slot.placeholder,
+                title=(
+                    None if item.title is None else CvTemplateText(
+                        placeholder=title_slots.get(slot.experience_target, "[UNUSED_TITLE]"),
+                        content=item.title,
+                    )
+                ),
+                introduction=item.introduction,
+                bullets=item.bullets,
+            )
+            for slot, item in zip(experience_slots, output.experience, strict=True)
+        )
+        result = FinalCvOutput(
+            opening_title=CvTemplateText(
+                placeholder=self._one_placeholder(CvTemplateSlotKind.OPENING_TITLE),
+                content=output.opening_title,
+            ),
+            opening_profile=CvTemplateText(
+                placeholder=self._one_placeholder(CvTemplateSlotKind.OPENING_PROFILE),
+                content=output.opening_profile,
+            ),
+            skills=CvSkillsBlock(
+                placeholder=self._one_placeholder(CvTemplateSlotKind.SKILLS), entries=output.skills
+            ),
+            experience=experience,
+        )
+        return self.normalise_experience_titles(result)
+
+    def _one_placeholder(self, kind: CvTemplateSlotKind) -> str:
+        matches = [slot.placeholder for slot in self.manifest.slots if slot.kind is kind]
+        if len(matches) != 1:
+            raise CvTemplateContractError(f"Final CV must provide exactly one {kind.value} slot.")
+        return matches[0]
 
     @staticmethod
     def _require_one(

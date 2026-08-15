@@ -5,6 +5,27 @@ import re
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 PLACEHOLDER_PATTERN = re.compile(r"^\[[A-Z][A-Z0-9_]*\]$")
+UNRESOLVED_TEMPLATE_PLACEHOLDER_PATTERN = re.compile(
+    r"\[(?:factual|actual)?\s*(?:job\s*)?title|company|location|dates?\]",
+    re.IGNORECASE,
+)
+SERIALIZATION_DELIMITER_PATTERN = re.compile(r"\]\s*}\s*,\s*{")
+DELIMITER_ONLY_PATTERN = re.compile(r'^[\s\[\]{} ,:"]+$')
+
+
+def _require_cv_prose(value: object) -> str:
+    """Reject blank text and JSON-like serialization fragments in generated CV prose."""
+
+    if not isinstance(value, str) or not (cleaned := value.strip()):
+        raise ValueError("must be non-blank text")
+    if (match := UNRESOLVED_TEMPLATE_PLACEHOLDER_PATTERN.search(cleaned)) is not None:
+        raise ValueError(f"must not contain unresolved template placeholder {match.group()}")
+    if (
+        DELIMITER_ONLY_PATTERN.fullmatch(cleaned) is not None
+        or SERIALIZATION_DELIMITER_PATTERN.search(cleaned) is not None
+    ):
+        raise ValueError("must not contain a structured-output serialization fragment")
+    return cleaned
 
 
 class CvTemplateText(BaseModel):
@@ -18,9 +39,7 @@ class CvTemplateText(BaseModel):
     @field_validator("placeholder", "content", mode="before")
     @classmethod
     def require_text(cls, value: object) -> object:
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-        raise ValueError("must be non-blank text")
+        return _require_cv_prose(value)
 
     @field_validator("placeholder")
     @classmethod
@@ -45,9 +64,7 @@ class CvExperienceBlock(BaseModel):
     def require_optional_text(cls, value: object) -> object:
         if value is None:
             return None
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-        raise ValueError("must be non-blank text")
+        return _require_cv_prose(value)
 
     @field_validator("placeholder")
     @classmethod
@@ -59,10 +76,7 @@ class CvExperienceBlock(BaseModel):
     @field_validator("bullets")
     @classmethod
     def require_bullets(cls, values: tuple[str, ...]) -> tuple[str, ...]:
-        cleaned = tuple(value.strip() for value in values)
-        if any(not value for value in cleaned):
-            raise ValueError("bullets must be non-blank text")
-        return cleaned
+        return tuple(_require_cv_prose(value) for value in values)
 
 
 class CvSkillEntry(BaseModel):
@@ -76,9 +90,7 @@ class CvSkillEntry(BaseModel):
     @field_validator("name", "content", mode="before")
     @classmethod
     def require_text(cls, value: object) -> object:
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-        raise ValueError("must be non-blank text")
+        return _require_cv_prose(value)
 
 
 class CvSkillsBlock(BaseModel):
@@ -102,6 +114,44 @@ class CvSkillsBlock(BaseModel):
         if PLACEHOLDER_PATTERN.fullmatch(value) is None:
             raise ValueError("must be a bracketed uppercase DOCX placeholder")
         return value
+
+
+class SemanticCvExperienceBlock(BaseModel):
+    """Stage-three experience content before local template-slot assignment."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    title: str | None = None
+    introduction: str | None = None
+    bullets: tuple[str, ...] = Field(min_length=1)
+
+    @field_validator("title", "introduction", mode="before")
+    @classmethod
+    def require_optional_text(cls, value: object) -> object:
+        if value is None:
+            return None
+        return _require_cv_prose(value)
+
+    @field_validator("bullets")
+    @classmethod
+    def require_bullets(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        return tuple(_require_cv_prose(value) for value in values)
+
+
+class SemanticFinalCvOutput(BaseModel):
+    """Stage-three content whose DOCX slots are assigned locally and deterministically."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    opening_title: str
+    opening_profile: str
+    experience: tuple[SemanticCvExperienceBlock, ...] = Field(min_length=1)
+    skills: tuple[CvSkillEntry, ...] = Field(min_length=1)
+
+    @field_validator("opening_title", "opening_profile", mode="before")
+    @classmethod
+    def require_text(cls, value: object) -> object:
+        return _require_cv_prose(value)
 
 
 class FinalCvOutput(BaseModel):
