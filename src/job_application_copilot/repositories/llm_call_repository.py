@@ -184,7 +184,7 @@ class LlmCallRepository:
                 raise LlmCallAssociationError(f"Background task {call.task_id} does not exist.")
             if task.job_id != call.job_id:
                 raise LlmCallAssociationError("The LLM call and background task jobs differ.")
-            if task.operation is not call.operation:
+            if not _operation_matches_task(call, task):
                 raise LlmCallAssociationError("The LLM call and background task operations differ.")
 
         if call.task_attempt_id is None:
@@ -218,3 +218,13 @@ class LlmCallRepository:
             raise LlmCallAssociationError(
                 "Version metadata values must be non-sensitive scalar identifiers."
             )
+
+
+def _operation_matches_task(call: LlmCall, task: BackgroundTask) -> bool:
+    """Allow assessment telemetry for a contract refresh owned by a CV task."""
+
+    return task.operation is call.operation or (
+        task.operation is BackgroundOperation.CV_GENERATION
+        and call.operation is BackgroundOperation.ASSESSMENT
+        and call.pipeline_step == "ASSESSMENT"
+    )

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import logging
 import re
 import time
 from dataclasses import dataclass, field
@@ -17,12 +20,14 @@ from openai import (
 )
 
 from job_application_copilot.config import AppSettings
+from job_application_copilot.observability import get_logger, log_event
 
 if TYPE_CHECKING:
     from job_application_copilot.services.assessment_context import AssessmentContext
 
 OPENAI_FILE_PURPOSE: Literal["user_data"] = "user_data"
 OPENAI_FILE_UPLOAD_MAX_RETRIES = 2
+logger = get_logger(__name__)
 OPENAI_FILE_UPLOAD_TIMEOUT_SECONDS = 120.0
 OPENAI_VECTOR_STORE_POLL_INTERVAL_SECONDS = 1.0
 DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -284,14 +289,30 @@ class OpenAIClient:
         if request.reasoning_effort is not None:
             arguments["reasoning"] = {"effort": request.reasoning_effort}
         if request.response_schema is not None:
+            provider_schema = _provider_response_schema(request.response_schema)
+            schema_hash = hashlib.sha256(
+                json.dumps(provider_schema, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest()[:12]
             arguments["text"] = {
                 "format": {
                     "type": "json_schema",
-                    "name": "prompt_stage_output",
+                    "name": f"prompt_stage_output_{schema_hash}",
                     "strict": True,
-                    "schema": _provider_response_schema(request.response_schema),
+                    "schema": provider_schema,
                 }
             }
+            properties = provider_schema.get("properties")
+            required = provider_schema.get("required")
+            log_event(
+                logger,
+                logging.INFO,
+                "prompt_stage_schema_submitted",
+                schema_name=f"prompt_stage_output_{schema_hash}",
+                schema_hash=schema_hash,
+                top_level_properties=(sorted(properties) if isinstance(properties, dict) else []),
+                required_fields=required if isinstance(required, list) else [],
+                input_sections=[item.section for item in request.input],
+            )
         if explicit_cache:
             arguments["prompt_cache_options"] = {"mode": "explicit", "ttl": "30m"}
         try:

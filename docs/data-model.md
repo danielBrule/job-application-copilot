@@ -311,9 +311,10 @@ retained draft together with the retained brief and the same authorised Document
 
 ## Final structured CV
 
-The final CV is structured generated content for a user-managed DOCX template. Every generated text,
-experience block and skills block records its bracketed template placeholder. Template-owned contact
-details, education, languages, static employer headings and static roles remain outside model output.
+The final CV is structured generated content for a user-managed DOCX template. Stage 3 returns
+semantic text in the manifest-defined experience-target order; the local template contract assigns
+the bracketed DOCX placeholders deterministically before persistence and rendering. Template-owned
+contact details, education, languages, static employer headings and static roles remain outside model output.
 
 ## Contact (planned, not yet persisted)
 

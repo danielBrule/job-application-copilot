@@ -53,6 +53,8 @@ from job_application_copilot.domain.final_cv import (
     CvSkillsBlock,
     CvTemplateText,
     FinalCvOutput,
+    SemanticCvExperienceBlock,
+    SemanticFinalCvOutput,
 )
 from job_application_copilot.domain.job import (
     CreateJob,
@@ -134,6 +136,8 @@ __all__ = [
     "FRENCH_CV_TEMPLATE_KEY",
     "FrenchReferenceExamplesOverview",
     "FinalCvOutput",
+    "SemanticCvExperienceBlock",
+    "SemanticFinalCvOutput",
     "JobFilters",
     "is_valid_background_task_transition",
     "is_valid_cv_transition",

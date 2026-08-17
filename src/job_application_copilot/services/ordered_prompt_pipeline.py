@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 
 from job_application_copilot.domain import (
@@ -16,6 +16,7 @@ from job_application_copilot.domain import (
 from job_application_copilot.llm import (
     OpenAIClientError,
     OpenAIPromptStageOperations,
+    PromptStageInput,
     PromptStageOpenAIResponse,
     PromptStageRequest,
 )
@@ -206,6 +207,7 @@ class OrderedPromptPipelineService:
                     response=response,
                 )
                 if retry_number < self.max_retries:
+                    request = self._correction_request(request, error)
                     self.sleep(2**retry_number)
                     continue
                 self._store_failure(
@@ -234,6 +236,42 @@ class OrderedPromptPipelineService:
                 )
             return output_text
         raise AssertionError("Prompt stage retry loop must return.")
+
+    @staticmethod
+    def _correction_request(request: PromptStageRequest, error: ValueError) -> PromptStageRequest:
+        """Add safe contract feedback for a regenerated structured response.
+
+        Validation errors may contain private generated text, so the correction
+        deliberately communicates only the failure category rather than the
+        raw exception message.
+        """
+
+        correction = (
+            "The previous response failed local structured-output validation. "
+            "Regenerate the complete response as valid JSON matching the supplied "
+            "schema. Every prose field and bullet must contain ordinary CV prose, "
+            "not JSON punctuation, serialization fragments, or square-bracketed text."
+        )
+        if "template placeholder" in str(error).lower():
+            correction = (
+                "The previous response failed local structured-output validation. "
+                "Regenerate the complete response as valid JSON matching the supplied "
+                "schema. Do not use square-bracketed text in any prose field or bullet."
+            )
+        elif "unique docx placeholder" in str(error).lower():
+            correction = (
+                "The previous response failed local structured-output validation. "
+                "Regenerate the complete response as valid JSON matching the supplied "
+                "schema. Return every required placeholder exactly once and do not reuse "
+                "a placeholder in more than one generated field."
+            )
+        return replace(
+            request,
+            input=(
+                *request.input,
+                PromptStageInput(section="validation_correction", text=correction),
+            ),
+        )
 
     def _stored_stage(self, task_id: int, position: int) -> PromptPipelineStage | None:
         with self.database.session() as session:
