@@ -49,6 +49,9 @@ from job_application_copilot.services.default_cv_generation_prompt import (
     DefaultCvGenerationPromptService,
 )
 from job_application_copilot.services.local_directories import ensure_local_directories
+from job_application_copilot.services.prompt_content_migration import (
+    PromptContentMigrationService,
+)
 
 _IS_WINDOWS = os.name == "nt"
 _PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
@@ -354,6 +357,7 @@ def main() -> None:
     configure_logging(settings, LogComponent.WORKER)
     initialize_database(settings.database_path)
     database = create_database(settings.database_path)
+    PromptContentMigrationService(database, settings).migrate()
     DefaultAssessmentPromptService(database, settings).ensure()
     DefaultCvGenerationPromptService(database, settings).ensure()
     worker = BackgroundWorker(

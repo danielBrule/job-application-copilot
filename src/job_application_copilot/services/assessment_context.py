@@ -23,6 +23,7 @@ from job_application_copilot.repositories import (
     Database,
     DocumentBRoutingRepository,
     JobRepository,
+    PromptContentRepository,
     PromptDefinitionRepository,
     ReferenceAssetRepository,
 )
@@ -31,11 +32,7 @@ from job_application_copilot.services.document_a_input import (
     DocumentAInputService,
     DocumentAInputUnavailableError,
 )
-from job_application_copilot.services.immutable_file_storage import (
-    ImmutableFilePathError,
-    resolve_path_within,
-    sha256_file_hash,
-)
+from job_application_copilot.services.immutable_file_storage import sha256_file_hash
 
 ASSESSMENT_PIPELINE_GROUP = "assessment"
 ASSESSMENT_PIPELINE_STEP = "ASSESSMENT"
@@ -295,27 +292,21 @@ class AssessmentContextBuilder:
                 raise AssessmentContextError(
                     f"Assessment prompt '{definition.asset_key}' is not an active READY prompt."
                 )
+            prompt_content = PromptContentRepository(session).get(asset.id)
+            if prompt_content is None:
+                raise AssessmentContextError(
+                    f"Assessment prompt '{asset.asset_key}' version {asset.version} "
+                    "has no retained text."
+                )
             asset_key = asset.asset_key
             version = asset.version
             expected_hash = asset.file_hash
-            relative_path = asset.file_path
-
-        try:
-            path = resolve_path_within(
-                self.settings.prompts_folder,
-                self.settings.reference_folder / relative_path,
-            )
-            content = path.read_bytes()
-            text = content.decode("utf-8")
-        except (ImmutableFilePathError, OSError, UnicodeError) as error:
-            raise AssessmentContextError(
-                f"Assessment prompt '{asset_key}' version {version} cannot be read safely."
-            ) from error
+            text = prompt_content.content
         if not text.strip():
             raise AssessmentContextError(
                 f"Assessment prompt '{asset_key}' version {version} is blank."
             )
-        if sha256_file_hash(content) != expected_hash:
+        if sha256_file_hash(text.encode("utf-8")) != expected_hash:
             raise AssessmentContextError(
                 f"Assessment prompt '{asset_key}' version {version} no longer matches "
                 "its recorded hash."

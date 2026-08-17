@@ -151,9 +151,7 @@ def test_directories_target_is_idempotent(
     assert (data_dir / "reference" / "routing").is_dir()
     assert (data_dir / "reference" / "templates").is_dir()
     assert (data_dir / "reference" / "examples").is_dir()
-    assert (data_dir / "reference" / "prompts" / "assessment").is_dir()
-    assert (data_dir / "reference" / "prompts" / "generation" / "english").is_dir()
-    assert (data_dir / "reference" / "prompts" / "generation" / "french").is_dir()
+    assert not (data_dir / "reference" / "prompts").exists()
 
 
 def test_directories_target_reports_conflicting_file(

@@ -328,6 +328,10 @@ class ReferenceAssetRemoteCleanupService:
 
 
 def _summary(asset: ReferenceAsset) -> InactiveRemoteAsset:
+    if asset.file_path is None:
+        raise ReferenceAssetRemoteCleanupError(
+            f"Reference asset '{asset.asset_key}' version {asset.version} has no local file path."
+        )
     return InactiveRemoteAsset(
         asset_key=asset.asset_key,
         name=asset.name,

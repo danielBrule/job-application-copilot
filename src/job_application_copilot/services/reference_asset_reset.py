@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from job_application_copilot.config import AppSettings, load_settings
+from job_application_copilot.domain import ReferenceAssetType
 from job_application_copilot.llm import OpenAIClient, OpenAIRemoteCleanupOperations
 from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.repositories.models import ReferenceAsset
@@ -16,6 +17,10 @@ from job_application_copilot.repositories.reference_asset_repository import (
 )
 from job_application_copilot.services.database_bootstrap import initialize_database
 from job_application_copilot.services.local_directories import ensure_local_directories
+from job_application_copilot.services.prompt_content_migration import (
+    PromptContentMigrationError,
+    PromptContentMigrationService,
+)
 
 RemoteCleanerFactory = Callable[[], OpenAIRemoteCleanupOperations]
 
@@ -51,6 +56,13 @@ class ReferenceAssetResetService:
     def reset(self) -> ReferenceAssetResetResult:
         """Delete remote resources, tracked local files, and reference-asset rows."""
 
+        try:
+            prompt_migration = PromptContentMigrationService(self.database, self.settings).migrate()
+        except PromptContentMigrationError as error:
+            raise ReferenceAssetResetError(
+                "Cannot reset reference assets until legacy prompt text has been migrated safely."
+            ) from error
+
         with self.database.session() as session:
             assets = ReferenceAssetRepository(session).list_all()
 
@@ -68,7 +80,7 @@ class ReferenceAssetResetService:
 
         self._delete_remote_resources(vector_store_ids, openai_file_ids)
 
-        deleted_file_count = 0
+        deleted_file_count = prompt_migration.removed_legacy_file_count
         for path in local_paths:
             if path.is_file():
                 path.unlink()
@@ -88,6 +100,13 @@ class ReferenceAssetResetService:
         root = self.settings.reference_folder.resolve()
         paths: set[Path] = set()
         for asset in assets:
+            if asset.asset_type is ReferenceAssetType.PROMPT:
+                continue
+            if asset.file_path is None:
+                raise ReferenceAssetResetError(
+                    f"File-backed reference asset '{asset.asset_key}' version {asset.version} "
+                    "has no local path."
+                )
             path = (self.settings.reference_folder / asset.file_path).resolve()
             if path == root or root not in path.parents:
                 raise ReferenceAssetResetError(

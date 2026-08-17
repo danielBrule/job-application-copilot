@@ -52,7 +52,8 @@ class ReferenceAsset(Base):
             name="ck_reference_assets_version_positive",
         ),
         CheckConstraint(
-            "length(trim(file_path)) > 0",
+            "(asset_type = 'PROMPT' OR file_path IS NOT NULL) "
+            "AND (file_path IS NULL OR length(trim(file_path)) > 0)",
             name="ck_reference_assets_path_not_blank",
         ),
         CheckConstraint(
@@ -99,7 +100,7 @@ class ReferenceAsset(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     language_code: Mapped[str | None] = mapped_column(String(16))
     version: Mapped[int] = mapped_column(Integer, nullable=False)
-    file_path: Mapped[str] = mapped_column(String(2048), nullable=False)
+    file_path: Mapped[str | None] = mapped_column(String(2048))
     file_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(
         Boolean,

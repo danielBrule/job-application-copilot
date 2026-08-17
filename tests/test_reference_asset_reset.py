@@ -13,11 +13,17 @@ from sqlalchemy import func, select
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import Language, Location, ReferenceAssetType
 from job_application_copilot.repositories import Database, create_database
-from job_application_copilot.repositories.models import Job, PromptDefinition, ReferenceAsset
+from job_application_copilot.repositories.models import (
+    Job,
+    PromptContent,
+    PromptDefinition,
+    ReferenceAsset,
+)
 from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
 )
 from job_application_copilot.services.database_bootstrap import initialize_database
+from job_application_copilot.services.immutable_file_storage import sha256_file_hash
 from job_application_copilot.services.local_directories import ensure_local_directories
 from job_application_copilot.services.reference_asset_reset import (
     ReferenceAssetResetError,
@@ -58,9 +64,7 @@ def test_reset_removes_assets_files_and_remote_resources_but_preserves_jobs_and_
 ) -> None:
     settings, database = reset_context
     document_path = settings.document_b_folder / "document-b-v0001.docx"
-    prompt_path = settings.assessment_prompts_folder / "assessment-v0001.txt"
     document_path.write_bytes(b"document")
-    prompt_path.write_text("prompt", encoding="utf-8")
 
     with database.session() as session:
         session.add(
@@ -74,28 +78,27 @@ def test_reset_removes_assets_files_and_remote_resources_but_preserves_jobs_and_
                 date_added=date(2026, 7, 27),
             )
         )
-        session.add_all(
-            [
-                ReferenceAsset(
-                    asset_key="document-b",
-                    asset_type=ReferenceAssetType.DOCUMENT,
-                    name="Document B",
-                    version=1,
-                    file_path="document_b/document-b-v0001.docx",
-                    file_hash="sha256:document",
-                    openai_file_id="file-document-b",
-                    openai_vector_store_id="vs-document-b",
-                ),
-                ReferenceAsset(
-                    asset_key="assessment",
-                    asset_type=ReferenceAssetType.PROMPT,
-                    name="Assessment prompt",
-                    version=1,
-                    file_path="prompts/assessment/assessment-v0001.txt",
-                    file_hash="sha256:prompt",
-                ),
-            ]
+        document = ReferenceAsset(
+            asset_key="document-b",
+            asset_type=ReferenceAssetType.DOCUMENT,
+            name="Document B",
+            version=1,
+            file_path="document_b/document-b-v0001.docx",
+            file_hash="sha256:document",
+            openai_file_id="file-document-b",
+            openai_vector_store_id="vs-document-b",
         )
+        prompt = ReferenceAsset(
+            asset_key="assessment",
+            asset_type=ReferenceAssetType.PROMPT,
+            name="Assessment prompt",
+            version=1,
+            file_path=None,
+            file_hash=sha256_file_hash(b"prompt"),
+        )
+        session.add_all([document, prompt])
+        session.flush()
+        session.add(PromptContent(reference_asset_id=prompt.id, content="prompt"))
 
     cleaner = FakeRemoteCleaner()
     result = ReferenceAssetResetService(
@@ -105,17 +108,17 @@ def test_reset_removes_assets_files_and_remote_resources_but_preserves_jobs_and_
     ).reset()
 
     assert result.reference_asset_count == 2
-    assert result.local_file_count == 2
+    assert result.local_file_count == 1
     assert result.openai_file_count == 1
     assert result.vector_store_count == 1
     assert cleaner.deleted_vector_store_ids == ["vs-document-b"]
     assert cleaner.deleted_file_ids == ["file-document-b"]
     assert cleaner.closed
     assert not document_path.exists()
-    assert not prompt_path.exists()
 
     with database.session() as session:
         assert ReferenceAssetRepository(session).list_all() == []
+        assert session.scalar(select(func.count()).select_from(PromptContent)) == 0
         assert session.scalar(select(func.count()).select_from(Job)) == 1
         assert session.scalar(select(func.count()).select_from(PromptDefinition)) == 7
 

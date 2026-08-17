@@ -28,7 +28,7 @@ class DefaultAssessmentPromptService:
         *,
         template_path: Path | None = None,
     ) -> None:
-        self.prompt_service = PromptService(database, settings)
+        self.prompt_service = PromptService(database)
         self.template_path = template_path or _configured_template_path(settings)
 
     def ensure(self) -> bool:

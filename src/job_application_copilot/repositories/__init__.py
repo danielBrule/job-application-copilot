@@ -56,6 +56,7 @@ from job_application_copilot.repositories.llm_call_repository import (
     LlmCallAssociationError,
     LlmCallRepository,
 )
+from job_application_copilot.repositories.prompt_content_repository import PromptContentRepository
 from job_application_copilot.repositories.prompt_definition_repository import (
     PromptDefinitionNotFoundError,
     PromptDefinitionRepository,
@@ -98,6 +99,7 @@ __all__ = [
     "LlmCallRepository",
     "PromptDefinitionNotFoundError",
     "PromptDefinitionRepository",
+    "PromptContentRepository",
     "ReferenceAssetVersionNotFoundError",
     "ReferenceAssetRepository",
     "create_database",

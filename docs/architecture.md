@@ -181,10 +181,10 @@ processing: local storage first creates an inactive `PENDING` candidate, and the
 workflow activates it only after its remote processing succeeds. The candidate never displaces the
 current active document on failure.
 
-Prompt and DOCX storage share small immutable-file primitives for path containment, SHA-256
-calculation, exclusive creation and compensating deletion. The asset services retain ownership
-of validation, version naming, activation and repository rules. Compensation removes only a file
-created by the current operation; an existing destination is never overwritten or deleted.
+DOCX storage uses small immutable-file primitives for path containment, SHA-256 calculation,
+exclusive creation and compensating deletion. Prompt metadata remains a versioned reference asset,
+while its UTF-8 text is stored in a one-to-one SQLite row. The prompt service owns validation,
+hashing, version naming and activation in one database transaction.
 
 French reference-example identity is derived deterministically from its normalized user-facing
 name; the internal asset key is not user input. Content hashes are unique across the whole
@@ -282,8 +282,10 @@ data/
 ```
 
 Generated and uploaded CVs share one folder. All generated CVs use one naming convention.
-Versioned prompts are private local assets stored below `data/reference/prompts`, separated
-into assessment, English-generation and French-generation directories.
+Versioned prompt text is stored in SQLite. Existing installations import retained legacy prompt
+files below `data/reference/prompts` at startup: each file is containment-, UTF-8- and hash-
+validated before its text is copied, then only that tracked file is removed. New installations do
+not create a prompt-files directory.
 
 Each installation also owns
 `data/reference/routing/document-b-lane-routes.yaml`. It is created from the committed
@@ -293,13 +295,14 @@ validated routing set bound to an exact Document B version is used at runtime.
 
 Prompt definitions are stored separately from their immutable text versions. A definition
 declares the stable asset key, enum-free pipeline group, optional language, position and enabled
-state; `reference_assets` records each UTF-8 text version, hash and active state. This allows
-missing required prompts and completeness to be reported even when no prompt file exists.
+state; `reference_assets` records each version's shared metadata, hash and active state, and
+`prompt_contents` stores its UTF-8 text. This allows missing required prompts and completeness to
+be reported even when no prompt version exists.
 Adding another prompt group or language requires data changes only. Prompt execution remains a
 later pipeline responsibility.
 
 The repository contains one generic, non-private assessment prompt template. Startup copies it
-through the normal prompt service into private storage as active version 1 only when no retained
+through the normal prompt service into SQLite as active version 1 only when no retained
 assessment prompt version exists. The operation is idempotent and never overwrites or reactivates
 an installation's prompt history.
 

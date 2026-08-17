@@ -8,7 +8,7 @@ import pytest
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from alembic.script.revision import ResolutionError
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 
 from job_application_copilot.repositories import create_database
 from job_application_copilot.services import database_bootstrap
@@ -82,6 +82,7 @@ def test_migrations_create_current_domain_tables(
             "document_b_vector_records",
             "jobs",
             "llm_calls",
+            "prompt_contents",
             "prompt_definitions",
             "prompt_pipeline_stages",
             "reference_assets",
@@ -98,6 +99,38 @@ def test_reports_unusable_database_destination(tmp_path: Path) -> None:
         initialize_database(parent_file / "copilot.db")
 
     assert "copilot.db" in str(captured.value)
+
+
+def test_rejects_an_existing_foreign_key_violation(tmp_path: Path) -> None:
+    database_path = tmp_path / "copilot.db"
+    initialize_database(database_path)
+    database = create_database(database_path)
+    try:
+        with database.engine.connect() as connection:
+            connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO document_b_sections (
+                        reference_asset_id,
+                        section_id,
+                        heading_title,
+                        heading_level,
+                        sequence,
+                        section_text
+                    )
+                    VALUES (999999, 'orphan', 'Orphan', 1, 1, 'Invalid relationship.')
+                    """
+                )
+            )
+            connection.commit()
+            connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+            connection.commit()
+    finally:
+        database.dispose()
+
+    with pytest.raises(DatabaseMigrationError, match="invalid foreign-key"):
+        initialize_database(database_path)
 
 
 class FakeRevisionMap:

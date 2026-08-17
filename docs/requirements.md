@@ -22,8 +22,8 @@ The prompt list is data-driven: the values above are the initial enabled definit
 application limits. Prompt definitions, pipeline groups and language codes may be added or
 disabled without a schema or enum change.
 
-The application supplies a generic assessment prompt as active version 1 on first startup when no
-assessment prompt version exists. The user may replace it through Settings, creating the next
+The application supplies a generic assessment prompt as active SQLite version 1 on first startup
+when no assessment prompt version exists. The user may replace it through Settings, creating the next
 immutable active version. Existing retained prompt versions are never overwritten or automatically
 reactivated.
 

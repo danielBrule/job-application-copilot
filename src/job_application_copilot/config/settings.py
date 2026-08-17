@@ -84,8 +84,8 @@ class AppSettings(BaseSettings):
         return self.reference_folder / "examples"
 
     @property
-    def prompts_folder(self) -> Path:
-        """Root directory containing private prompt versions."""
+    def legacy_prompts_folder(self) -> Path:
+        """Legacy root used only to import pre-SQLite prompt text versions."""
 
         return self.reference_folder / "prompts"
 
@@ -94,24 +94,6 @@ class AppSettings(BaseSettings):
         """Directory containing private Document B routing configuration."""
 
         return self.document_b_routing_config_path.parent
-
-    @property
-    def assessment_prompts_folder(self) -> Path:
-        """Directory containing private assessment prompt versions."""
-
-        return self.prompts_folder / "assessment"
-
-    @property
-    def english_generation_prompts_folder(self) -> Path:
-        """Directory containing private English generation prompt versions."""
-
-        return self.prompts_folder / "generation" / "english"
-
-    @property
-    def french_generation_prompts_folder(self) -> Path:
-        """Directory containing private French generation prompt versions."""
-
-        return self.prompts_folder / "generation" / "french"
 
 
 def load_settings() -> AppSettings:

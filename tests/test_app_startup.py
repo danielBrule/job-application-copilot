@@ -7,6 +7,7 @@ from streamlit.testing.v1 import AppTest
 
 from job_application_copilot.observability import reset_logging
 from job_application_copilot.repositories import create_database
+from job_application_copilot.services import PromptService
 from job_application_copilot.ui.app import UNEXPECTED_ERROR_MESSAGE
 from tests.app_test_support import APP_PATH
 
@@ -31,19 +32,15 @@ def test_streamlit_app_starts_and_creates_private_directories(
         assert (data_dir / "reference" / "routing").is_dir()
         assert (data_dir / "reference" / "templates").is_dir()
         assert (data_dir / "reference" / "examples").is_dir()
-        assert (data_dir / "reference" / "prompts" / "assessment").is_dir()
-        default_prompt_path = (
-            data_dir / "reference" / "prompts" / "assessment" / "assessment-v0001.txt"
-        )
-        assert default_prompt_path.is_file()
-        assert "Use only the complete Document A" in default_prompt_path.read_text(encoding="utf-8")
-        assert (data_dir / "reference" / "prompts" / "generation" / "english").is_dir()
-        assert (data_dir / "reference" / "prompts" / "generation" / "french").is_dir()
+        assert not (data_dir / "reference" / "prompts").exists()
         log_contents = (data_dir / "logs" / "ui.log").read_text(encoding="utf-8")
         assert "application_started" in log_contents
         database_path = data_dir / "database" / "job_application_copilot.db"
         database = create_database(database_path)
         try:
+            assert "Use only the complete Document A" in (
+                PromptService(database).get_active_text("assessment") or ""
+            )
             assert inspect(database.engine).get_table_names() == [
                 "alembic_version",
                 "assessments",
@@ -63,6 +60,7 @@ def test_streamlit_app_starts_and_creates_private_directories(
                 "document_b_vector_records",
                 "jobs",
                 "llm_calls",
+                "prompt_contents",
                 "prompt_definitions",
                 "prompt_pipeline_stages",
                 "reference_assets",

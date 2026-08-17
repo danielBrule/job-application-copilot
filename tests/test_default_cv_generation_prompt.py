@@ -31,13 +31,13 @@ def test_installs_private_version_one_without_overwriting_user_versions(
 
     assert service.ensure()
     assert not service.ensure()
-    active = PromptService(database, settings).get_active_version("cv-generation-en-stage-1")
+    active = PromptService(database).get_active_version("cv-generation-en-stage-1")
     assert active is not None
     assert active.version == 1
-    assert active.file_path == "prompts/generation/english/cv-generation-en-stage-1-v0001.txt"
-    stage_two = PromptService(database, settings).get_active_version("cv-generation-en-stage-2")
-    stage_three = PromptService(database, settings).get_active_version("cv-generation-en-stage-3")
+    assert active.file_path is None
+    stage_two = PromptService(database).get_active_version("cv-generation-en-stage-2")
+    stage_three = PromptService(database).get_active_version("cv-generation-en-stage-3")
     assert stage_two is not None
     assert stage_two.version == 1
-    assert stage_two.file_path == "prompts/generation/english/cv-generation-en-stage-2-v0001.txt"
-    assert stage_three.file_path == "prompts/generation/english/cv-generation-en-stage-3-v0001.txt"
+    assert stage_two.file_path is None
+    assert stage_three.file_path is None

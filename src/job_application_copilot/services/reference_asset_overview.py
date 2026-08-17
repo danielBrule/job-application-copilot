@@ -103,6 +103,10 @@ class ReferenceAssetOverviewService:
 def _summary(asset: ReferenceAsset | None) -> ReferenceAssetVersionSummary | None:
     if asset is None:
         return None
+    if asset.file_path is None:
+        raise RuntimeError(
+            f"File-backed reference asset '{asset.asset_key}' version {asset.version} has no path."
+        )
     return ReferenceAssetVersionSummary.from_values(
         id=asset.id,
         asset_key=asset.asset_key,

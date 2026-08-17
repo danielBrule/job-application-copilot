@@ -88,6 +88,10 @@ erDiagram
         boolean is_active
         string processing_status
     }
+    PROMPT_CONTENT {
+        integer reference_asset_id PK, FK
+        text content
+    }
     CV_TEMPLATE_MANIFEST {
         integer id PK
         integer template_asset_id FK
@@ -146,6 +150,7 @@ erDiagram
     BACKGROUND_TASK ||--o| CV_GENERATION_FINAL : "has"
 
     REFERENCE_ASSET ||--o| CV_TEMPLATE_MANIFEST : "maps"
+    REFERENCE_ASSET ||--o| PROMPT_CONTENT : "stores"
     REFERENCE_ASSET ||--o{ DOCUMENT_B_SECTION : "contains"
     REFERENCE_ASSET ||--o{ DOCUMENT_B_ROUTING_SET : "binds"
     DOCUMENT_B_ROUTING_SET ||--o{ DOCUMENT_B_LANE_ROUTE : "contains"
@@ -161,8 +166,8 @@ show the foreign keys when those values are present. The one-to-zero-or-one rela
 unique foreign keys (`ASSESSMENT.job_id`, `CV.job_id`, each CV-generation output's `task_id`, and
 `CV_TEMPLATE_MANIFEST.template_asset_id`).
 
-`PROMPT_DEFINITION.asset_key` logically identifies the versions held in `REFERENCE_ASSET.asset_key`,
-but it is intentionally not a foreign key. Likewise, assessment/CV version fields and the
+`PROMPT_DEFINITION.asset_key` logically identifies the prompt versions held in
+`REFERENCE_ASSET.asset_key`, but it is intentionally not a foreign key. Likewise, assessment/CV version fields and the
 CV-generation `routing_set_id` are retained version snapshots, not relational foreign keys.
 Deletion behaviour (`CASCADE` or `RESTRICT`) is defined by the SQLAlchemy models and Alembic
 migrations; the diagram intentionally does not duplicate it.
@@ -273,7 +278,7 @@ Key fields:
 - `status`: selected / pending / generating / ready_for_review / failed / approved
 - `language`: EN / FR
 - `file_name`
-- `file_path`
+- `file_path`, required for the persisted CV document
 - `selected_cv_lane`
 - `document_a_version`
 - `document_b_version`
@@ -418,7 +423,7 @@ reported zero. This table is the source for later token, cache-economics and pro
 - `name`
 - optional lowercase `language_code`, such as `en`, `fr` or `de`
 - `version`
-- `file_path`
+- `file_path`, required for document, template and reference-example assets; absent for SQLite-backed prompt assets
 - `file_hash`
 - `is_active`
 - `processing_status`
@@ -440,6 +445,17 @@ The asset key identifies Document A, Document B, each prompt, each language-spec
 and each reference example without hard-coding a fixed number of prompts or languages into the
 schema. Only one version of an asset key may be active. Multiple reference examples may be active
 because each example has its own key.
+
+## Prompt content
+
+One row stores the immutable UTF-8 body for each prompt reference-asset version:
+
+- `reference_asset_id`, the primary key and cascading foreign key to `REFERENCE_ASSET`
+- `content`, nonblank prompt text
+
+The parent reference asset retains the prompt's version, hash, readiness and active state. Its
+`file_hash` is the SHA-256 hash of the stored UTF-8 prompt content for prompt assets. Prompt content
+is not stored in `REFERENCE_ASSET` so file-backed assets do not carry a nullable text payload.
 
 Processing status is `PENDING`, `PROCESSING`, `READY` or `FAILED`. Only a `READY` version may be
 active. Prior valid versions remain `READY` when made inactive. Starting or successfully
@@ -469,7 +485,8 @@ One row describes the stable pipeline role shared by every text version of a pro
 - timestamps
 
 An enabled definition is required even before prompt text exists. It is ready only when its
-asset key has an active `READY` prompt reference-asset version. Disabled definitions and all
+asset key has an active `READY` prompt reference-asset version with a retained prompt-content row.
+Disabled definitions and all
 their immutable text versions are retained but do not count as required. Prompt counts,
 pipeline groups and language codes are therefore data-driven rather than schema constants.
 

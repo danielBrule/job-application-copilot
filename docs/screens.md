@@ -263,7 +263,7 @@ last OpenAI identifier saved locally.
 - Versions and processing state
 - Replace/edit actions
 
-A new installation starts with the packaged generic assessment prompt copied into private storage
+A new installation starts with the packaged generic assessment prompt copied into SQLite
 as active version 1. Editing it through Settings creates the next immutable active version.
 
 ### CV generation

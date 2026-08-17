@@ -101,6 +101,10 @@ class OpenAIFileUploadService:
 
             # PROCESSING without a persisted remote ID means a previous local process may
             # have stopped during upload. This local, single-user workflow is safe to resume.
+            if asset.file_path is None:
+                raise ReferenceAssetIntegrityError(
+                    f"Stored reference asset '{asset_key}' version {version} has no local path."
+                )
             stored_path = self._resolve_stored_path(asset.file_path)
             try:
                 content = stored_path.read_bytes()
