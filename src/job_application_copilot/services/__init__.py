@@ -172,6 +172,11 @@ from job_application_copilot.services.ordered_prompt_pipeline import (
     OrderedPromptStage,
     OrderedPromptStageFailedError,
 )
+from job_application_copilot.services.prompt_content_migration import (
+    PromptContentMigrationError,
+    PromptContentMigrationResult,
+    PromptContentMigrationService,
+)
 from job_application_copilot.services.prompt_service import (
     DuplicatePromptContentError,
     DuplicatePromptDefinitionError,
@@ -313,6 +318,9 @@ __all__ = [
     "OrderedPromptStage",
     "OrderedPromptStageFailedError",
     "PromptActivationError",
+    "PromptContentMigrationError",
+    "PromptContentMigrationResult",
+    "PromptContentMigrationService",
     "PromptService",
     "PromptStorageError",
     "PromptValidationError",

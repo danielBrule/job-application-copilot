@@ -79,7 +79,7 @@ def render_prompt_settings(
     st.header("Prompts")
     st.caption(
         "Prompt definitions determine required pipeline stages. Saving text creates "
-        "an immutable active version; private prompt files remain outside Git."
+        "an immutable active version stored in the local SQLite database."
     )
 
     try:

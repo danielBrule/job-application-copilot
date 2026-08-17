@@ -66,18 +66,18 @@ class DocumentAInputService:
                     "No active Document A is available. In Settings, store Document A "
                     "if needed, then choose 'Restore and activate with OpenAI'."
                 )
-            openai_file_id = self._require_active_asset(asset)
+            openai_file_id, file_path = self._require_active_asset(asset)
             return DocumentAInput(
                 reference_asset_id=asset.id,
                 version=asset.version,
                 file_hash=asset.file_hash,
-                stored_filename=PurePosixPath(asset.file_path).name,
+                stored_filename=PurePosixPath(file_path).name,
                 openai_file_id=openai_file_id,
                 uploaded_at=asset.uploaded_at,
             )
 
     @staticmethod
-    def _require_active_asset(asset: ReferenceAsset) -> str:
+    def _require_active_asset(asset: ReferenceAsset) -> tuple[str, str]:
         if asset.asset_key != DOCUMENT_A_KEY or asset.asset_type is not ReferenceAssetType.DOCUMENT:
             raise DocumentAInputUnavailableError(
                 "The active 'document-a' reference is not the canonical Document A."
@@ -91,4 +91,8 @@ class DocumentAInputService:
                 "The active Document A has no OpenAI file reference. "
                 "Activate it with OpenAI again in Settings."
             )
-        return asset.openai_file_id
+        if asset.file_path is None:
+            raise DocumentAInputUnavailableError(
+                "The active Document A has no retained local file path."
+            )
+        return asset.openai_file_id, asset.file_path

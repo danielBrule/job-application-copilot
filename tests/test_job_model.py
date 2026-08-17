@@ -340,9 +340,10 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
 
         config = Config()
         config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
-        with database.engine.begin() as connection:
+        with database.engine.connect() as connection:
             config.attributes["connection"] = connection
             command.downgrade(config, FOUNDATION_REVISION)
+            connection.commit()
 
         assert inspect(database.engine).get_table_names() == ["alembic_version"]
     finally:
@@ -360,9 +361,10 @@ def test_relevance_migration_preserves_existing_jobs(tmp_path: Path) -> None:
     config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
 
     try:
-        with database.engine.begin() as connection:
+        with database.engine.connect() as connection:
             config.attributes["connection"] = connection
             command.upgrade(config, PRE_RELEVANCE_REVISION)
+            connection.commit()
         with database.session() as session:
             job_id = session.scalar(
                 text(
@@ -389,9 +391,10 @@ def test_relevance_migration_preserves_existing_jobs(tmp_path: Path) -> None:
                     """
                 )
             )
-        with database.engine.begin() as connection:
+        with database.engine.connect() as connection:
             config.attributes["connection"] = connection
             command.upgrade(config, "head")
+            connection.commit()
 
         with database.session() as session:
             stored = session.get(Job, job_id)

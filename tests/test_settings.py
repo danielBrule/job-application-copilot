@@ -51,18 +51,11 @@ def test_defaults_are_safe_and_typed() -> None:
     assert settings.document_b_routing_config_path == Path(
         "data/reference/routing/document-b-lane-routes.yaml"
     )
-    assert settings.prompts_folder == Path("data/reference/prompts")
+    assert settings.legacy_prompts_folder == Path("data/reference/prompts")
     assert settings.document_a_folder == Path("data/reference/document_a")
     assert settings.document_b_folder == Path("data/reference/document_b")
     assert settings.templates_folder == Path("data/reference/templates")
     assert settings.french_examples_folder == Path("data/reference/examples")
-    assert settings.assessment_prompts_folder == Path("data/reference/prompts/assessment")
-    assert settings.english_generation_prompts_folder == Path(
-        "data/reference/prompts/generation/english"
-    )
-    assert settings.french_generation_prompts_folder == Path(
-        "data/reference/prompts/generation/french"
-    )
     assert settings.openai_api_key is None
     assert settings.assessment_model == "gpt-5.6-terra"
     assert settings.assessment_reasoning_effort == "medium"

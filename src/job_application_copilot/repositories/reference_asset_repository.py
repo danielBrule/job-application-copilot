@@ -8,7 +8,7 @@ from job_application_copilot.domain import (
     ReferenceAssetType,
 )
 from job_application_copilot.errors import ApplicationNotFoundError
-from job_application_copilot.repositories.models import ReferenceAsset
+from job_application_copilot.repositories.models import PromptContent, ReferenceAsset
 
 
 class ReferenceAssetVersionNotFoundError(ApplicationNotFoundError):
@@ -221,6 +221,7 @@ class ReferenceAssetRepository:
                     ReferenceAsset.asset_type == ReferenceAssetType.PROMPT,
                     ReferenceAsset.processing_status == ReferenceAssetProcessingStatus.READY,
                     ReferenceAsset.is_active.is_(True),
+                    ReferenceAsset.id.in_(select(PromptContent.reference_asset_id)),
                 )
             )
         )

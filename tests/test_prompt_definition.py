@@ -207,9 +207,10 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
 
         config = Config()
         config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
-        with database.engine.begin() as connection:
+        with database.engine.connect() as connection:
             config.attributes["connection"] = connection
             command.downgrade(config, REFERENCE_ASSET_REVISION)
+            connection.commit()
 
         assert "prompt_definitions" not in inspect(database.engine).get_table_names()
         assert "reference_assets" in inspect(database.engine).get_table_names()

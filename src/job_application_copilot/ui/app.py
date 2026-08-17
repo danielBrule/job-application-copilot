@@ -20,6 +20,8 @@ from job_application_copilot.services import (
     DefaultAssessmentPromptService,
     DefaultCvGenerationPromptError,
     DefaultCvGenerationPromptService,
+    PromptContentMigrationError,
+    PromptContentMigrationService,
 )
 from job_application_copilot.services.database_bootstrap import (
     DatabaseHealthError,
@@ -49,6 +51,7 @@ def main() -> None:
         initialize_database(settings.database_path)
         database = create_database(settings.database_path)
         try:
+            PromptContentMigrationService(database, settings).migrate()
             DefaultAssessmentPromptService(database, settings).ensure()
             DefaultCvGenerationPromptService(database, settings).ensure()
         finally:
@@ -58,6 +61,7 @@ def main() -> None:
         DatabaseMigrationError,
         DefaultAssessmentPromptError,
         DefaultCvGenerationPromptError,
+        PromptContentMigrationError,
         LocalDirectoryError,
         LoggingConfigurationError,
         ValidationError,

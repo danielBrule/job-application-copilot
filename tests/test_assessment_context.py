@@ -22,6 +22,7 @@ from job_application_copilot.repositories.models import (
     DocumentBLaneRoute,
     DocumentBRoutingSet,
     Job,
+    PromptContent,
     ReferenceAsset,
 )
 from job_application_copilot.services import (
@@ -49,10 +50,7 @@ def context_setup(tmp_path: Path) -> tuple[Database, AppSettings, int]:
         _env_file=None,
     )
     settings.database_path.parent.mkdir(parents=True)
-    settings.assessment_prompts_folder.mkdir(parents=True)
-    prompt_path = settings.assessment_prompts_folder / "assessment-v0002.txt"
     prompt_bytes = PROMPT_TEXT.encode("utf-8")
-    prompt_path.write_bytes(prompt_bytes)
 
     initialize_database(settings.database_path)
     database = create_database(settings.database_path)
@@ -84,7 +82,7 @@ def context_setup(tmp_path: Path) -> tuple[Database, AppSettings, int]:
             asset_type=ReferenceAssetType.PROMPT,
             name="Assessment prompt",
             version=2,
-            file_path="prompts/assessment/assessment-v0002.txt",
+            file_path=None,
             file_hash=sha256_file_hash(prompt_bytes),
             is_active=True,
             processing_status=ReferenceAssetProcessingStatus.READY,
@@ -97,6 +95,7 @@ def context_setup(tmp_path: Path) -> tuple[Database, AppSettings, int]:
             ]
         )
         session.flush()
+        session.add(PromptContent(reference_asset_id=prompt.id, content=PROMPT_TEXT))
         routing_set = DocumentBRoutingSet(
             reference_asset_id=document_b.id,
             routing_config_version="routing-v4",

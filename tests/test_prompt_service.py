@@ -12,7 +12,10 @@ from job_application_copilot.domain import (
     ReferenceAssetProcessingStatus,
 )
 from job_application_copilot.repositories import Database, create_database
-from job_application_copilot.repositories.models import ReferenceAsset
+from job_application_copilot.repositories.models import PromptContent, ReferenceAsset
+from job_application_copilot.repositories.prompt_content_repository import (
+    PromptContentRepository,
+)
 from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
 )
@@ -21,7 +24,6 @@ from job_application_copilot.services import (
     DuplicatePromptDefinitionError,
     PromptActivationError,
     PromptService,
-    PromptStorageError,
 )
 from job_application_copilot.services.database_bootstrap import initialize_database
 
@@ -35,7 +37,7 @@ def prompt_service(
     initialize_database(settings.database_path)
     database = create_database(settings.database_path)
     try:
-        yield PromptService(database, settings), database, settings
+        yield PromptService(database), database, settings
     finally:
         database.dispose()
 
@@ -99,20 +101,20 @@ def test_saves_utf8_text_as_ready_active_immutable_versions(
     assert (first.version, second.version) == (1, 2)
     assert second.is_active
     assert second.processing_status is ReferenceAssetProcessingStatus.READY
-    assert second.file_path == "prompts/assessment/assessment-v0002.txt"
+    assert first.file_path is None
+    assert second.file_path is None
     assert service.get_active_text("assessment") == "Préserver les preuves factuelles.\n"
-    assert (settings.reference_folder / first.file_path).read_text(encoding="utf-8") == (
-        "Keep factual evidence."
-    )
-    assert (settings.reference_folder / second.file_path).read_text(encoding="utf-8") == (
-        "Préserver les preuves factuelles.\n"
-    )
-
     with database.session() as session:
         stored_versions = ReferenceAssetRepository(session).list_versions("assessment")
         assert [asset.version for asset in stored_versions] == [2, 1]
         assert not stored_versions[1].is_active
         assert sum(asset.is_active for asset in stored_versions) == 1
+        first_content = PromptContentRepository(session).get(first.id)
+        second_content = PromptContentRepository(session).get(second.id)
+        assert first_content is not None
+        assert second_content is not None
+        assert first_content.content == "Keep factual evidence."
+        assert second_content.content == "Préserver les preuves factuelles.\n"
 
 
 def test_reactivates_retained_ready_version(
@@ -260,30 +262,13 @@ def test_rejects_blank_and_duplicate_prompt_text(
         service.save_text("assessment", content)
 
     assert captured.value.existing_version == 1
-    assert list(settings.assessment_prompts_folder.glob("*.txt")) == [
-        settings.assessment_prompts_folder / "assessment-v0001.txt"
-    ]
+    assert not settings.legacy_prompts_folder.exists()
     with database.session() as session:
         assert session.scalar(select(func.count()).select_from(ReferenceAsset)) == 1
+        assert session.scalar(select(func.count()).select_from(PromptContent)) == 1
 
 
-def test_existing_version_path_is_not_overwritten_or_deleted(
-    prompt_service: tuple[PromptService, Database, AppSettings],
-) -> None:
-    service, database, settings = prompt_service
-    settings.assessment_prompts_folder.mkdir(parents=True, exist_ok=True)
-    existing = settings.assessment_prompts_folder / "assessment-v0001.txt"
-    existing.write_text("Private existing prompt", encoding="utf-8")
-
-    with pytest.raises(PromptStorageError, match="will not be overwritten"):
-        service.save_text("assessment", "New prompt")
-
-    assert existing.read_text(encoding="utf-8") == "Private existing prompt"
-    with database.session() as session:
-        assert session.scalar(select(func.count()).select_from(ReferenceAsset)) == 0
-
-
-def test_removes_new_file_when_metadata_write_fails(
+def test_rolls_back_prompt_text_when_metadata_write_fails(
     prompt_service: tuple[PromptService, Database, AppSettings],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -301,9 +286,10 @@ def test_removes_new_file_when_metadata_write_fails(
     with pytest.raises(RuntimeError, match="database write failed"):
         service.save_text("assessment", "New prompt")
 
-    assert not (settings.assessment_prompts_folder / "assessment-v0001.txt").exists()
+    assert not settings.legacy_prompts_folder.exists()
     with database.session() as session:
         assert session.scalar(select(func.count()).select_from(ReferenceAsset)) == 0
+        assert session.scalar(select(func.count()).select_from(PromptContent)) == 0
 
 
 def test_rejects_activation_of_non_ready_version(

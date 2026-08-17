@@ -25,7 +25,7 @@ def overview_service(
     settings.database_path.parent.mkdir(parents=True)
     initialize_database(settings.database_path)
     database = create_database(settings.database_path)
-    prompt_service = PromptService(database, settings)
+    prompt_service = PromptService(database)
     try:
         yield (
             ReferenceAssetOverviewService(

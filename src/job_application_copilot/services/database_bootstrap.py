@@ -11,6 +11,7 @@ from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from alembic.script.revision import RevisionError
+from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 
 from job_application_copilot.config import load_settings
@@ -63,9 +64,7 @@ def initialize_database(database_path: Path) -> DatabaseStatus:
                 target_revision=target_revision,
             )
             try:
-                with database.engine.begin() as connection:
-                    config.attributes["connection"] = connection
-                    command.upgrade(config, "head")
+                _upgrade_database(config, database)
             except Exception as error:
                 raise DatabaseMigrationError(
                     f"Cannot migrate database '{database_path}' to "
@@ -86,6 +85,13 @@ def initialize_database(database_path: Path) -> DatabaseStatus:
                 f"Database '{database_path}' is at revision "
                 f"'{current_revision}', expected '{target_revision}'."
             )
+
+        try:
+            _verify_database_foreign_keys(database)
+        except SQLAlchemyError as error:
+            raise DatabaseHealthError(
+                f"Cannot verify database foreign keys for '{database_path}': {error}"
+            ) from error
 
         try:
             health = database.health_check()
@@ -128,6 +134,34 @@ def _migration_config() -> Config:
     config = Config()
     config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
     return config
+
+
+def _upgrade_database(config: Config, database: Database) -> None:
+    """Run migrations over an idle connection prepared by Alembic's environment."""
+
+    with database.engine.connect() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, "head")
+        if connection.in_transaction():
+            connection.commit()
+
+
+def _verify_database_foreign_keys(database: Database) -> None:
+    """Verify referential integrity even when no migration is required."""
+
+    with database.engine.connect() as connection:
+        _verify_foreign_keys(connection)
+
+
+def _verify_foreign_keys(connection: Connection) -> None:
+    """Reject a database containing any orphaned foreign-key relationships."""
+
+    violations = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+    connection.commit()
+    if violations:
+        raise DatabaseMigrationError(
+            "Database contains one or more invalid foreign-key relationships."
+        )
 
 
 def get_migration_head() -> str:
@@ -207,7 +241,11 @@ def main() -> None:
         from job_application_copilot.services.default_cv_generation_prompt import (
             DefaultCvGenerationPromptService,
         )
+        from job_application_copilot.services.prompt_content_migration import (
+            PromptContentMigrationService,
+        )
 
+        PromptContentMigrationService(database, settings).migrate()
         DefaultAssessmentPromptService(database, settings).ensure()
         DefaultCvGenerationPromptService(database, settings).ensure()
     finally:

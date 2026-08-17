@@ -87,9 +87,9 @@ def get_background_run_service(database_path: Path) -> BackgroundRunService:
 
 
 def get_prompt_service(settings: AppSettings) -> PromptService:
-    """Build a prompt service using shared database and configured private storage."""
+    """Build a prompt service using the shared SQLite database."""
 
-    return PromptService(get_database(settings.database_path), settings)
+    return PromptService(get_database(settings.database_path))
 
 
 def get_document_a_processing_service(
@@ -133,7 +133,7 @@ def get_reference_asset_overview_service(
     database = get_database(settings.database_path)
     return ReferenceAssetOverviewService(
         database,
-        PromptService(database, settings),
+        PromptService(database),
         settings.minimum_french_reference_examples,
     )
 

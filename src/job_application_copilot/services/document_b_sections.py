@@ -133,6 +133,10 @@ class DocumentBSectionService:
         with self.database.session() as session:
             asset = ReferenceAssetRepository(session).require_version(DOCUMENT_B_KEY, version)
             self._validate_document_b(asset.asset_key, asset.asset_type)
+            if asset.file_path is None:
+                raise DocumentBSectionError(
+                    f"Stored Document B version {version} has no local file path."
+                )
             return asset.id, asset.file_path, asset.file_hash
 
     def _extract(self, version: int) -> tuple[int, tuple[ExtractedDocumentBSection, ...]]:

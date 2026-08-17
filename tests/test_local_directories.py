@@ -34,9 +34,6 @@ def test_creates_required_directories_idempotently(tmp_path: Path) -> None:
         settings.routing_folder,
         settings.templates_folder,
         settings.french_examples_folder,
-        settings.assessment_prompts_folder,
-        settings.english_generation_prompts_folder,
-        settings.french_generation_prompts_folder,
     )
 
 
@@ -50,9 +47,7 @@ def test_creates_only_directories_not_private_files(tmp_path: Path) -> None:
     assert not any(settings.cv_folder.iterdir())
     assert not any(settings.french_examples_folder.iterdir())
     assert not any(settings.routing_folder.iterdir())
-    assert not any(settings.assessment_prompts_folder.iterdir())
-    assert not any(settings.english_generation_prompts_folder.iterdir())
-    assert not any(settings.french_generation_prompts_folder.iterdir())
+    assert not settings.legacy_prompts_folder.exists()
 
 
 def test_supports_specific_path_overrides(tmp_path: Path) -> None:

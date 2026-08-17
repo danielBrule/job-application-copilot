@@ -73,9 +73,9 @@ Create or upgrade the SQLite database, or preview migrations as SQL:
 The database uses Alembic migrations, WAL mode, foreign keys and a five-second busy timeout. Do
 not commit the database file.
 
-Reference assets, prompts, templates and generated CVs remain below the configured private data
-directory. The application versions assets immutably and validates DOCX packages before retaining
-them. Read [architecture](architecture.md#5-document-handling) and the
+Reference assets, templates and generated CVs remain below the configured private data directory;
+prompt text is retained in the local SQLite database. The application versions assets immutably and
+validates DOCX packages before retaining them. Read [architecture](architecture.md#5-document-handling) and the
 [OpenAI pipeline](openai-pipeline.md) before operating reference-asset activation or cleanup.
 
 Inspect the local Document B routing manifest without changing data or making model calls:
@@ -102,9 +102,10 @@ For development only, reset all retained reference assets with explicit confirma
 .\dev.ps1 reset-reference-assets -Force
 ```
 
-This removes tracked local reference files and their database rows, and removes tracked remote
-OpenAI resources first where recorded. It preserves prompt definitions, jobs and unrelated private
-data.
+This first imports any validated historical prompt files, then removes tracked local reference
+files and their database rows, including SQLite-backed prompt content through cascading deletion.
+It removes tracked remote OpenAI resources first where recorded and preserves prompt definitions,
+jobs and unrelated private data.
 
 ## Run and verify
 

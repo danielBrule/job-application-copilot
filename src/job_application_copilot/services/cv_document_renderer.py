@@ -85,6 +85,10 @@ class CvDocumentRendererService:
                 raise ApplicationIntegrityError(
                     "The active English CV template no longer matches its manifest."
                 )
+            if asset.file_path is None:
+                raise ApplicationIntegrityError(
+                    "The active English CV template has no retained local file path."
+                )
             relative_path = asset.file_path
             file_hash = asset.file_hash
         try:

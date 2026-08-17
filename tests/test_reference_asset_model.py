@@ -14,7 +14,7 @@ from job_application_copilot.domain import (
     ReferenceAssetType,
 )
 from job_application_copilot.repositories import Database, create_database
-from job_application_copilot.repositories.models import ReferenceAsset
+from job_application_copilot.repositories.models import PromptContent, ReferenceAsset
 from job_application_copilot.services.database_bootstrap import (
     MIGRATIONS_DIRECTORY,
     get_migration_head,
@@ -134,6 +134,57 @@ def test_direct_insert_uses_pending_inactive_defaults(
         assert not stored.is_active
         assert isinstance(stored.uploaded_at, datetime)
         assert isinstance(stored.updated_at, datetime)
+
+
+def test_prompt_content_is_one_to_one_and_allows_no_file_path(
+    migrated_database: Database,
+) -> None:
+    prompt = make_asset(
+        asset_key="assessment",
+        asset_type=ReferenceAssetType.PROMPT,
+        name="Assessment prompt",
+        language_code=None,
+    )
+    prompt.file_path = None
+
+    with migrated_database.session() as session:
+        session.add(prompt)
+        session.flush()
+        session.add(PromptContent(reference_asset_id=prompt.id, content="Prompt body."))
+        prompt_id = prompt.id
+
+    with migrated_database.session() as session:
+        stored = session.get(ReferenceAsset, prompt_id)
+        content = session.get(PromptContent, prompt_id)
+        assert stored is not None
+        assert stored.file_path is None
+        assert content is not None
+        assert content.content == "Prompt body."
+
+    with pytest.raises(IntegrityError):
+        with migrated_database.session() as session:
+            session.add(PromptContent(reference_asset_id=prompt_id, content="Another body."))
+
+    second_prompt = make_asset(
+        asset_key="second-assessment",
+        asset_type=ReferenceAssetType.PROMPT,
+        name="Second assessment prompt",
+    )
+    second_prompt.file_path = None
+    with pytest.raises(IntegrityError):
+        with migrated_database.session() as session:
+            session.add(second_prompt)
+            session.flush()
+            session.add(PromptContent(reference_asset_id=second_prompt.id, content=" "))
+
+
+def test_requires_file_paths_for_non_prompt_assets(migrated_database: Database) -> None:
+    asset = make_asset()
+    asset.file_path = None
+
+    with pytest.raises(IntegrityError):
+        with migrated_database.session() as session:
+            session.add(asset)
 
 
 def test_retains_versions_and_enforces_one_active_version_per_asset_key(
@@ -326,10 +377,10 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
             "asset_type",
             "name",
             "version",
-            "file_path",
             "file_hash",
         ):
             assert not columns[field]["nullable"]
+        assert columns["file_path"]["nullable"]
         assert columns["is_active"]["default"] is not None
         assert columns["processing_status"]["default"] is not None
         assert columns["uploaded_at"]["default"] is not None
@@ -353,9 +404,10 @@ def test_migration_schema_and_reversible_upgrade(tmp_path: Path) -> None:
 
         config = Config()
         config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
-        with database.engine.begin() as connection:
+        with database.engine.connect() as connection:
             config.attributes["connection"] = connection
             command.downgrade(config, JOB_REVISION)
+            connection.commit()
 
         assert inspect(database.engine).get_table_names() == [
             "alembic_version",

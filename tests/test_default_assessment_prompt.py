@@ -38,13 +38,13 @@ def test_installs_packaged_prompt_as_active_private_version_one(
 
     created = DefaultAssessmentPromptService(database, settings).ensure()
 
-    service = PromptService(database, settings)
+    service = PromptService(database)
     active = service.get_active_version("assessment")
     assert created
     assert active is not None
     assert active.version == 1
     assert active.is_active
-    assert active.file_path == "prompts/assessment/assessment-v0001.txt"
+    assert active.file_path is None
     assert service.get_active_text("assessment") == _packaged_prompt_text()
 
 
@@ -80,7 +80,7 @@ def test_uses_configured_template_directory_when_present(
     DefaultAssessmentPromptService(database, configured_settings).ensure()
 
     assert (
-        PromptService(database, configured_settings).get_active_text("assessment")
+        PromptService(database).get_active_text("assessment")
         == "Configured default assessment prompt."
     )
 
@@ -93,16 +93,14 @@ def test_repeated_installation_is_idempotent(
 
     assert service.ensure()
     assert not service.ensure()
-    assert [
-        asset.version for asset in PromptService(database, settings).list_versions("assessment")
-    ] == [1]
+    assert [asset.version for asset in PromptService(database).list_versions("assessment")] == [1]
 
 
 def test_never_overwrites_an_existing_user_prompt(
     prompt_setup: tuple[Database, AppSettings],
 ) -> None:
     database, settings = prompt_setup
-    prompt_service = PromptService(database, settings)
+    prompt_service = PromptService(database)
     prompt_service.save_text("assessment", "User-managed assessment prompt.")
 
     created = DefaultAssessmentPromptService(database, settings).ensure()
@@ -115,7 +113,7 @@ def test_never_reactivates_a_retained_inactive_prompt(
     prompt_setup: tuple[Database, AppSettings],
 ) -> None:
     database, settings = prompt_setup
-    prompt_service = PromptService(database, settings)
+    prompt_service = PromptService(database)
     saved = prompt_service.save_text("assessment", "Retained prompt.")
     with database.session() as session:
         stored = session.get(type(saved), saved.id)
@@ -144,7 +142,7 @@ def test_rejects_a_blank_packaged_template_without_creating_a_version(
             template_path=blank_template,
         ).ensure()
 
-    assert PromptService(database, settings).list_versions("assessment") == []
+    assert PromptService(database).list_versions("assessment") == []
 
 
 def _packaged_prompt_text() -> str:

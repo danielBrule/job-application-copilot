@@ -25,6 +25,7 @@ from job_application_copilot.repositories import (
     AssessmentRepository,
     Database,
     JobRepository,
+    PromptContentRepository,
     PromptDefinitionRepository,
     ReferenceAssetRepository,
 )
@@ -35,11 +36,7 @@ from job_application_copilot.services.document_b_routing import (
     ResolvedRouting,
 )
 from job_application_copilot.services.document_b_sections import DocumentBSectionService
-from job_application_copilot.services.immutable_file_storage import (
-    ImmutableFilePathError,
-    resolve_path_within,
-    sha256_file_hash,
-)
+from job_application_copilot.services.immutable_file_storage import sha256_file_hash
 
 CV_GENERATION_PIPELINE_GROUP = "generation/english"
 CV_CONTEXT_CACHE_IDENTITY_VERSION = 1
@@ -296,23 +293,18 @@ class CvGenerationContextBuilder:
                 raise CvGenerationContextError(
                     f"CV-generation prompt '{definition.asset_key}' is not READY."
                 )
-            asset_key, version, file_hash, relative_path = (
+            prompt_content = PromptContentRepository(session).get(asset.id)
+            if prompt_content is None:
+                raise CvGenerationContextError(
+                    f"CV-generation prompt '{asset.asset_key}' has no retained text."
+                )
+            asset_key, version, file_hash, text = (
                 asset.asset_key,
                 asset.version,
                 asset.file_hash,
-                asset.file_path,
+                prompt_content.content,
             )
-        try:
-            path = resolve_path_within(
-                self.settings.prompts_folder, self.settings.reference_folder / relative_path
-            )
-            content = path.read_bytes()
-            text = content.decode("utf-8")
-        except (ImmutableFilePathError, OSError, UnicodeError) as error:
-            raise CvGenerationContextError(
-                f"CV-generation prompt '{asset_key}' cannot be read safely."
-            ) from error
-        if not text.strip() or sha256_file_hash(content) != file_hash:
+        if not text.strip() or sha256_file_hash(text.encode("utf-8")) != file_hash:
             raise CvGenerationContextError(
                 f"CV-generation prompt '{asset_key}' failed integrity validation."
             )

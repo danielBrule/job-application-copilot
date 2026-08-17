@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from pathlib import Path
 
-from job_application_copilot.config import AppSettings
+from sqlalchemy.orm import Session
+
 from job_application_copilot.domain import (
     CreatePromptDefinition,
     PromptCompleteness,
@@ -17,23 +17,21 @@ from job_application_copilot.errors import (
     ApplicationValidationError,
 )
 from job_application_copilot.repositories import Database
-from job_application_copilot.repositories.models import PromptDefinition, ReferenceAsset
+from job_application_copilot.repositories.models import (
+    PromptContent,
+    PromptDefinition,
+    ReferenceAsset,
+)
+from job_application_copilot.repositories.prompt_content_repository import (
+    PromptContentRepository,
+)
 from job_application_copilot.repositories.prompt_definition_repository import (
     PromptDefinitionRepository,
 )
 from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
 )
-from job_application_copilot.services.immutable_file_storage import (
-    ImmutableFileExistsError,
-    ImmutableFilePathError,
-    ImmutableFileWriteError,
-    relative_path_within,
-    remove_created_file,
-    resolve_path_within,
-    sha256_file_hash,
-    write_bytes_exclusively,
-)
+from job_application_copilot.services.immutable_file_storage import sha256_file_hash
 
 
 class DuplicatePromptDefinitionError(ApplicationValidationError):
@@ -52,7 +50,7 @@ class DuplicatePromptContentError(ApplicationValidationError):
 
 
 class PromptStorageError(ApplicationStorageError):
-    """Raised when private prompt text cannot be stored or read safely."""
+    """Raised when stored prompt text cannot be read or validated safely."""
 
 
 class PromptActivationError(ApplicationValidationError):
@@ -66,9 +64,8 @@ class PromptValidationError(ApplicationValidationError):
 class PromptService:
     """Manage prompt definitions and immutable active text versions."""
 
-    def __init__(self, database: Database, settings: AppSettings) -> None:
+    def __init__(self, database: Database) -> None:
         self.database = database
-        self.settings = settings
 
     def create_definition(self, command: CreatePromptDefinition) -> PromptDefinition:
         """Create a new prompt definition without hard-coded groups or languages."""
@@ -152,62 +149,58 @@ class PromptService:
         if not text.strip():
             raise PromptValidationError("Prompt text must not be blank.")
 
-        content = text.encode("utf-8")
-        file_hash = sha256_file_hash(content)
-        stored_path: Path | None = None
-        file_created = False
+        content_hash = sha256_file_hash(text.encode("utf-8"))
 
-        try:
-            with self.database.session() as session:
-                definition = PromptDefinitionRepository(session).require(asset_key)
-                repository = ReferenceAssetRepository(session)
-                duplicate = repository.find_by_hash(asset_key, file_hash)
-                if duplicate is not None:
-                    raise DuplicatePromptContentError(asset_key, duplicate.version)
+        with self.database.session() as session:
+            definition = PromptDefinitionRepository(session).require(asset_key)
+            repository = ReferenceAssetRepository(session)
+            duplicate = repository.find_by_hash(asset_key, content_hash)
+            if duplicate is not None:
+                raise DuplicatePromptContentError(asset_key, duplicate.version)
 
-                version = repository.next_version(asset_key)
-                destination = self._prompt_folder(definition.pipeline_group)
-                destination.mkdir(parents=True, exist_ok=True)
-                stored_path = destination / f"{asset_key}-v{version:04d}.txt"
-                self._store_prompt_file(stored_path, content)
-                file_created = True
+            version = repository.next_version(asset_key)
+            current = repository.get_active(asset_key)
+            if current is not None:
+                current.is_active = False
+                session.flush()
 
-                current = repository.get_active(asset_key)
-                if current is not None:
-                    current.is_active = False
-                    session.flush()
-
-                return repository.add(
-                    ReferenceAsset(
-                        asset_key=asset_key,
-                        asset_type=ReferenceAssetType.PROMPT,
-                        name=definition.name,
-                        language_code=definition.language_code,
-                        version=version,
-                        file_path=self._relative_file_path(stored_path),
-                        file_hash=file_hash,
-                        is_active=True,
-                        processing_status=ReferenceAssetProcessingStatus.READY,
-                    )
+            asset = repository.add(
+                ReferenceAsset(
+                    asset_key=asset_key,
+                    asset_type=ReferenceAssetType.PROMPT,
+                    name=definition.name,
+                    language_code=definition.language_code,
+                    version=version,
+                    file_path=None,
+                    file_hash=content_hash,
+                    is_active=True,
+                    processing_status=ReferenceAssetProcessingStatus.READY,
                 )
-        except Exception:
-            remove_created_file(stored_path, created=file_created)
-            raise
+            )
+            PromptContentRepository(session).add(
+                PromptContent(reference_asset_id=asset.id, content=text)
+            )
+            return asset
 
     def get_active_version(self, asset_key: str) -> ReferenceAsset | None:
         """Return the active prompt version, if one exists."""
 
         with self.database.session() as session:
             PromptDefinitionRepository(session).require(asset_key)
-            return ReferenceAssetRepository(session).get_active(asset_key)
+            active = ReferenceAssetRepository(session).get_active(asset_key)
+            if active is not None:
+                self._read_text(session, active)
+            return active
 
     def get_active_text(self, asset_key: str) -> str | None:
         """Read the active private prompt text, or None when it is missing."""
 
-        active = self.get_active_version(asset_key)
-        if active is None:
-            return None
-        return self._read_text(active)
+        with self.database.session() as session:
+            PromptDefinitionRepository(session).require(asset_key)
+            active = ReferenceAssetRepository(session).get_active(asset_key)
+            if active is None:
+                return None
+            return self._read_text(session, active)
 
     def list_versions(self, asset_key: str) -> list[ReferenceAsset]:
         """Return retained prompt versions, newest first."""
@@ -229,6 +222,10 @@ class PromptService:
                 )
             if target.processing_status is not ReferenceAssetProcessingStatus.READY:
                 raise PromptActivationError(f"Prompt '{asset_key}' version {version} is not READY.")
+            try:
+                self._read_text(session, target)
+            except PromptStorageError as error:
+                raise PromptActivationError(str(error)) from error
             if target.is_active:
                 return target
 
@@ -245,46 +242,27 @@ class PromptService:
         languages = {definition.language_code for definition in definitions}
         return languages.pop() if len(languages) == 1 else None
 
-    def _prompt_folder(self, pipeline_group: str) -> Path:
-        destination = self.settings.prompts_folder.joinpath(*pipeline_group.split("/"))
-        self._ensure_within_prompts_folder(destination)
-        return destination
-
-    def _relative_file_path(self, stored_path: Path) -> str:
-        try:
-            return relative_path_within(self.settings.reference_folder, stored_path)
-        except ImmutableFilePathError as error:
-            raise PromptStorageError(
-                "Prompt folders must be located under the configured reference folder."
-            ) from error
-
-    def _read_text(self, asset: ReferenceAsset) -> str:
-        path = self.settings.reference_folder / asset.file_path
-        self._ensure_within_prompts_folder(path)
-        try:
-            return path.read_text(encoding="utf-8")
-        except (OSError, UnicodeError) as error:
-            raise PromptStorageError(
-                f"Cannot read prompt '{asset.asset_key}' version {asset.version}: {error}"
-            ) from error
-
-    def _ensure_within_prompts_folder(self, path: Path) -> None:
-        try:
-            resolve_path_within(self.settings.prompts_folder, path)
-        except ImmutableFilePathError as error:
-            raise PromptStorageError(
-                f"Prompt path is outside the configured prompt folder: {path}"
-            ) from error
-
     @staticmethod
-    def _store_prompt_file(path: Path, content: bytes) -> None:
-        try:
-            write_bytes_exclusively(path, content)
-        except ImmutableFileExistsError as error:
+    def _read_text(session: Session, asset: ReferenceAsset) -> str:
+        """Read and integrity-check one prompt body from the SQLite store."""
+
+        if asset.asset_type is not ReferenceAssetType.PROMPT:
             raise PromptStorageError(
-                f"Prompt version path already exists and will not be overwritten: {path}"
-            ) from error
-        except ImmutableFileWriteError as error:
+                f"Reference asset '{asset.asset_key}' version {asset.version} is not a prompt."
+            )
+        content = PromptContentRepository(session).get(asset.id)
+        if content is None:
             raise PromptStorageError(
-                f"Could not store prompt text at {path}: {error.__cause__}"
-            ) from error
+                f"Prompt '{asset.asset_key}' version {asset.version} has no retained text."
+            )
+        if not content.content.strip():
+            raise PromptStorageError(
+                f"Prompt '{asset.asset_key}' version {asset.version} is blank."
+            )
+        actual_hash = sha256_file_hash(content.content.encode("utf-8"))
+        if actual_hash != asset.file_hash:
+            raise PromptStorageError(
+                f"Prompt '{asset.asset_key}' version {asset.version} no longer matches "
+                "its recorded hash."
+            )
+        return content.content

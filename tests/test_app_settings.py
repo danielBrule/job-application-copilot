@@ -20,6 +20,7 @@ from job_application_copilot.services import (
     DocumentAProcessingService,
     DocumentBProcessingError,
     DocumentBProcessingService,
+    PromptService,
     ReferenceAssetRemoteCleanupResult,
     ReferenceAssetRemoteCleanupService,
     ReferenceAssetStorageService,
@@ -172,9 +173,9 @@ def test_settings_page_saves_prompt_text_as_active_version(
 
         assert not app.exception
         assert app.expander[5].label == "1. Assessment prompt — v2 READY"
-        assert (
-            data_dir / "reference" / "prompts" / "assessment" / "assessment-v0002.txt"
-        ).read_text(encoding="utf-8") == "Assessment instructions.\n"
+        database = get_database(data_dir / "database" / "job_application_copilot.db")
+        assert PromptService(database).get_active_text("assessment") == "Assessment instructions.\n"
+        assert not (data_dir / "reference" / "prompts").exists()
     finally:
         reset_logging()
 
