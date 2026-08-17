@@ -183,9 +183,9 @@ def test_validation_retry_adds_safe_correction_without_raw_error_text(database: 
         ),
     )
 
-    result = OrderedPromptPipelineService(database, client, max_retries=1, sleep=lambda _: None).run(
-        task, task_attempt_id=attempt_id, stages=(stage,)
-    )
+    result = OrderedPromptPipelineService(
+        database, client, max_retries=1, sleep=lambda _: None
+    ).run(task, task_attempt_id=attempt_id, stages=(stage,))
 
     assert result.outputs == ("final",)
     assert len(client.requests) == 2

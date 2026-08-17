@@ -162,6 +162,34 @@ def test_rejects_mismatched_job_task_operation_and_attempt(
             LlmCallRepository(session).add(make_call(first_job.id, task_attempt_id=1))
 
 
+def test_allows_assessment_call_for_a_cv_generation_contract_refresh(
+    migrated_database: Database,
+) -> None:
+    with migrated_database.session() as session:
+        job = add_job(session)
+        batch = BackgroundBatchRepository(session).add(
+            BackgroundBatch(operation=BackgroundOperation.CV_GENERATION)
+        )
+        task = BackgroundTaskRepository(session).add(
+            BackgroundTask(
+                batch_id=batch.id,
+                job_id=job.id,
+                operation=BackgroundOperation.CV_GENERATION,
+            )
+        )
+        BackgroundTaskRepository(session).transition(task, BackgroundTaskStatus.RUNNING)
+        attempt = session.scalar(
+            select(BackgroundTaskAttempt).where(BackgroundTaskAttempt.task_id == task.id)
+        )
+        assert attempt is not None
+
+        stored = LlmCallRepository(session).add(
+            make_call(job.id, task_id=task.id, task_attempt_id=attempt.id)
+        )
+
+    assert stored.operation is BackgroundOperation.ASSESSMENT
+
+
 def test_aggregates_reported_usage_including_failed_calls(
     migrated_database: Database,
 ) -> None:

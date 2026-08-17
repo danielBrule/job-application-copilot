@@ -302,3 +302,77 @@ def test_later_stages_accept_primary_lane_scoped_sections_selected_by_stage_one(
     CvGenerationContextBuilder._validate_brief(
         brief(selected_sections=frozenset({"bullet-root"})), primary, None, 1, 1, ()
     )
+
+
+def test_singulier_technology_dd_distinctions_survive_stage_two_and_three_inputs() -> None:
+    """Keep the material Technology DD distinctions in the retained Stage 1 handover."""
+
+    planned_evidence = (
+        "Two PE Technology DDs assessing architecture, data assets, pipeline maturity, "
+        "team capability, scalability and delivery effort against investment theses."
+    )
+    singulier_brief = CvGenerationBriefInput(
+        document_a_version=1,
+        document_b_version=1,
+        routing_set_id=1,
+        output={
+            **brief(selected_sections=frozenset({"summary-child"})).output.model_dump(),
+            "evidence_to_lead_with": [planned_evidence],
+            "mandate_coverage": [
+                {
+                    "mandate_dimension_id": "technology-dd",
+                    "planned_evidence": planned_evidence,
+                    "coverage_status": "COVERED",
+                }
+            ],
+        },
+    )
+    assessment = SimpleNamespace(
+        primary_role_family="DATA_AI_VALUE_CREATION",
+        secondary_role_family=None,
+        secondary_cv_angle=None,
+        material_mandate_dimensions=(),
+        evidence_anchors=(),
+        evidence_gaps=(),
+        strong_fit_signals=(),
+        overclaiming_risks=(),
+    )
+
+    stage_two_items = CvGenerationContextBuilder._variable_items(
+        job_description="Technology DD mandate.",
+        assessment=assessment,
+        secondary=None,
+        mandate_support=(),
+        passages=(),
+        brief=singulier_brief,
+        prior_stage_output=None,
+        template_contract=None,
+    )
+    stage_three_items = CvGenerationContextBuilder._variable_items(
+        job_description="Technology DD mandate.",
+        assessment=assessment,
+        secondary=None,
+        mandate_support=(),
+        passages=(),
+        brief=singulier_brief,
+        prior_stage_output="Stage 2 draft.",
+        template_contract=None,
+    )
+
+    stage_two_brief = next(
+        item.text for item in stage_two_items if item.section == "cv_generation_brief"
+    )
+    stage_three_brief = next(
+        item.text for item in stage_three_items if item.section == "cv_generation_brief"
+    )
+    for capability in (
+        "architecture",
+        "data assets",
+        "pipeline maturity",
+        "team capability",
+        "scalability",
+        "delivery effort",
+    ):
+        assert capability in planned_evidence
+        assert capability in stage_two_brief
+        assert capability in stage_three_brief

@@ -238,9 +238,7 @@ class OrderedPromptPipelineService:
         raise AssertionError("Prompt stage retry loop must return.")
 
     @staticmethod
-    def _correction_request(
-        request: PromptStageRequest, error: ValueError
-    ) -> PromptStageRequest:
+    def _correction_request(request: PromptStageRequest, error: ValueError) -> PromptStageRequest:
         """Add safe contract feedback for a regenerated structured response.
 
         Validation errors may contain private generated text, so the correction

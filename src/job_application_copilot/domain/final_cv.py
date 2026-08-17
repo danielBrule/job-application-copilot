@@ -1,16 +1,21 @@
 """Template-parameterised structured content for a final generated CV."""
 
 import re
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 PLACEHOLDER_PATTERN = re.compile(r"^\[[A-Z][A-Z0-9_]*\]$")
 UNRESOLVED_TEMPLATE_PLACEHOLDER_PATTERN = re.compile(
-    r"\[(?:factual|actual)?\s*(?:job\s*)?title|company|location|dates?\]",
+    r"\[(?:(?:(?:factual|actual)?\s*(?:job\s*)?title)|company|location|dates?)\]",
     re.IGNORECASE,
 )
 SERIALIZATION_DELIMITER_PATTERN = re.compile(r"\]\s*}\s*,\s*{")
 DELIMITER_ONLY_PATTERN = re.compile(r'^[\s\[\]{} ,:"]+$')
+SchemaCvProse = Annotated[
+    str,
+    Field(min_length=1, pattern=r"^[^\[\]]*\S[^\[\]]*$"),
+]
 
 
 def _require_cv_prose(value: object) -> str:
@@ -84,8 +89,8 @@ class CvSkillEntry(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    name: str
-    content: str
+    name: SchemaCvProse
+    content: SchemaCvProse
 
     @field_validator("name", "content", mode="before")
     @classmethod
@@ -121,9 +126,9 @@ class SemanticCvExperienceBlock(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    title: str | None = None
-    introduction: str | None = None
-    bullets: tuple[str, ...] = Field(min_length=1)
+    title: SchemaCvProse | None = None
+    introduction: SchemaCvProse | None = None
+    bullets: tuple[SchemaCvProse, ...] = Field(min_length=1)
 
     @field_validator("title", "introduction", mode="before")
     @classmethod
@@ -143,12 +148,12 @@ class SemanticFinalCvOutput(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    opening_title: str
-    opening_profile: str
-    experience: tuple[SemanticCvExperienceBlock, ...] = Field(min_length=1)
-    skills: tuple[CvSkillEntry, ...] = Field(min_length=1)
+    opening_title_content: SchemaCvProse
+    opening_profile_content: SchemaCvProse
+    experience_blocks: tuple[SemanticCvExperienceBlock, ...] = Field(min_length=1)
+    skill_entries: tuple[CvSkillEntry, ...] = Field(min_length=1)
 
-    @field_validator("opening_title", "opening_profile", mode="before")
+    @field_validator("opening_title_content", "opening_profile_content", mode="before")
     @classmethod
     def require_text(cls, value: object) -> object:
         return _require_cv_prose(value)

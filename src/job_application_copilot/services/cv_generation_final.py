@@ -67,7 +67,7 @@ class CvGenerationFinalService:
         context = self.context_builder.build(
             task.job_id,
             stage=3,
-            model_identifier=self.settings.cv_generation_model,
+            model_identifier=self.settings.cv_generation_final_model,
             response_schema=self._response_schema(contract),
             brief=brief,
             prior_stage_output=draft.model_dump_json(),
@@ -86,7 +86,7 @@ class CvGenerationFinalService:
             self.client,
             max_retries=self.settings.cv_generation_max_retries,
         ).run(task, task_attempt_id=task_attempt_id, stages=(stage,))
-        output = self._validated_contract_output(pipeline.outputs[0], contract)
+        output = self._validated_pipeline_output(pipeline.outputs[0], contract)
         with self.database.session() as session:
             CvGenerationFinalRepository(session).store(
                 task_id=task.id,
@@ -134,7 +134,11 @@ class CvGenerationFinalService:
         response_schema = self._response_schema(contract)
         execution_identity = hashlib.sha256(
             json.dumps(
-                {"inputs": [asdict(item) for item in inputs], "response_schema": response_schema},
+                {
+                    "inputs": [asdict(item) for item in inputs],
+                    "model_identifier": context.traceability.model_identifier,
+                    "response_schema": response_schema,
+                },
                 sort_keys=True,
             ).encode("utf-8")
         ).hexdigest()
@@ -152,6 +156,14 @@ class CvGenerationFinalService:
     def _validated_output(text: str) -> FinalCvOutput:
         return FinalCvOutput.model_validate_json(text)
 
+    @classmethod
+    def _validated_pipeline_output(cls, text: str, contract: CvTemplateContract) -> FinalCvOutput:
+        """Validate the template-bound output retained by the prompt pipeline."""
+
+        output = cls._validated_output(text)
+        contract.validate(output)
+        return output
+
     @staticmethod
     def _response_schema(contract: CvTemplateContract) -> dict[str, object]:
         """Constrain Stage 3 experience blocks to the active template's slots."""
@@ -159,12 +171,10 @@ class CvGenerationFinalService:
         schema = SemanticFinalCvOutput.model_json_schema()
         properties = schema["properties"]
         assert isinstance(properties, dict)
-        experience = properties["experience"]
+        experience = properties["experience_blocks"]
         assert isinstance(experience, dict)
         expected = [
-            slot.placeholder
-            for slot in contract.manifest.slots
-            if slot.kind.value == "EXPERIENCE"
+            slot.placeholder for slot in contract.manifest.slots if slot.kind.value == "EXPERIENCE"
         ]
         experience["minItems"] = len(expected)
         experience["maxItems"] = len(expected)

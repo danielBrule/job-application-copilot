@@ -29,6 +29,7 @@ from job_application_copilot.services.ordered_prompt_pipeline import (
 )
 
 CV_DRAFT_PIPELINE_STEP = "CV_GENERATION_STAGE_2_DRAFT"
+CV_DRAFT_OUTPUT_CONTRACT_VERSION = 2
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,8 +104,17 @@ class CvGenerationDraftService:
             )
             for item in context.input
         )
+        response_schema = CvGenerationDraftOutput.model_json_schema()
         execution_identity = hashlib.sha256(
-            json.dumps([asdict(item) for item in inputs], sort_keys=True).encode("utf-8")
+            json.dumps(
+                {
+                    "inputs": [asdict(item) for item in inputs],
+                    "model_identifier": context.traceability.model_identifier,
+                    "output_contract_version": CV_DRAFT_OUTPUT_CONTRACT_VERSION,
+                    "response_schema": response_schema,
+                },
+                sort_keys=True,
+            ).encode("utf-8")
         ).hexdigest()
         return PromptStageRequest(
             model_identifier=context.traceability.model_identifier,
@@ -112,7 +122,7 @@ class CvGenerationDraftService:
             cache_identity_hash=context.cache_identity.identity_hash,
             cache_identity_version=context.cache_identity.identity_version,
             execution_identity_hash=execution_identity,
-            response_schema=CvGenerationDraftOutput.model_json_schema(),
+            response_schema=response_schema,
             reasoning_effort=self.settings.cv_generation_reasoning_effort,
         )
 

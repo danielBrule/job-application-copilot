@@ -46,6 +46,7 @@ class AppSettings(BaseSettings):
     assessment_retry_base_delay_seconds: float = Field(default=1.0, ge=0, le=30)
     assessment_worker_count: int = Field(default=1, ge=1, le=5)
     cv_generation_model: str = "gpt-5.6-terra"
+    cv_generation_final_model: str = "gpt-5.6-terra"
     cv_generation_reasoning_effort: AssessmentReasoningEffort = "medium"
     cv_generation_max_retries: int = Field(default=2, ge=0, le=5)
     cv_worker_count: int = Field(default=1, ge=1, le=5)

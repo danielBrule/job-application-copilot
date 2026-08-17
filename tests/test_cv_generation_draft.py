@@ -25,6 +25,15 @@ def test_validates_the_structured_draft_and_evidence_notes() -> None:
     assert "Professional Profile" in output.draft_cv
 
 
+def test_accepts_placeholder_words_in_ordinary_stage_two_prose() -> None:
+    values = payload()
+    values["draft_cv"] = "Led company delivery across locations and reporting dates."
+
+    output = CvGenerationDraftOutput.model_validate(values)
+
+    assert output.draft_cv.startswith("Led company delivery")
+
+
 def test_rejects_missing_or_blank_structured_draft_fields() -> None:
     values = payload()
     values["draft_cv"] = " "
@@ -34,4 +43,23 @@ def test_rejects_missing_or_blank_structured_draft_fields() -> None:
     values = payload()
     values["softened_evidence"] = [""]
     with pytest.raises(ValidationError):
+        CvGenerationDraftOutput.model_validate(values)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("draft_cv", "Experience at [Company]."),
+        ("prioritised_evidence", ["Use [Actual job title] as supplied."]),
+        ("softened_evidence", ["Scope at [Location] is not evidenced."]),
+        ("excluded_evidence", ["Dates remain [Dates]."]),
+    ],
+)
+def test_rejects_unresolved_placeholders_in_every_stage_two_field(
+    field: str, value: object
+) -> None:
+    values = payload()
+    values[field] = value
+
+    with pytest.raises(ValidationError, match="unresolved template placeholder"):
         CvGenerationDraftOutput.model_validate(values)

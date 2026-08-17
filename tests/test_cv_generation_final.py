@@ -23,9 +23,9 @@ from tests.test_final_cv import payload
 def semantic_payload() -> dict[str, object]:
     values = payload()
     return {
-        "opening_title": values["opening_title"]["content"],
-        "opening_profile": values["opening_profile"]["content"],
-        "experience": [
+        "opening_title_content": values["opening_title"]["content"],
+        "opening_profile_content": values["opening_profile"]["content"],
+        "experience_blocks": [
             {
                 "title": None if item.get("title") is None else item["title"]["content"],
                 "introduction": item.get("introduction"),
@@ -33,7 +33,7 @@ def semantic_payload() -> dict[str, object]:
             }
             for item in values["experience"]
         ],
-        "skills": values["skills"]["entries"],
+        "skill_entries": values["skills"]["entries"],
     }
 
 
@@ -41,6 +41,86 @@ def test_validates_final_structured_output() -> None:
     output = CvGenerationFinalService._validated_output(json.dumps(payload()))
 
     assert output.opening_title.content == "AI & Data Solution Architecture Leader"
+
+
+def test_reaccepts_the_template_bound_output_returned_by_the_prompt_pipeline() -> None:
+    values = payload()
+    experience_slots = tuple(
+        CvTemplateSlotMapping(
+            placeholder=item["placeholder"],
+            kind=CvTemplateSlotKind.EXPERIENCE,
+            experience_target=f"Experience {index}",
+        )
+        for index, item in enumerate(values["experience"], start=1)
+    )
+    contract = CvTemplateContract(
+        CvTemplateManifest(
+            template_asset_id=1,
+            status=CvTemplateManifestStatus.CONFIRMED,
+            placeholders=(
+                values["opening_title"]["placeholder"],
+                values["opening_profile"]["placeholder"],
+                values["skills"]["placeholder"],
+                *(item.placeholder for item in experience_slots),
+            ),
+            slots=(
+                CvTemplateSlotMapping(
+                    placeholder=values["opening_title"]["placeholder"],
+                    kind=CvTemplateSlotKind.OPENING_TITLE,
+                ),
+                CvTemplateSlotMapping(
+                    placeholder=values["opening_profile"]["placeholder"],
+                    kind=CvTemplateSlotKind.OPENING_PROFILE,
+                ),
+                CvTemplateSlotMapping(
+                    placeholder=values["skills"]["placeholder"],
+                    kind=CvTemplateSlotKind.SKILLS,
+                ),
+                *experience_slots,
+            ),
+        )
+    )
+    retained = CvGenerationFinalService._validated_contract_output(
+        json.dumps(semantic_payload()), contract
+    ).model_dump_json()
+
+    output = CvGenerationFinalService._validated_pipeline_output(retained, contract)
+
+    assert output.opening_title.content == "AI & Data Solution Architecture Leader"
+
+
+def test_stage_three_schema_requires_nonblank_unbracketed_prose() -> None:
+    schema = CvGenerationFinalService._response_schema(
+        CvTemplateContract(
+            CvTemplateManifest(
+                template_asset_id=1,
+                status=CvTemplateManifestStatus.CONFIRMED,
+                placeholders=(
+                    "[OPENING_TITLE]",
+                    "[OPENING_PROFILE]",
+                    "[SKILLS]",
+                    "[EXPERIENCE_ONE]",
+                ),
+                slots=(
+                    CvTemplateSlotMapping(
+                        placeholder="[OPENING_TITLE]", kind=CvTemplateSlotKind.OPENING_TITLE
+                    ),
+                    CvTemplateSlotMapping(
+                        placeholder="[OPENING_PROFILE]", kind=CvTemplateSlotKind.OPENING_PROFILE
+                    ),
+                    CvTemplateSlotMapping(placeholder="[SKILLS]", kind=CvTemplateSlotKind.SKILLS),
+                    CvTemplateSlotMapping(
+                        placeholder="[EXPERIENCE_ONE]",
+                        kind=CvTemplateSlotKind.EXPERIENCE,
+                        experience_target="One",
+                    ),
+                ),
+            )
+        )
+    )
+    properties = schema["properties"]
+    assert properties["opening_title_content"]["minLength"] == 1
+    assert "pattern" in properties["opening_title_content"]
 
 
 def test_rejects_invalid_final_structured_output() -> None:
@@ -111,12 +191,14 @@ def test_contract_validation_is_available_to_the_stage_output_validator() -> Non
     )
 
     with pytest.raises(CvTemplateContractError, match="experience blocks"):
-        CvGenerationFinalService._validated_contract_output(json.dumps(semantic_payload()), contract)
+        CvGenerationFinalService._validated_contract_output(
+            json.dumps(semantic_payload()), contract
+        )
 
 
 def test_contract_rejects_a_missing_factual_experience_title_when_template_requires_one() -> None:
     values = semantic_payload()
-    values["experience"][1]["title"] = None  # type: ignore[index]
+    values["experience_blocks"][1]["title"] = None  # type: ignore[index]
     contract = CvTemplateContract(
         CvTemplateManifest(
             template_asset_id=1,

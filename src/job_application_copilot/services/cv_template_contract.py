@@ -35,11 +35,14 @@ class CvTemplateContract:
         return json.dumps(
             {
                 "experience_targets": [
-                    {"target": slot.experience_target, "requires_title": any(
-                        title.kind is CvTemplateSlotKind.EXPERIENCE_TITLE
-                        and title.experience_target == slot.experience_target
-                        for title in self.manifest.slots
-                    )}
+                    {
+                        "target": slot.experience_target,
+                        "requires_title": any(
+                            title.kind is CvTemplateSlotKind.EXPERIENCE_TITLE
+                            and title.experience_target == slot.experience_target
+                            for title in self.manifest.slots
+                        ),
+                    }
                     for slot in self.manifest.slots
                     if slot.kind is CvTemplateSlotKind.EXPERIENCE
                 ],
@@ -116,18 +119,23 @@ class CvTemplateContract:
         """Assign every semantic stage-three value to its manifest-defined DOCX slot."""
 
         slots = self.manifest.slots
-        experience_slots = tuple(slot for slot in slots if slot.kind is CvTemplateSlotKind.EXPERIENCE)
-        if len(output.experience) != len(experience_slots):
+        experience_slots = tuple(
+            slot for slot in slots if slot.kind is CvTemplateSlotKind.EXPERIENCE
+        )
+        if len(output.experience_blocks) != len(experience_slots):
             raise CvTemplateContractError("Final CV experience blocks do not match the template.")
         title_slots = {
             slot.experience_target: slot.placeholder
-            for slot in slots if slot.kind is CvTemplateSlotKind.EXPERIENCE_TITLE
+            for slot in slots
+            if slot.kind is CvTemplateSlotKind.EXPERIENCE_TITLE
         }
         experience = tuple(
             CvExperienceBlock(
                 placeholder=slot.placeholder,
                 title=(
-                    None if item.title is None else CvTemplateText(
+                    None
+                    if item.title is None
+                    else CvTemplateText(
                         placeholder=title_slots.get(slot.experience_target, "[UNUSED_TITLE]"),
                         content=item.title,
                     )
@@ -135,19 +143,20 @@ class CvTemplateContract:
                 introduction=item.introduction,
                 bullets=item.bullets,
             )
-            for slot, item in zip(experience_slots, output.experience, strict=True)
+            for slot, item in zip(experience_slots, output.experience_blocks, strict=True)
         )
         result = FinalCvOutput(
             opening_title=CvTemplateText(
                 placeholder=self._one_placeholder(CvTemplateSlotKind.OPENING_TITLE),
-                content=output.opening_title,
+                content=output.opening_title_content,
             ),
             opening_profile=CvTemplateText(
                 placeholder=self._one_placeholder(CvTemplateSlotKind.OPENING_PROFILE),
-                content=output.opening_profile,
+                content=output.opening_profile_content,
             ),
             skills=CvSkillsBlock(
-                placeholder=self._one_placeholder(CvTemplateSlotKind.SKILLS), entries=output.skills
+                placeholder=self._one_placeholder(CvTemplateSlotKind.SKILLS),
+                entries=output.skill_entries,
             ),
             experience=experience,
         )
