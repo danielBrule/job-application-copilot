@@ -110,30 +110,6 @@ def test_settings_page_displays_seeded_prompt_completeness(
             5,
             200,
         ]
-        return
-
-        assert [expander.label for expander in app.expander] == [
-            "Upload or replace Document A",
-            "Upload or replace Document B",
-            "Upload or replace French CV template",
-            "Manage French CV examples",
-            "Upload or replace English CV template",
-            "Inactive OpenAI resources",
-            "Retained local document versions",
-            "1. Assessment prompt â€” v1 READY",
-            "1. English generation prompt 1 â€” v1 READY",
-            "2. English generation prompt 2 â€” v1 READY",
-            "3. English generation prompt 3 â€” v1 READY",
-            "1. French extension prompt 1 â€” Missing",
-            "2. French extension prompt 2 â€” Missing",
-        ]
-        assert [uploader.proto.max_upload_size_mb for uploader in app.file_uploader] == [
-            5,
-            5,
-            5,
-            5,
-            200,
-        ]
     finally:
         reset_logging()
 
@@ -194,8 +170,6 @@ def test_settings_page_saves_prompt_text_as_active_version(
 
         assert not app.exception
         assert app.expander[7].label.startswith("1. Assessment prompt")
-        return
-        assert app.expander[5].label == "1. Assessment prompt â€” v2 READY"
         database = get_database(data_dir / "database" / "job_application_copilot.db")
         assert PromptService(database).get_active_text("assessment") == "Assessment instructions.\n"
         assert not (data_dir / "reference" / "prompts").exists()
@@ -818,7 +792,7 @@ def test_settings_page_adds_dynamic_french_reference_example(
         assert example["Active"] == "Yes"
         assert "french-reference-examples" not in overview_table["Asset key"].tolist()
         assert any(
-            caption.value == "French examples: 1/2 active and ready â€” MISSING."
+            caption.value == "French examples: 1/2 active and ready — MISSING."
             for caption in app.caption
         )
 

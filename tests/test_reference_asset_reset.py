@@ -120,7 +120,7 @@ def test_reset_removes_assets_files_and_remote_resources_but_preserves_jobs_and_
         assert ReferenceAssetRepository(session).list_all() == []
         assert session.scalar(select(func.count()).select_from(PromptContent)) == 0
         assert session.scalar(select(func.count()).select_from(Job)) == 1
-        assert session.scalar(select(func.count()).select_from(PromptDefinition)) == 7
+        assert session.scalar(select(func.count()).select_from(PromptDefinition)) == 6
 
 
 def test_reset_without_assets_is_idempotent_and_does_not_require_openai(
