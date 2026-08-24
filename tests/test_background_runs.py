@@ -285,6 +285,63 @@ def test_retry_preserves_failed_attempt_and_does_not_change_completed_sibling(
     assert runs[completed_id].status is BackgroundTaskStatus.COMPLETED
 
 
+def test_retry_all_failed_tasks_preserves_attempts_and_skips_other_states(
+    migrated_database: Database,
+) -> None:
+    failed_assessment_id = add_task(
+        migrated_database,
+        company="Failed assessment",
+        operation=BackgroundOperation.ASSESSMENT,
+        status=BackgroundTaskStatus.FAILED,
+        batch_created_at=datetime(2026, 7, 29, 8, 0),
+    )
+    failed_cv_id = add_task(
+        migrated_database,
+        company="Failed CV",
+        operation=BackgroundOperation.CV_GENERATION,
+        status=BackgroundTaskStatus.FAILED,
+        batch_created_at=datetime(2026, 7, 29, 9, 0),
+    )
+    interrupted_id = add_task(
+        migrated_database,
+        company="Interrupted",
+        operation=BackgroundOperation.ASSESSMENT,
+        status=BackgroundTaskStatus.INTERRUPTED,
+        batch_created_at=datetime(2026, 7, 29, 10, 0),
+    )
+
+    results = BackgroundRunService(migrated_database).retry_all_failed_tasks()
+    runs = {
+        run.task_id: run
+        for run in BackgroundRunService(migrated_database).list(
+            BackgroundRunFilters(include_completed=True)
+        )
+    }
+
+    assert [result.task_id for result in results] == [failed_assessment_id, failed_cv_id]
+    assert all(result.status is BackgroundTaskStatus.PENDING for result in results)
+    assert all(result.retry_count == 1 for result in results)
+    assert runs[failed_assessment_id].status is BackgroundTaskStatus.PENDING
+    assert runs[failed_assessment_id].attempts[0].status is BackgroundTaskStatus.FAILED
+    assert runs[failed_cv_id].status is BackgroundTaskStatus.PENDING
+    assert runs[failed_cv_id].attempts[0].status is BackgroundTaskStatus.FAILED
+    assert runs[interrupted_id].status is BackgroundTaskStatus.INTERRUPTED
+
+
+def test_retry_all_failed_tasks_returns_no_results_when_none_are_failed(
+    migrated_database: Database,
+) -> None:
+    add_task(
+        migrated_database,
+        company="Pending",
+        operation=BackgroundOperation.ASSESSMENT,
+        status=BackgroundTaskStatus.PENDING,
+        batch_created_at=datetime(2026, 7, 29, 8, 0),
+    )
+
+    assert BackgroundRunService(migrated_database).retry_all_failed_tasks() == ()
+
+
 def test_shapes_compact_rows_and_preserves_selected_task(migrated_database: Database) -> None:
     task_id = add_task(
         migrated_database,
