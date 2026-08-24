@@ -28,6 +28,7 @@ from job_application_copilot.ui.components.background_runs import (
     FILTER_STATUS_KEY,
     INCLUDE_COMPLETED_KEY,
     REFRESH_BUTTON_KEY,
+    RETRY_ALL_CONFIRMATION_KEY,
 )
 from tests.app_test_support import APP_PATH
 
@@ -189,5 +190,43 @@ def test_background_runs_applies_failed_status_from_navigation_query_parameter(
         assert not app.exception
         assert app.selectbox(key=FILTER_STATUS_KEY).value == "FAILED"
         assert app.query_params.get("status") is None
+    finally:
+        reset_logging()
+
+
+def test_background_runs_retries_all_failed_tasks_after_confirmation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    database_path = data_dir / "database" / "job_application_copilot.db"
+    database_path.parent.mkdir(parents=True)
+    first_task_id = seed_failed_task(database_path)
+    second_task_id = seed_failed_task(database_path)
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+
+    app = AppTest.from_file(str(APP_PATH), default_timeout=15).run()
+
+    try:
+        app.switch_page("pages/background_runs.py").run()
+
+        assert not app.exception
+        assert app.button(key="retry_all_failed_tasks").disabled is True
+
+        app.checkbox(key=RETRY_ALL_CONFIRMATION_KEY).check().run()
+        app.button(key="retry_all_failed_tasks").click().run()
+
+        database = create_database(database_path)
+        try:
+            with database.session() as session:
+                tasks = [
+                    BackgroundTaskRepository(session).require(first_task_id),
+                    BackgroundTaskRepository(session).require(second_task_id),
+                ]
+                assert all(task.status is BackgroundTaskStatus.PENDING for task in tasks)
+                assert all(task.retry_count == 1 for task in tasks)
+        finally:
+            database.dispose()
     finally:
         reset_logging()

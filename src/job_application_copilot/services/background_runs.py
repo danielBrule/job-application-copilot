@@ -30,3 +30,8 @@ class BackgroundRunService:
         """Return one failed or interrupted task to the worker queue."""
 
         return BackgroundTaskRecoveryService(self.database).retry_task(task_id)
+
+    def retry_all_failed_tasks(self) -> tuple[BackgroundTaskRetryResult, ...]:
+        """Return every currently failed task to the worker queue."""
+
+        return BackgroundTaskRecoveryService(self.database).retry_all_failed_tasks()

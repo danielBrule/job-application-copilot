@@ -29,6 +29,8 @@ INCLUDE_COMPLETED_KEY = "background_runs_include_completed"
 STATUS_QUERY_PARAMETER = "status"
 LOAD_ERROR_MESSAGE = "Background runs could not be loaded. See the private UI log for details."
 RETRY_ERROR_MESSAGE = "The task could not be retried. See the private UI log for details."
+RETRY_ALL_CONFIRMATION_KEY = "confirm_retry_all_failed_tasks"
+RETRY_ALL_SUCCESS_KEY = "retry_all_failed_tasks_success"
 AUTO_REFRESH_SECONDS = 60
 BACKGROUND_RUNS_TABLE_KEY = "background_runs_table"
 TABLE_COLUMN_ORDER = (
@@ -117,6 +119,7 @@ def render_background_runs(service: BackgroundRunService) -> None:
         st.info("No background tasks have been created yet.")
         return
 
+    _render_retry_all_failed_tasks(service, all_runs)
     filters = _render_filters(all_runs)
     try:
         runs = service.list(filters) if _has_active_filters(filters) else all_runs
@@ -302,6 +305,52 @@ def _retry_task(service: BackgroundRunService, task_id: int) -> None:
         return
 
     st.success(f"Task {result.task_id} queued for retry (retry {result.retry_count}).")
+    st.rerun()
+
+
+def _render_retry_all_failed_tasks(
+    service: BackgroundRunService,
+    all_runs: Sequence[BackgroundRunSummary],
+) -> None:
+    """Require explicit confirmation before retrying every currently failed task."""
+
+    if message := st.session_state.pop(RETRY_ALL_SUCCESS_KEY, None):
+        st.success(message)
+
+    count = sum(run.status is BackgroundTaskStatus.FAILED for run in all_runs)
+    noun = "task" if count == 1 else "tasks"
+    st.divider()
+    if count == 0:
+        st.info("There are no failed tasks to retry.")
+        return
+
+    st.info(f"Retry all {count} failed {noun}. This returns them to the worker queue.")
+    confirmed = st.checkbox(
+        f"I want to retry all {count} failed {noun}.",
+        key=RETRY_ALL_CONFIRMATION_KEY,
+    )
+    if not st.button(
+        f"Retry all failed {noun}",
+        key="retry_all_failed_tasks",
+        type="primary",
+        disabled=not confirmed,
+    ):
+        return
+    try:
+        retried = service.retry_all_failed_tasks()
+    except ApplicationError as error:
+        st.error(str(error))
+        return
+    except SQLAlchemyError:
+        logger.exception("background_tasks_retry_all_failed")
+        st.error(RETRY_ERROR_MESSAGE)
+        return
+
+    if not retried:
+        st.info("There are no failed tasks to retry.")
+        return
+    st.session_state[RETRY_ALL_CONFIRMATION_KEY] = False
+    st.session_state[RETRY_ALL_SUCCESS_KEY] = f"Queued {len(retried)} failed {noun} for retry."
     st.rerun()
 
 

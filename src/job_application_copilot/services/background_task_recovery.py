@@ -57,3 +57,21 @@ class BackgroundTaskRecoveryService:
                 retry_count=task.retry_count,
                 status=task.status,
             )
+
+    def retry_all_failed_tasks(self) -> tuple[BackgroundTaskRetryResult, ...]:
+        """Return every currently failed task to PENDING in one transaction."""
+
+        with self.database.session() as session:
+            tasks = BackgroundTaskRepository(session)
+            failed_tasks = tasks.list(status=BackgroundTaskStatus.FAILED)
+            results: list[BackgroundTaskRetryResult] = []
+            for task in failed_tasks:
+                retried = tasks.transition(task, BackgroundTaskStatus.PENDING)
+                results.append(
+                    BackgroundTaskRetryResult(
+                        task_id=retried.id,
+                        retry_count=retried.retry_count,
+                        status=retried.status,
+                    )
+                )
+            return tuple(results)
