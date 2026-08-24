@@ -14,15 +14,51 @@ from job_application_copilot.domain import (
 )
 from job_application_copilot.repositories import AssessmentRepository, create_database
 from job_application_copilot.repositories.models import Assessment, Cv, Job
-from job_application_copilot.services import JobAssessmentDetail, JobService
+from job_application_copilot.services import CvReviewNavigation, JobAssessmentDetail, JobService
 from job_application_copilot.services.database_bootstrap import initialize_database
 from job_application_copilot.ui.components.job_details import (
     _can_record_application,
     _effective_relevance,
+    _render_cv_review_navigation,
     _render_job_details_heading,
     parse_job_id,
     summary_bullets,
 )
+
+
+def test_next_cv_navigation_uses_the_adjacent_review_job(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Column:
+        def __enter__(self) -> "Column":
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+    class Streamlit:
+        def columns(self, _: int) -> tuple[Column, Column]:
+            return Column(), Column()
+
+        def page_link(self, *_: object, **__: object) -> None:
+            return None
+
+        def button(self, label: str, **_: object) -> bool:
+            return label == "Next CV"
+
+        def switch_page(self, _: str, *, query_params: dict[str, str]) -> None:
+            destination.update(query_params)
+
+    class Service:
+        def review_navigation(self, _: int) -> CvReviewNavigation:
+            return CvReviewNavigation(previous_job_id=10, next_job_id=30)
+
+    destination: dict[str, str] = {}
+    monkeypatch.setattr("job_application_copilot.ui.components.job_details.st", Streamlit())
+
+    _render_cv_review_navigation(20, Service())  # type: ignore[arg-type]
+
+    assert destination == {"job_id": "30", "tab": "cv"}
 
 
 @pytest.mark.parametrize("value", [None, "", "abc", "1.5", "0", "-1"])
