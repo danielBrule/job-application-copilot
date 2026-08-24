@@ -122,15 +122,6 @@ class CvService:
             job_ids = CvRepository(session).list_default_application_status_review_job_ids()
         return job_ids[0] if job_ids else None
 
-    def next_outstanding_default_application_status_review_job_id(
-        self, *, excluding_job_id: int
-    ) -> int | None:
-        """Return a remaining generated CV awaiting application tracking."""
-
-        with self.database.session() as session:
-            job_ids = CvRepository(session).list_default_application_status_review_job_ids()
-        return next((job_id for job_id in job_ids if job_id != excluding_job_id), None)
-
     def _require_shared_cv_file(self, file_path: Path) -> Path:
         try:
             path = resolve_path_within(self.settings.cv_folder, file_path)
