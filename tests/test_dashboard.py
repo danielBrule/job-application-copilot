@@ -45,8 +45,10 @@ def test_dashboard_shows_usage_and_failed_task_kpis(
         assert {metric.label for metric in app.metric}.issuperset(
             {
                 "Jobs",
-                "Assessed awaiting review",
-                "Generated CVs awaiting application",
+                "Assessed jobs",
+                "Applied jobs",
+                "Unassessed jobs",
+                "Selected without generated CV",
             }
         )
         assert any(page_link.label == "Review failed tasks" for page_link in app.get("page_link"))

@@ -75,10 +75,17 @@ def _render_workflow_kpis(kpis: DashboardWorkflowKpis) -> None:
     """Render a compact view of the job-to-submission workflow."""
 
     st.subheader("Workflow")
-    jobs, assessed, generated = st.columns(3)
+    jobs, assessed, applied = st.columns(3)
     jobs.metric("Jobs", kpis.jobs_entered)
-    assessed.metric("Assessed awaiting review", kpis.assessed_jobs_awaiting_review)
-    generated.metric("Generated CVs awaiting application", kpis.generated_cvs_awaiting_application)
+    assessed.metric("Assessed jobs", kpis.assessed_jobs)
+    applied.metric("Applied jobs", kpis.applied_jobs)
+    st.subheader("Current queues")
+    unassessed, cv_generation = st.columns(2)
+    unassessed.metric("Unassessed jobs", kpis.unassessed_jobs)
+    cv_generation.metric(
+        "Selected without generated CV",
+        kpis.selected_jobs_without_generated_cv,
+    )
 
 
 def _render_failed_task_kpi(failed_task_count: int) -> None:

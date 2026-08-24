@@ -96,7 +96,7 @@ def test_empty_overview_keeps_all_required_categories_visible(
         for group in overview.prompt_groups
     ] == [
         ("assessment", 0, 1),
-        ("generation/english", 0, 4),
+        ("generation/english", 0, 3),
         ("generation/french", 0, 2),
     ]
 

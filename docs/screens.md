@@ -14,8 +14,10 @@ Job Details opens from the Jobs table.
 ### KPI cards
 
 - Jobs entered
-- Assessed jobs awaiting human review (decision is `Undecided`)
-- Generated CVs awaiting a recorded application (application status is empty)
+- Assessed jobs
+- Applied jobs
+- Unassessed jobs
+- Selected for CV generation without a generated CV
 - Assessment tokens: total / average
 - CV-generation tokens: total / average
 - Assessment time: total / average
@@ -41,7 +43,7 @@ The failed-task KPI links to Background Runs filtered to failed tasks.
 ### Table columns
 
 - Select
-- Company
+- Company (links to Job Details)
 - Job title
 - Location
 - Language
@@ -155,8 +157,7 @@ When a CV exists:
 - Filename and local path
 - Source: Generated / Uploaded
 - Open CV
-- Approve CV
-- Optional review notes
+- Optional foldable review notes
 - Approval date
 
 No in-application document editor and no Word version history.
@@ -165,8 +166,8 @@ No in-application document editor and no Word version history.
 
 Fields:
 
-- Free-text application status
-- Application date
+- Application status: None / Applied / 1st round / 2nd round / 3rd round / 4th round; non-None selection approves the CV
+- Application date: set automatically when Applied is selected
 - Next action
 - Next-action date
 - Salary expectation
@@ -269,8 +270,8 @@ as active version 1. Editing it through Settings creates the next immutable acti
 ### CV generation
 
 - Active Document B DOCX
-- Four ordered English prompts
-- Add, enable or disable prompt definitions
+- Three ordered English prompts
+- Enable or disable prompt definitions
 - Versions and processing state
 - Replace/edit actions
 
@@ -281,7 +282,7 @@ as active version 1. Editing it through Settings creates the next immutable acti
 - French prompt 1
 - French prompt 2
 
-The two French prompts are shown after the four English prompts in the pipeline order.
+The two French prompts are shown after the three English prompts in the pipeline order.
 These are the initial enabled definitions. Prompt counts, pipeline groups and languages are
 data-driven. The Settings screen shows ready/required counts and missing prompt keys for each
 group.

@@ -157,7 +157,7 @@ class JobDashboardRow:
         """Return only the values rendered in the table."""
 
         return {
-            "company": self.company,
+            "company": f"/job-details?job_id={self.job_id}#{self.company}",
             "job_title": self.job_title,
             "job_url": self.job_url,
             "location": self.location,
@@ -350,7 +350,7 @@ def render_jobs_dashboard(
         hide_index=True,
         column_order=TABLE_COLUMN_ORDER,
         column_config={
-            "company": st.column_config.TextColumn("Company"),
+            "company": st.column_config.LinkColumn("Company", display_text=r"#(.*)"),
             "job_title": st.column_config.TextColumn("Job title"),
             "job_url": st.column_config.LinkColumn(
                 "Job URL",
@@ -398,18 +398,6 @@ def render_jobs_dashboard(
     selected_count = len(selected_ids)
     label = "job" if selected_count == 1 else "jobs"
     st.caption(f"{selected_count} {label} selected.")
-    selected_job_id = selected_ids[0] if selected_count == 1 else None
-    if st.button(
-        "Open selected job",
-        key="open_selected_job",
-        type="primary",
-        disabled=selected_job_id is None,
-    ):
-        st.switch_page(
-            "pages/job_details.py",
-            query_params={"job_id": str(selected_job_id)},
-        )
-
     _render_assess_all_unassessed(assessment_batch_service)
     _render_generate_all_selected_cvs(cv_generation_batch_service)
     _render_regenerate_selected_cvs(cv_generation_batch_service, selected_ids)

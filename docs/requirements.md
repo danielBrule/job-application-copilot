@@ -191,11 +191,11 @@ The active CV can be opened:
 
 The local Windows default DOCX application, normally Microsoft Word, is used.
 
-The user edits the file in Word and explicitly clicks **Approve CV** in the application. Approval stores its date. No in-app Word editor or Word version history is required.
+Selecting a non-None application status explicitly approves a review-ready CV. Approval stores its date. No in-app Word editor or Word version history is required.
 
 ## 10. Application tracking
 
-Application status is free text because companies use different processes.
+Application status is one of None, Applied, 1st round, 2nd round, 3rd round or 4th round. Selecting a non-None status approves a review-ready CV and saves the status immediately. Selecting Applied records the current date as the application date; later rounds retain it.
 
 A job stores:
 
@@ -238,8 +238,10 @@ task preserves earlier attempt timings and errors and does not modify completed 
 Simple cards appear on the Dashboard page:
 
 - Jobs entered
-- Assessed jobs awaiting human review (decision is `Undecided`)
-- Generated CVs awaiting a recorded application (application status is empty)
+- Assessed jobs
+- Applied jobs
+- Unassessed jobs
+- Selected for CV generation without a generated CV
 - Total and average assessment tokens
 - Total and average CV-generation tokens
 - Total and average assessment processing time

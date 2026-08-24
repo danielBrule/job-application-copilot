@@ -9,6 +9,7 @@ from job_application_copilot.domain import (
     AssessmentDecision,
     AssessmentStatus,
     BackgroundOperation,
+    CvSelectionStatus,
     CvSource,
     CvStatus,
     Language,
@@ -99,33 +100,36 @@ def test_usage_returns_zero_totals_and_no_averages_without_successful_calls(tmp_
         database.dispose()
 
 
-def test_workflow_counts_review_and_application_queues(tmp_path: Path) -> None:
+def test_workflow_counts_jobs_assessments_and_applications(tmp_path: Path) -> None:
     database = _migrated_database(tmp_path)
     try:
         with database.session() as session:
             awaiting_review_job = _add_job(session, "Awaiting review")
             reviewed_job = _add_job(session, "Reviewed")
-            awaiting_application_job = _add_job(session, "Awaiting application")
-            blank_application_status_job = _add_job(session, "Blank application status")
             applied_job = _add_job(session, "Applied")
+            selected_without_cv = _add_job(session, "Selected without CV")
+            selected_with_cv = _add_job(session, "Selected with CV")
             reviewed_job.user_decision = UserDecision.PURSUE
-            blank_application_status_job.application_status = "   "
             applied_job.application_status = "Applied"
+            selected_without_cv.cv_selection_status = CvSelectionStatus.SELECTED
+            selected_with_cv.cv_selection_status = CvSelectionStatus.SELECTED
             session.add_all(
                 [
                     _make_assessed_assessment(awaiting_review_job),
                     _make_assessed_assessment(reviewed_job),
-                    _make_generated_cv(awaiting_application_job.id, CvStatus.READY_FOR_REVIEW),
-                    _make_generated_cv(blank_application_status_job.id, CvStatus.APPROVED),
-                    _make_generated_cv(applied_job.id, CvStatus.APPROVED),
+                    _make_assessed_assessment(selected_without_cv),
+                    _make_assessed_assessment(selected_with_cv),
+                    _make_generated_cv(selected_with_cv.id, CvStatus.READY_FOR_REVIEW),
                 ]
             )
 
         kpis = DashboardKpiService(database).workflow()
 
         assert kpis.jobs_entered == 5
-        assert kpis.assessed_jobs_awaiting_review == 1
-        assert kpis.generated_cvs_awaiting_application == 2
+        assert kpis.assessed_jobs == 4
+        assert kpis.applied_jobs == 1
+        assert kpis.unassessed_jobs == 1
+        assert kpis.selected_jobs_without_generated_cv == 1
     finally:
         database.dispose()
 

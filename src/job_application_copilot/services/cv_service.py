@@ -1,6 +1,6 @@
 """Record rendered or uploaded CV files against their jobs."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import NamedTuple
 
@@ -94,6 +94,49 @@ class CvService:
                 approved_at=timestamp,
                 review_notes=review_notes,
             )
+
+    def record_application_status(
+        self,
+        job_id: int,
+        *,
+        status: str | None,
+        recorded_on: date | None = None,
+        review_notes: str | None = None,
+    ) -> Cv:
+        """Record a fixed application status and approve the active CV when required."""
+
+        allowed_statuses = {
+            "Applied",
+            "1st round",
+            "2nd round",
+            "3rd round",
+            "4th round",
+        }
+        if status is not None and status not in allowed_statuses:
+            raise ApplicationValidationError("Choose a supported application status.")
+
+        with self.database.session() as session:
+            job = JobRepository(session).require(job_id)
+            repository = CvRepository(session)
+            cv = repository.require_for_job(job_id)
+            if status is not None and cv.status is CvStatus.READY_FOR_REVIEW:
+                cv = repository.approve(
+                    cv,
+                    approved_at=datetime.now(UTC).replace(tzinfo=None),
+                    review_notes=review_notes,
+                )
+            elif status is not None and cv.status is not CvStatus.APPROVED:
+                raise ApplicationValidationError(
+                    "Application status can be recorded only after the CV is ready for review."
+                )
+
+            job.application_status = status
+            if status == "Applied":
+                job.application_date = recorded_on or date.today()
+            elif status is None:
+                job.application_date = None
+            session.flush()
+            return cv
 
     def get_for_job(self, job_id: int) -> Cv | None:
         with self.database.session() as session:

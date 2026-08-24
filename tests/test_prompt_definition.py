@@ -55,7 +55,6 @@ def test_migration_seeds_initial_data_driven_definitions(
         ("cv-generation-en-stage-1", "generation/english", "en", 1, True),
         ("cv-generation-en-stage-2", "generation/english", "en", 2, True),
         ("cv-generation-en-stage-3", "generation/english", "en", 3, True),
-        ("cv-generation-en-stage-4", "generation/english", "en", 4, True),
         ("cv-generation-fr-extension-1", "generation/french", "fr", 1, True),
         ("cv-generation-fr-extension-2", "generation/french", "fr", 2, True),
     ]
@@ -103,13 +102,39 @@ def test_repository_filters_disabled_definitions(
     migrated_database: Database,
 ) -> None:
     with migrated_database.session() as session:
-        definition = PromptDefinitionRepository(session).require("cv-generation-en-stage-4")
+        definition = PromptDefinitionRepository(session).require("cv-generation-en-stage-3")
         definition.is_enabled = False
 
     with migrated_database.session() as session:
         enabled = PromptDefinitionRepository(session).list(enabled_only=True)
 
-    assert "cv-generation-en-stage-4" not in {definition.asset_key for definition in enabled}
+    assert "cv-generation-en-stage-3" not in {definition.asset_key for definition in enabled}
+
+
+def test_migration_retires_the_legacy_fourth_english_prompt(tmp_path: Path) -> None:
+    database_path = tmp_path / "copilot.db"
+    initialize_database(database_path)
+    database = create_database(database_path)
+    config = Config()
+    config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
+    try:
+        with database.engine.connect() as connection:
+            config.attributes["connection"] = connection
+            command.downgrade(config, "0024_create_prompt_contents")
+            connection.commit()
+
+        with database.session() as session:
+            assert PromptDefinitionRepository(session).get("cv-generation-en-stage-4") is not None
+
+        with database.engine.connect() as connection:
+            config.attributes["connection"] = connection
+            command.upgrade(config, "head")
+            connection.commit()
+
+        with database.session() as session:
+            assert PromptDefinitionRepository(session).get("cv-generation-en-stage-4") is None
+    finally:
+        database.dispose()
 
 
 def test_repository_reports_missing_definition(

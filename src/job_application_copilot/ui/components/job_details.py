@@ -2,7 +2,6 @@
 
 import logging
 import re
-from datetime import date
 from html import escape
 
 import streamlit as st
@@ -86,7 +85,7 @@ def render_job_details(
     with assessment_tab:
         render_assessment_detail(detail, service)
     with cv_tab:
-        _render_cv_tab(detail, service, cv_service, upload_service, opener, generation_service)
+        _render_cv_tab(detail, cv_service, upload_service, opener, generation_service)
 
 
 def _render_job_details_heading(job: Job) -> None:
@@ -105,7 +104,6 @@ def _render_job_details_heading(job: Job) -> None:
 
 def _render_cv_tab(
     detail: JobAssessmentDetail,
-    job_service: JobService,
     cv_service: CvService,
     upload_service: CvUploadService,
     opener: CvFileOpener,
@@ -156,26 +154,14 @@ def _render_cv_tab(
             st.error(str(error))
     if cv.status is CvStatus.READY_FOR_REVIEW:
         _render_cv_review_navigation(detail.job.id, cv_service)
-        with st.form(f"approve_cv_{detail.job.id}"):
-            notes = st.text_area("Review notes (optional)")
-            confirmed = st.checkbox("I have reviewed this CV in Word and approve it.")
-            approved = st.form_submit_button("Approve CV", disabled=not confirmed)
-        if approved:
-            try:
-                cv_service.approve(detail.job.id, review_notes=notes)
-            except SQLAlchemyError:
-                logger.exception("cv_approval_failed job_id=%s", detail.job.id)
-                st.error("The CV approval could not be saved. See the private UI log for details.")
-            else:
-                st.rerun()
+        with st.expander("Review notes (optional)", expanded=False):
+            st.text_area("Review notes", key=f"review_notes_{detail.job.id}")
     else:
         st.write(f"**Approved at:** {cv.approved_at}")
         if cv.review_notes:
             st.write(f"**Review notes:** {cv.review_notes}")
     if _can_record_application(detail, cv):
-        _render_application_status(
-            detail.job.id, detail.job.application_status, detail.job.application_date, job_service
-        )
+        _render_application_status(detail.job.id, detail.job.application_status, cv_service)
 
 
 def _can_record_application(detail: JobAssessmentDetail, cv: Cv) -> bool:
@@ -191,35 +177,30 @@ def _can_record_application(detail: JobAssessmentDetail, cv: Cv) -> bool:
 def _render_application_status(
     job_id: int,
     current_status: str | None,
-    current_application_date: date | None,
-    service: JobService,
+    service: CvService,
 ) -> None:
-    """Let the user record an application after CV work is ready for review."""
+    """Persist fixed application tracking states directly from the selector."""
 
     st.markdown("#### Application")
-    status_option = st.selectbox(
+    options = (None, "Applied", "1st round", "2nd round", "3rd round", "4th round")
+    st.selectbox(
         "Application status",
-        options=("Applied", "Other"),
-        index=0 if current_status == "Applied" else 1,
+        options=options,
+        index=options.index(current_status) if current_status in options else 0,
+        format_func=lambda status: status or "None",
         key=f"application_status_option_{job_id}",
+        on_change=_record_application_status,
+        args=(job_id, service),
     )
-    custom_status = ""
-    if status_option == "Other":
-        custom_status = st.text_input(
-            "Other application status",
-            value=current_status or "",
-            key=f"application_status_other_{job_id}",
-        )
-    application_date = st.date_input(
-        "Application date",
-        value=current_application_date or date.today(),
-        key=f"application_date_{job_id}",
-    )
-    if not st.button("Save application status", key=f"save_application_status_{job_id}"):
-        return
-    status = "Applied" if status_option == "Applied" else custom_status
+    if current_status == "Applied":
+        st.caption("Application date is recorded automatically when Applied is selected.")
+
+
+def _record_application_status(job_id: int, service: CvService) -> None:
+    status = st.session_state[f"application_status_option_{job_id}"]
+    review_notes = st.session_state.get(f"review_notes_{job_id}")
     try:
-        service.record_application(job_id, status=status, application_date=application_date)
+        service.record_application_status(job_id, status=status, review_notes=review_notes)
     except ApplicationValidationError as error:
         st.error(str(error))
     except JobNotFoundError:
@@ -228,7 +209,7 @@ def _render_application_status(
         logger.exception("application_status_save_failed job_id=%s", job_id)
         st.error("The application status could not be saved. See the private UI log for details.")
     else:
-        st.rerun()
+        return
 
 
 def _render_cv_generation(

@@ -53,14 +53,6 @@ def render_reference_asset_remote_cleanup(
 ) -> None:
     """List safely cleanable remote resources and require explicit confirmation."""
 
-    st.subheader("Inactive OpenAI resources")
-    st.caption(
-        "Delete remote resources no longer used by an active reference version. "
-        "Local DOCX files and version metadata are retained."
-    )
-    if message := st.session_state.pop(REMOTE_CLEANUP_SUCCESS_KEY, None):
-        st.success(message)
-
     try:
         candidates = service.list_candidates()
         restorable_versions = service.list_restorable_versions()
@@ -69,8 +61,17 @@ def render_reference_asset_remote_cleanup(
         st.error(REMOTE_CLEANUP_ERROR_MESSAGE)
         return
 
-    _render_cleanup_controls(service, candidates)
-    _render_restoration_controls(service, restorable_versions)
+    with st.expander("Inactive OpenAI resources", expanded=False):
+        st.caption(
+            "Delete remote resources no longer used by an active reference version. "
+            "Local DOCX files and version metadata are retained."
+        )
+        if message := st.session_state.pop(REMOTE_CLEANUP_SUCCESS_KEY, None):
+            st.success(message)
+        _render_cleanup_controls(service, candidates)
+
+    with st.expander("Retained local document versions", expanded=False):
+        _render_restoration_controls(service, restorable_versions)
 
 
 def _render_cleanup_controls(
@@ -152,7 +153,6 @@ def _render_restoration_controls(
     service: ReferenceAssetRemoteCleanupService,
     candidates: tuple[InactiveRemoteAsset, ...],
 ) -> None:
-    st.subheader("Retained local document versions")
     st.caption(
         "Restore a retained Document A or Document B version by verifying its local DOCX, "
         "rebuilding its OpenAI resources and activating it only after processing succeeds."

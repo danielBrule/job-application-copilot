@@ -130,7 +130,6 @@ Assessment + JD + approved CV-generation brief + selected Document B material
 → English prompt 1
 → English prompt 2
 → English prompt 3
-→ English prompt 4
 → Final structured CV
 → English DOCX renderer
 ```
@@ -140,7 +139,7 @@ Every stage receives explicit persisted input. No long-lived conversation state 
 ## French CV pipeline
 
 ```text
-Complete English pipeline
+Complete three-stage English pipeline
 → French prompt 1
 → French prompt 2
 → Factual consistency validation

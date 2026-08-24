@@ -82,9 +82,9 @@ def test_shapes_missing_active_candidate_example_and_prompt_rows() -> None:
             PromptCompleteness(
                 pipeline_group="generation/english",
                 language_code="en",
-                required_count=4,
-                ready_count=3,
-                missing_asset_keys=("cv-generation-en-stage-4",),
+                required_count=3,
+                ready_count=2,
+                missing_asset_keys=("cv-generation-en-stage-3",),
             ),
         ),
     )
@@ -114,8 +114,8 @@ def test_shapes_missing_active_candidate_example_and_prompt_rows() -> None:
     assert rows[2].status == "MISSING"
     assert rows[3].asset_key == "french-reference-examples"
     assert rows[3].status == "MISSING"
-    assert rows[4].version_or_count == "3/4"
-    assert rows[4].details == "Missing: cv-generation-en-stage-4"
+    assert rows[4].version_or_count == "2/3"
+    assert rows[4].details == "Missing: cv-generation-en-stage-3"
 
 
 def test_shows_active_examples_once_and_hides_reversibly_removed_examples() -> None:

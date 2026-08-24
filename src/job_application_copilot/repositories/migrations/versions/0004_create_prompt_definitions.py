@@ -26,7 +26,7 @@ INITIAL_PROMPT_DEFINITIONS = (
             "language_code": "en",
             "position": position,
         }
-        for position in range(1, 5)
+        for position in range(1, 4)
     ),
     *(
         {

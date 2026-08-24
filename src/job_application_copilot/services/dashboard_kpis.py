@@ -7,10 +7,10 @@ from sqlalchemy import func, or_, select
 from job_application_copilot.domain import (
     AssessmentStatus,
     BackgroundOperation,
+    CvSelectionStatus,
     CvSource,
     CvStatus,
     LlmUsageTotals,
-    UserDecision,
 )
 from job_application_copilot.repositories import Database, LlmCallRepository
 from job_application_copilot.repositories.models import Assessment, Cv, Job
@@ -55,8 +55,10 @@ class DashboardUsageKpis:
 @dataclass(frozen=True, slots=True)
 class DashboardWorkflowKpis:
     jobs_entered: int
-    assessed_jobs_awaiting_review: int
-    generated_cvs_awaiting_application: int
+    assessed_jobs: int
+    applied_jobs: int
+    unassessed_jobs: int
+    selected_jobs_without_generated_cv: int
 
 
 class DashboardKpiService:
@@ -81,27 +83,39 @@ class DashboardKpiService:
         with self.database.session() as session:
             return DashboardWorkflowKpis(
                 jobs_entered=session.scalar(select(func.count()).select_from(Job)) or 0,
-                assessed_jobs_awaiting_review=session.scalar(
+                assessed_jobs=session.scalar(
                     select(func.count())
                     .select_from(Assessment)
-                    .join(Job, Job.id == Assessment.job_id)
+                    .where(Assessment.status == AssessmentStatus.ASSESSED)
+                )
+                or 0,
+                applied_jobs=session.scalar(
+                    select(func.count()).select_from(Job).where(Job.application_status == "Applied")
+                )
+                or 0,
+                unassessed_jobs=session.scalar(
+                    select(func.count())
+                    .select_from(Job)
+                    .outerjoin(Assessment, Assessment.job_id == Job.id)
                     .where(
-                        Assessment.status == AssessmentStatus.ASSESSED,
-                        Job.user_decision == UserDecision.UNDECIDED,
+                        or_(
+                            Assessment.id.is_(None),
+                            Assessment.status != AssessmentStatus.ASSESSED,
+                        )
                     )
                 )
                 or 0,
-                generated_cvs_awaiting_application=session.scalar(
+                selected_jobs_without_generated_cv=session.scalar(
                     select(func.count())
                     .select_from(Job)
-                    .join(Cv, Cv.job_id == Job.id)
+                    .outerjoin(Cv, Cv.job_id == Job.id)
                     .where(
+                        Job.cv_selection_status == CvSelectionStatus.SELECTED,
                         or_(
-                            Job.application_status.is_(None),
-                            func.trim(Job.application_status) == "",
+                            Cv.id.is_(None),
+                            Cv.source != CvSource.GENERATED,
+                            Cv.status.not_in((CvStatus.READY_FOR_REVIEW, CvStatus.APPROVED)),
                         ),
-                        Cv.source == CvSource.GENERATED,
-                        Cv.status.in_((CvStatus.READY_FOR_REVIEW, CvStatus.APPROVED)),
                     )
                 )
                 or 0,

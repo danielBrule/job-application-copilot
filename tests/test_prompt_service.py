@@ -77,12 +77,11 @@ def test_initial_completeness_is_driven_by_seeded_enabled_definitions(
     assert (
         groups["generation/english"].ready_count,
         groups["generation/english"].required_count,
-    ) == (0, 4)
+    ) == (0, 3)
     assert groups["generation/english"].missing_asset_keys == (
         "cv-generation-en-stage-1",
         "cv-generation-en-stage-2",
         "cv-generation-en-stage-3",
-        "cv-generation-en-stage-4",
     )
     assert (
         groups["generation/french"].ready_count,
@@ -140,19 +139,16 @@ def test_completeness_tracks_ready_missing_and_disabled_definitions(
 ) -> None:
     service, _, _ = prompt_service
     service.save_text("cv-generation-en-stage-1", "English stage one")
-    service.set_enabled("cv-generation-en-stage-4", False)
+    service.set_enabled("cv-generation-en-stage-3", False)
 
     english = completeness_by_group(service)["generation/english"]
 
-    assert english.required_count == 3
+    assert english.required_count == 2
     assert english.ready_count == 1
-    assert english.missing_asset_keys == (
-        "cv-generation-en-stage-2",
-        "cv-generation-en-stage-3",
-    )
+    assert english.missing_asset_keys == ("cv-generation-en-stage-2",)
 
 
-def test_initial_configuration_reports_one_four_and_two_when_ready(
+def test_initial_configuration_reports_one_three_and_two_when_ready(
     prompt_service: tuple[PromptService, Database, AppSettings],
 ) -> None:
     service, _, _ = prompt_service
@@ -165,7 +161,7 @@ def test_initial_configuration_reports_one_four_and_two_when_ready(
     assert (
         groups["generation/english"].ready_count,
         groups["generation/english"].required_count,
-    ) == (4, 4)
+    ) == (3, 3)
     assert (
         groups["generation/french"].ready_count,
         groups["generation/french"].required_count,

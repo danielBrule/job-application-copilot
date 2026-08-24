@@ -6,10 +6,9 @@ from dataclasses import dataclass
 from itertools import groupby
 
 import streamlit as st
-from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
-from job_application_copilot.domain import CreatePromptDefinition, PromptCompleteness
+from job_application_copilot.domain import PromptCompleteness
 from job_application_copilot.errors import (
     ApplicationNotFoundError,
     ApplicationStorageError,
@@ -22,7 +21,6 @@ from job_application_copilot.repositories import (
 )
 from job_application_copilot.repositories.models import PromptDefinition
 from job_application_copilot.services import (
-    DuplicatePromptDefinitionError,
     PromptActivationError,
     PromptService,
     PromptStorageError,
@@ -111,56 +109,6 @@ def render_prompt_settings(
             st.subheader(_display_group(pipeline_group))
             for definition in grouped_definitions:
                 _render_definition(service, definition)
-
-    _render_add_definition(service)
-
-
-def _render_add_definition(service: PromptService) -> None:
-    with st.expander("Add pipeline prompt"):
-        st.caption(
-            "Creates a new prompt slot in an ordered pipeline group. "
-            "After creation, enter its text in the new prompt section above."
-        )
-        with st.form("add_prompt_definition", clear_on_submit=True):
-            asset_key = st.text_input(
-                "Asset key",
-                help="Stable lowercase key, for example cv-generation-de-stage-1.",
-            )
-            name = st.text_input("Name")
-            pipeline_group = st.text_input(
-                "Pipeline group",
-                help="Safe path-like group, for example generation/german.",
-            )
-            language_code = st.text_input("Language code (optional)")
-            position = st.number_input("Position", min_value=1, step=1)
-            enabled = st.checkbox("Enabled", value=True)
-            submitted = st.form_submit_button("Add definition")
-
-        if not submitted:
-            return
-        try:
-            command = CreatePromptDefinition.model_validate(
-                {
-                    "asset_key": asset_key,
-                    "name": name,
-                    "pipeline_group": pipeline_group,
-                    "language_code": language_code,
-                    "position": position,
-                    "is_enabled": enabled,
-                }
-            )
-            service.create_definition(command)
-        except ValidationError as error:
-            for message in _validation_messages(error):
-                st.error(message)
-        except DuplicatePromptDefinitionError as error:
-            st.error(str(error))
-        except Exception:
-            logger.exception("prompt_definition_create_failed")
-            st.error(PROMPT_UI_ERROR_MESSAGE)
-        else:
-            st.success(f"Prompt definition '{command.asset_key}' added.")
-            st.rerun()
 
 
 def _render_definition(service: PromptService, definition: PromptDefinition) -> None:
@@ -271,20 +219,6 @@ def _activate_prompt_version(
         st.error(PROMPT_UI_ERROR_MESSAGE)
     else:
         st.rerun()
-
-
-def _validation_messages(error: ValidationError) -> list[str]:
-    labels = {
-        "asset_key": "Asset key",
-        "name": "Name",
-        "pipeline_group": "Pipeline group",
-        "language_code": "Language code",
-        "position": "Position",
-    }
-    return [
-        f"{labels.get(str(item['loc'][0]), str(item['loc'][0]))}: {item['msg']}."
-        for item in error.errors()
-    ]
 
 
 def _display_group(pipeline_group: str) -> str:

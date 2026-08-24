@@ -96,6 +96,41 @@ def test_replacement_resets_prior_approval_only_after_new_file_exists(
     assert replacement.approved_at is None
 
 
+def test_application_status_approves_ready_cv_and_tracks_application_date(
+    service_with_job: tuple[CvService, Database, Job, AppSettings],
+) -> None:
+    service, database, job, settings = service_with_job
+    settings.cv_folder.mkdir()
+    file_path = settings.cv_folder / "resume.docx"
+    file_path.write_bytes(b"content")
+    service.record_ready(
+        job_id=job.id,
+        source=CvSource.GENERATED,
+        language=Language.EN,
+        file_path=file_path,
+    )
+
+    approved = service.record_application_status(
+        job.id,
+        status="Applied",
+        recorded_on=date(2026, 8, 7),
+        review_notes="Checked formatting.",
+    )
+    service.record_application_status(job.id, status="1st round")
+    service.record_application_status(job.id, status=None)
+
+    assert approved.status is CvStatus.APPROVED
+    assert approved.approved_at is not None
+    with database.session() as session:
+        stored_job = session.get(Job, job.id)
+        stored_cv = CvRepository(session).require_for_job(job.id)
+        assert stored_job is not None
+        assert stored_job.application_status is None
+        assert stored_job.application_date is None
+        assert stored_cv.status is CvStatus.APPROVED
+        assert stored_cv.review_notes == "Checked formatting."
+
+
 def test_review_navigation_only_includes_generated_cvs_with_default_application_status(
     service_with_job: tuple[CvService, Database, Job, AppSettings],
 ) -> None:

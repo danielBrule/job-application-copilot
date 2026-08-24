@@ -89,7 +89,7 @@ def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
 
     try:
         service = get_job_service(data_dir / "database" / "job_application_copilot.db")
-        service.create(
+        older = service.create(
             CreateJob(
                 company="Older Ltd",
                 job_title="Data Engineer",
@@ -127,7 +127,10 @@ def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
             "next_action",
             "updated_at",
         ]
-        assert list(table["company"]) == ["Older Ltd", "Original Ltd"]
+        assert list(table["company"]) == [
+            f"/job-details?job_id={older.id}#Older Ltd",
+            f"/job-details?job_id={newer.id}#Original Ltd",
+        ]
         assert table["job_url"].iloc[1] == "https://example.com/original"
         assert list(table["assessment_status"]) == ["Not assessed", "Not assessed"]
         assert list(table["cv_selection_status"]) == ["Not selected", "Not selected"]
@@ -137,17 +140,14 @@ def test_jobs_dashboard_displays_core_columns_and_tracks_selected_ids(
         assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
         add_job = app.button(key="add_job")
         assert not add_job.disabled
-        open_selected_job = app.button(key="open_selected_job")
-        assert open_selected_job.disabled
+        assert all(button.key != "open_selected_job" for button in app.button)
 
         app.session_state[JOBS_TABLE_KEY] = {"selection": {"rows": [1]}}
         app.run()
 
         assert app.session_state[SELECTED_JOB_IDS_KEY] == (newer.id,)
         assert any(caption.value == "1 job selected." for caption in app.caption)
-        open_selected_job = app.button(key="open_selected_job")
-        assert not open_selected_job.disabled
-        assert open_selected_job.label == "Open selected job"
+        assert all(button.key != "open_selected_job" for button in app.button)
     finally:
         reset_logging()
 
@@ -394,7 +394,9 @@ def test_jobs_dashboard_combines_filters_clears_selection_and_resets(
 
         app.text_input(key=FILTER_TEXT_KEY).input(" original ").run()
         assert app.session_state[SELECTED_JOB_IDS_KEY] == ()
-        assert list(app.dataframe[0].value["company"]) == ["Original Ltd"]
+        assert [value.rsplit("#", 1)[-1] for value in app.dataframe[0].value["company"]] == [
+            "Original Ltd"
+        ]
 
         app.selectbox(key=FILTER_LOCATION_KEY).select(Location.UK).run()
         app.selectbox(key=FILTER_LANGUAGE_KEY).select(Language.EN).run()
@@ -406,7 +408,9 @@ def test_jobs_dashboard_combines_filters_clears_selection_and_resets(
         ).run()
 
         assert not app.exception
-        assert list(app.dataframe[0].value["company"]) == ["Original Ltd"]
+        assert [value.rsplit("#", 1)[-1] for value in app.dataframe[0].value["company"]] == [
+            "Original Ltd"
+        ]
 
         app.selectbox(key=FILTER_LOCATION_KEY).select(Location.FR).run()
 
@@ -424,7 +428,7 @@ def test_jobs_dashboard_combines_filters_clears_selection_and_resets(
         assert app.text_input(key=FILTER_APPLICATION_STATUS_KEY).value == ""
         assert app.selectbox(key=FILTER_ASSESSMENT_STATUS_KEY).value is None
         assert app.selectbox(key=FILTER_ASSESSMENT_DECISION_KEY).value is None
-        assert list(app.dataframe[0].value["company"]) == [
+        assert [value.rsplit("#", 1)[-1] for value in app.dataframe[0].value["company"]] == [
             "Another Ltd",
             "Original Ltd",
         ]
