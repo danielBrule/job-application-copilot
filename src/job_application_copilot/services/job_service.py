@@ -278,9 +278,7 @@ class JobService:
     def assessment_review_navigation(self, job_id: int) -> AssessmentReviewNavigation:
         """Return neighbouring assessed, undecided jobs for sequential review."""
 
-        with self.database.session() as session:
-            queue = JobRepository(session).list_assessed_undecided()
-        job_ids = tuple(job.id for job in queue)
+        job_ids = self.assessment_review_job_ids()
         try:
             position = job_ids.index(job_id)
         except ValueError:
@@ -290,12 +288,17 @@ class JobService:
             next_job_id=job_ids[position + 1] if position + 1 < len(job_ids) else None,
         )
 
+    def assessment_review_job_ids(self) -> tuple[int, ...]:
+        """Return the current assessed-undecided review queue in display order."""
+
+        with self.database.session() as session:
+            return tuple(job.id for job in JobRepository(session).list_assessed_undecided())
+
     def first_assessment_review_job_id(self) -> int | None:
         """Return the first assessed job still awaiting human review, if any."""
 
-        with self.database.session() as session:
-            queue = JobRepository(session).list_assessed_undecided()
-        return queue[0].id if queue else None
+        job_ids = self.assessment_review_job_ids()
+        return job_ids[0] if job_ids else None
 
     def next_outstanding_assessment_review_job_id(self, *, excluding_job_id: int) -> int | None:
         """Return a remaining assessed job awaiting review, excluding the current job."""

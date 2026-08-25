@@ -72,8 +72,9 @@ The failed-task KPI links to Background Runs filtered to failed tasks.
 - Delete selected jobs, with confirmation
 
 Assessment and CV-generation actions create background batches; CV generation still requires
-explicit confirmation. Review generated CVs opens the Job Details CV tab and provides previous/
-next navigation across review-ready generated CVs with no recorded application status.
+explicit confirmation. Review assessed jobs and Review generated CVs each capture their eligible
+jobs when review starts. Their previous/next navigation remains available after review updates,
+loops at either end, and is cleared when returning to Jobs.
 
 ## 3. Add / edit job
 
@@ -166,7 +167,7 @@ No in-application document editor and no Word version history.
 
 Fields:
 
-- Application status: None / Applied / 1st round / 2nd round / 3rd round / 4th round; non-None selection approves the CV
+- Application status: None / Applied / 1st round / 2nd round / 3rd round / 4th round / Rejected; non-None selection approves the CV
 - Application date: set automatically when Applied is selected
 - Next action
 - Next-action date

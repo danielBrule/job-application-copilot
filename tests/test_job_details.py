@@ -14,19 +14,21 @@ from job_application_copilot.domain import (
 )
 from job_application_copilot.repositories import AssessmentRepository, create_database
 from job_application_copilot.repositories.models import Assessment, Cv, Job
-from job_application_copilot.services import CvReviewNavigation, JobAssessmentDetail, JobService
+from job_application_copilot.services import JobAssessmentDetail, JobService
 from job_application_copilot.services.database_bootstrap import initialize_database
 from job_application_copilot.ui.components.job_details import (
     _can_record_application,
+    _circular_review_navigation,
     _effective_relevance,
     _render_cv_review_navigation,
     _render_job_details_heading,
+    _review_queue,
     parse_job_id,
     summary_bullets,
 )
 
 
-def test_next_cv_navigation_uses_the_adjacent_review_job(
+def test_next_cv_navigation_uses_the_saved_review_queue(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class Column:
@@ -37,6 +39,9 @@ def test_next_cv_navigation_uses_the_adjacent_review_job(
             return None
 
     class Streamlit:
+        session_state: dict[str, object] = {}
+        query_params = {"review_flow": "cv"}
+
         def columns(self, _: int) -> tuple[Column, Column]:
             return Column(), Column()
 
@@ -50,15 +55,36 @@ def test_next_cv_navigation_uses_the_adjacent_review_job(
             destination.update(query_params)
 
     class Service:
-        def review_navigation(self, _: int) -> CvReviewNavigation:
-            return CvReviewNavigation(previous_job_id=10, next_job_id=30)
+        def default_application_status_review_job_ids(self) -> tuple[int, ...]:
+            return (10, 20, 30)
 
     destination: dict[str, str] = {}
     monkeypatch.setattr("job_application_copilot.ui.components.job_details.st", Streamlit())
 
     _render_cv_review_navigation(20, Service())  # type: ignore[arg-type]
 
-    assert destination == {"job_id": "30", "tab": "cv"}
+    assert destination == {"job_id": "30", "tab": "cv", "review_flow": "cv"}
+
+
+def test_review_queue_keeps_its_initial_snapshot_after_updates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Streamlit:
+        session_state: dict[str, object] = {}
+        query_params = {"review_flow": "assessment"}
+
+    streamlit = Streamlit()
+    monkeypatch.setattr("job_application_copilot.ui.components.job_details.st", streamlit)
+
+    assert _review_queue("assessment", 20, lambda: (30, 20, 10)) == (30, 20, 10)
+    assert _review_queue("assessment", 20, lambda: (30, 10)) == (30, 20, 10)
+
+
+def test_circular_review_navigation_wraps_and_supports_one_job() -> None:
+    assert _circular_review_navigation((30, 20, 10), 30) == (10, 20)
+    assert _circular_review_navigation((30, 20, 10), 10) == (20, 30)
+    assert _circular_review_navigation((20,), 20) == (20, 20)
+    assert _circular_review_navigation((), 20) is None
 
 
 @pytest.mark.parametrize("value", [None, "", "abc", "1.5", "0", "-1"])

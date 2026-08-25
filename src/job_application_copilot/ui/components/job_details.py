@@ -2,6 +2,7 @@
 
 import logging
 import re
+from collections.abc import Callable
 from html import escape
 
 import streamlit as st
@@ -32,6 +33,11 @@ from job_application_copilot.ui.components.job_form import render_edit_job_form
 
 logger = get_logger(__name__)
 LOAD_ERROR_MESSAGE = "The job could not be loaded. See the private UI log for details."
+REVIEW_FLOW_QUERY_PARAM = "review_flow"
+ASSESSMENT_REVIEW_FLOW = "assessment"
+CV_REVIEW_FLOW = "cv"
+ASSESSMENT_REVIEW_QUEUE_SESSION_KEY = "assessment_review_queue_job_ids"
+CV_REVIEW_QUEUE_SESSION_KEY = "cv_review_queue_job_ids"
 
 
 def parse_job_id(value: str | None) -> int:
@@ -152,8 +158,9 @@ def _render_cv_tab(
             opener.open(cv.file_path or "")
         except (CvFileOpenError, CvFileMissingError) as error:
             st.error(str(error))
-    if cv.status is CvStatus.READY_FOR_REVIEW:
+    if cv.status in {CvStatus.READY_FOR_REVIEW, CvStatus.APPROVED}:
         _render_cv_review_navigation(detail.job.id, cv_service)
+    if cv.status is CvStatus.READY_FOR_REVIEW:
         with st.expander("Review notes (optional)", expanded=False):
             st.text_area("Review notes", key=f"review_notes_{detail.job.id}")
     else:
@@ -182,7 +189,7 @@ def _render_application_status(
     """Persist fixed application tracking states directly from the selector."""
 
     st.markdown("#### Application")
-    options = (None, "Applied", "1st round", "2nd round", "3rd round", "4th round")
+    options = (None, "Applied", "1st round", "2nd round", "3rd round", "4th round", "Rejected")
     st.selectbox(
         "Application status",
         options=options,
@@ -233,27 +240,43 @@ def _render_cv_generation(
 
 
 def _render_cv_review_navigation(job_id: int, service: CvService) -> None:
-    navigation = service.review_navigation(job_id)
+    try:
+        queue = _review_queue(
+            CV_REVIEW_FLOW,
+            job_id,
+            service.default_application_status_review_job_ids,
+        )
+    except SQLAlchemyError:
+        logger.exception("cv_review_navigation_load_failed job_id=%s", job_id)
+        st.warning("Review navigation is temporarily unavailable. Refresh the page and try again.")
+        return
+    navigation = _circular_review_navigation(queue, job_id)
+    if navigation is None:
+        return
+    previous_job_id, next_job_id = navigation
     previous, next_job = st.columns(2)
     with previous:
-        st.page_link(
-            "pages/job_details.py",
-            label="Previous CV",
-            disabled=navigation.previous_job_id is None,
-            query_params={"job_id": str(navigation.previous_job_id)} | {"tab": "cv"}
-            if navigation.previous_job_id
-            else None,
-        )
+        if st.button("Previous CV", key=f"previous_cv_review_{job_id}"):
+            st.switch_page(
+                "pages/job_details.py",
+                query_params={
+                    "job_id": str(previous_job_id),
+                    "tab": "cv",
+                    REVIEW_FLOW_QUERY_PARAM: CV_REVIEW_FLOW,
+                },
+            )
     with next_job:
         if st.button(
             "Next CV",
             key=f"next_cv_review_{job_id}",
-            disabled=navigation.next_job_id is None,
         ):
-            assert navigation.next_job_id is not None
             st.switch_page(
                 "pages/job_details.py",
-                query_params={"job_id": str(navigation.next_job_id), "tab": "cv"},
+                query_params={
+                    "job_id": str(next_job_id),
+                    "tab": "cv",
+                    REVIEW_FLOW_QUERY_PARAM: CV_REVIEW_FLOW,
+                },
             )
 
 
@@ -440,41 +463,82 @@ def _save_human_review(
 
 
 def _render_assessment_navigation(detail: JobAssessmentDetail, service: JobService) -> None:
-    """Render deterministic neighbours in the assessed-undecided review queue."""
+    """Render circular neighbours from the active assessment-review snapshot."""
 
     try:
-        navigation = service.assessment_review_navigation(detail.job.id)
-        next_job_id = service.next_outstanding_assessment_review_job_id(
-            excluding_job_id=detail.job.id
+        queue = _review_queue(
+            ASSESSMENT_REVIEW_FLOW,
+            detail.job.id,
+            service.assessment_review_job_ids,
         )
     except SQLAlchemyError:
         logger.exception("assessment_review_navigation_load_failed job_id=%s", detail.job.id)
         st.warning("Review navigation is temporarily unavailable. Refresh the page and try again.")
         return
+    navigation = _circular_review_navigation(queue, detail.job.id)
+    if navigation is None:
+        return
+    previous_job_id, next_job_id = navigation
 
     previous_column, next_column, _ = st.columns((1, 1, 4))
     with previous_column:
         if st.button(
             "Previous",
             key=f"previous_assessment_review_{detail.job.id}",
-            disabled=navigation.previous_job_id is None,
         ):
-            assert navigation.previous_job_id is not None
             st.switch_page(
                 "pages/job_details.py",
-                query_params={"job_id": str(navigation.previous_job_id)},
+                query_params={
+                    "job_id": str(previous_job_id),
+                    REVIEW_FLOW_QUERY_PARAM: ASSESSMENT_REVIEW_FLOW,
+                },
             )
     with next_column:
         if st.button(
             "Next",
             key=f"next_assessment_review_{detail.job.id}",
-            disabled=next_job_id is None,
         ):
-            assert next_job_id is not None
             st.switch_page(
                 "pages/job_details.py",
-                query_params={"job_id": str(next_job_id)},
+                query_params={
+                    "job_id": str(next_job_id),
+                    REVIEW_FLOW_QUERY_PARAM: ASSESSMENT_REVIEW_FLOW,
+                },
             )
+
+
+def _review_queue(
+    flow: str,
+    job_id: int,
+    load_current_queue: Callable[[], tuple[int, ...]],
+) -> tuple[int, ...]:
+    """Return one tab's stable review snapshot, creating it at review entry."""
+
+    active_flow = st.query_params.get(REVIEW_FLOW_QUERY_PARAM)
+    if active_flow not in (None, flow):
+        return ()
+    session_key = (
+        ASSESSMENT_REVIEW_QUEUE_SESSION_KEY
+        if flow == ASSESSMENT_REVIEW_FLOW
+        else CV_REVIEW_QUEUE_SESSION_KEY
+    )
+    queue = tuple(st.session_state.get(session_key, ()))
+    if job_id in queue:
+        return queue
+    queue = load_current_queue()
+    if job_id not in queue:
+        return ()
+    st.session_state[session_key] = queue
+    return queue
+
+
+def _circular_review_navigation(queue: tuple[int, ...], job_id: int) -> tuple[int, int] | None:
+    """Return circular neighbours for a job in a saved review queue."""
+
+    if not queue or job_id not in queue:
+        return None
+    position = queue.index(job_id)
+    return queue[position - 1], queue[(position + 1) % len(queue)]
 
 
 def _render_summary(column: DeltaGenerator, label: str, value: str | None) -> None:
