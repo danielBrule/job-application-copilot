@@ -111,6 +111,7 @@ class CvService:
             "2nd round",
             "3rd round",
             "4th round",
+            "Rejected",
         }
         if status is not None and status not in allowed_statuses:
             raise ApplicationValidationError("Choose a supported application status.")
@@ -147,8 +148,7 @@ class CvService:
             return {cv.job_id: cv for cv in CvRepository(session).list_for_jobs(job_ids)}
 
     def review_navigation(self, job_id: int) -> CvReviewNavigation:
-        with self.database.session() as session:
-            job_ids = CvRepository(session).list_default_application_status_review_job_ids()
+        job_ids = self.default_application_status_review_job_ids()
         try:
             position = job_ids.index(job_id)
         except ValueError:
@@ -158,11 +158,16 @@ class CvService:
             next_job_id=job_ids[position + 1] if position + 1 < len(job_ids) else None,
         )
 
+    def default_application_status_review_job_ids(self) -> tuple[int, ...]:
+        """Return the current generated-CV review queue in display order."""
+
+        with self.database.session() as session:
+            return CvRepository(session).list_default_application_status_review_job_ids()
+
     def first_default_application_status_review_job_id(self) -> int | None:
         """Return one generated CV awaiting review before application tracking begins."""
 
-        with self.database.session() as session:
-            job_ids = CvRepository(session).list_default_application_status_review_job_ids()
+        job_ids = self.default_application_status_review_job_ids()
         return job_ids[0] if job_ids else None
 
     def _require_shared_cv_file(self, file_path: Path) -> Path:

@@ -195,7 +195,7 @@ Selecting a non-None application status explicitly approves a review-ready CV. A
 
 ## 10. Application tracking
 
-Application status is one of None, Applied, 1st round, 2nd round, 3rd round or 4th round. Selecting a non-None status approves a review-ready CV and saves the status immediately. Selecting Applied records the current date as the application date; later rounds retain it.
+Application status is one of None, Applied, 1st round, 2nd round, 3rd round, 4th round or Rejected. Selecting a non-None status approves a review-ready CV and saves the status immediately. Selecting Applied records the current date as the application date; later rounds and Rejected retain it.
 
 A job stores:
 

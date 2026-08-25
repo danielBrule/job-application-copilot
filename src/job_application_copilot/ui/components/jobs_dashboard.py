@@ -61,6 +61,8 @@ ALL_UNASSESSED_SUCCESS_KEY = "assess_all_unassessed_success"
 ALL_SELECTED_CV_GENERATION_CONFIRMATION_KEY = "confirm_generate_all_selected_cvs"
 ALL_SELECTED_CV_GENERATION_SUCCESS_KEY = "generate_all_selected_cvs_success"
 CLEAR_TABLE_SELECTION_ON_RERUN_KEY = "clear_jobs_dashboard_table_selection_on_rerun"
+ASSESSMENT_REVIEW_QUEUE_SESSION_KEY = "assessment_review_queue_job_ids"
+CV_REVIEW_QUEUE_SESSION_KEY = "cv_review_queue_job_ids"
 LOAD_ERROR_MESSAGE = "The jobs could not be loaded. See the private UI log for details."
 TABLE_COLUMN_ORDER = (
     "company",
@@ -267,6 +269,8 @@ def render_jobs_dashboard(
     """Load and render the initial Jobs dashboard."""
 
     st.title("Jobs")
+    st.session_state.pop(ASSESSMENT_REVIEW_QUEUE_SESSION_KEY, None)
+    st.session_state.pop(CV_REVIEW_QUEUE_SESSION_KEY, None)
     if saved_message := st.session_state.pop(SAVED_MESSAGE_KEY, None):
         st.success(saved_message)
     if deleted_message := st.session_state.pop(DELETE_SUCCESS_KEY, None):
@@ -306,14 +310,18 @@ def render_jobs_dashboard(
             st.page_link(
                 "pages/job_details.py",
                 label="Review assessed jobs",
-                query_params={"job_id": str(first_review_job_id)},
+                query_params={"job_id": str(first_review_job_id), "review_flow": "assessment"},
             )
     if first_cv_review_job_id is not None:
         with cv_review_column:
             st.page_link(
                 "pages/job_details.py",
                 label="Review generated CVs",
-                query_params={"job_id": str(first_cv_review_job_id), "tab": "cv"},
+                query_params={
+                    "job_id": str(first_cv_review_job_id),
+                    "tab": "cv",
+                    "review_flow": "cv",
+                },
             )
 
     filters = render_job_filters(

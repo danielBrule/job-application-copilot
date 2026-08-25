@@ -131,6 +131,30 @@ def test_application_status_approves_ready_cv_and_tracks_application_date(
         assert stored_cv.review_notes == "Checked formatting."
 
 
+def test_application_status_accepts_rejected(
+    service_with_job: tuple[CvService, Database, Job, AppSettings],
+) -> None:
+    service, database, job, settings = service_with_job
+    settings.cv_folder.mkdir()
+    file_path = settings.cv_folder / "resume.docx"
+    file_path.write_bytes(b"content")
+    service.record_ready(
+        job_id=job.id,
+        source=CvSource.GENERATED,
+        language=Language.EN,
+        file_path=file_path,
+    )
+
+    service.record_application_status(job.id, status="Rejected")
+
+    with database.session() as session:
+        stored_job = session.get(Job, job.id)
+        stored_cv = CvRepository(session).require_for_job(job.id)
+        assert stored_job is not None
+        assert stored_job.application_status == "Rejected"
+        assert stored_cv.status is CvStatus.APPROVED
+
+
 def test_review_navigation_only_includes_generated_cvs_with_default_application_status(
     service_with_job: tuple[CvService, Database, Job, AppSettings],
 ) -> None:
@@ -179,6 +203,7 @@ def test_review_navigation_only_includes_generated_cvs_with_default_application_
             )
 
     assert service.first_default_application_status_review_job_id() == third.id
+    assert service.default_application_status_review_job_ids() == (third.id, second.id, first.id)
     navigation = service.review_navigation(second.id)
     assert navigation.previous_job_id == third.id
     assert navigation.next_job_id == first.id

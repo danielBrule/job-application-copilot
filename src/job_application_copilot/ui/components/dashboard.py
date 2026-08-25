@@ -75,10 +75,12 @@ def _render_workflow_kpis(kpis: DashboardWorkflowKpis) -> None:
     """Render a compact view of the job-to-submission workflow."""
 
     st.subheader("Workflow")
-    jobs, assessed, applied = st.columns(3)
+    jobs, assessed, applied, interviews, rejected = st.columns(5)
     jobs.metric("Jobs", kpis.jobs_entered)
     assessed.metric("Assessed jobs", kpis.assessed_jobs)
     applied.metric("Applied jobs", kpis.applied_jobs)
+    interviews.metric("Interviews ongoing", kpis.interviews_ongoing)
+    rejected.metric("Rejected jobs", kpis.rejected_jobs)
     st.subheader("Current queues")
     unassessed, cv_generation = st.columns(2)
     unassessed.metric("Unassessed jobs", kpis.unassessed_jobs)

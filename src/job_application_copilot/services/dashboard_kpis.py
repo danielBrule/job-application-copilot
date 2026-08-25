@@ -57,6 +57,8 @@ class DashboardWorkflowKpis:
     jobs_entered: int
     assessed_jobs: int
     applied_jobs: int
+    interviews_ongoing: int
+    rejected_jobs: int
     unassessed_jobs: int
     selected_jobs_without_generated_cv: int
 
@@ -91,6 +93,22 @@ class DashboardKpiService:
                 or 0,
                 applied_jobs=session.scalar(
                     select(func.count()).select_from(Job).where(Job.application_status == "Applied")
+                )
+                or 0,
+                interviews_ongoing=session.scalar(
+                    select(func.count())
+                    .select_from(Job)
+                    .where(
+                        Job.application_status.in_(
+                            ("1st round", "2nd round", "3rd round", "4th round")
+                        )
+                    )
+                )
+                or 0,
+                rejected_jobs=session.scalar(
+                    select(func.count())
+                    .select_from(Job)
+                    .where(Job.application_status == "Rejected")
                 )
                 or 0,
                 unassessed_jobs=session.scalar(

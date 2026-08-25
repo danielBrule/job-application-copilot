@@ -107,10 +107,20 @@ def test_workflow_counts_jobs_assessments_and_applications(tmp_path: Path) -> No
             awaiting_review_job = _add_job(session, "Awaiting review")
             reviewed_job = _add_job(session, "Reviewed")
             applied_job = _add_job(session, "Applied")
+            first_round_job = _add_job(session, "First round")
+            second_round_job = _add_job(session, "Second round")
+            third_round_job = _add_job(session, "Third round")
+            fourth_round_job = _add_job(session, "Fourth round")
+            rejected_job = _add_job(session, "Rejected")
             selected_without_cv = _add_job(session, "Selected without CV")
             selected_with_cv = _add_job(session, "Selected with CV")
             reviewed_job.user_decision = UserDecision.PURSUE
             applied_job.application_status = "Applied"
+            first_round_job.application_status = "1st round"
+            second_round_job.application_status = "2nd round"
+            third_round_job.application_status = "3rd round"
+            fourth_round_job.application_status = "4th round"
+            rejected_job.application_status = "Rejected"
             selected_without_cv.cv_selection_status = CvSelectionStatus.SELECTED
             selected_with_cv.cv_selection_status = CvSelectionStatus.SELECTED
             session.add_all(
@@ -119,15 +129,22 @@ def test_workflow_counts_jobs_assessments_and_applications(tmp_path: Path) -> No
                     _make_assessed_assessment(reviewed_job),
                     _make_assessed_assessment(selected_without_cv),
                     _make_assessed_assessment(selected_with_cv),
+                    _make_assessed_assessment(first_round_job),
+                    _make_assessed_assessment(second_round_job),
+                    _make_assessed_assessment(third_round_job),
+                    _make_assessed_assessment(fourth_round_job),
+                    _make_assessed_assessment(rejected_job),
                     _make_generated_cv(selected_with_cv.id, CvStatus.READY_FOR_REVIEW),
                 ]
             )
 
         kpis = DashboardKpiService(database).workflow()
 
-        assert kpis.jobs_entered == 5
-        assert kpis.assessed_jobs == 4
+        assert kpis.jobs_entered == 10
+        assert kpis.assessed_jobs == 9
         assert kpis.applied_jobs == 1
+        assert kpis.interviews_ongoing == 4
+        assert kpis.rejected_jobs == 1
         assert kpis.unassessed_jobs == 1
         assert kpis.selected_jobs_without_generated_cv == 1
     finally:

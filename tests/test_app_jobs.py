@@ -1109,7 +1109,10 @@ def test_review_decision_keeps_next_assessed_job_available(
         assert (
             service.assessment_detail(next_job.id).job.user_decision is UserDecision.DO_NOT_PURSUE
         )
-        assert app.button(key=f"next_assessment_review_{next_job.id}").disabled
+        next_button = app.button(key=f"next_assessment_review_{next_job.id}")
+        assert not next_button.disabled
+        next_button.click().run()
+        assert app.selectbox(key=f"human_review_decision_{current_job.id}")
     finally:
         reset_logging()
 
