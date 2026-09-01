@@ -135,6 +135,8 @@ def test_workflow_counts_jobs_assessments_and_applications(tmp_path: Path) -> No
                     _make_assessed_assessment(fourth_round_job),
                     _make_assessed_assessment(rejected_job),
                     _make_generated_cv(selected_with_cv.id, CvStatus.READY_FOR_REVIEW),
+                    _make_generated_cv(awaiting_review_job.id, CvStatus.READY_FOR_REVIEW),
+                    _make_generated_cv(applied_job.id, CvStatus.APPROVED),
                 ]
             )
 
@@ -147,6 +149,7 @@ def test_workflow_counts_jobs_assessments_and_applications(tmp_path: Path) -> No
         assert kpis.rejected_jobs == 1
         assert kpis.unassessed_jobs == 1
         assert kpis.selected_jobs_without_generated_cv == 1
+        assert kpis.generated_cvs_without_application == 2
     finally:
         database.dispose()
 

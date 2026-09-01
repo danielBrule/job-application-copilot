@@ -18,6 +18,7 @@ Job Details opens from the Jobs table.
 - Applied jobs
 - Unassessed jobs
 - Selected for CV generation without a generated CV
+- Generated CVs not applied
 - Assessment tokens: total / average
 - CV-generation tokens: total / average
 - Assessment time: total / average

@@ -35,7 +35,10 @@ class CvFileOpener:
         if not path.is_file():
             raise CvFileMissingError("The CV file is missing. Upload or generate it again.")
         try:
-            os.startfile(path)  # Windows-only application.
+            # Pass a string explicitly.  Streamlit retains ``file_path`` as text and
+            # Windows shell association is more reliable when the launcher receives
+            # the same concrete string representation.
+            os.startfile(str(path), "open")  # Windows-only application.
         except OSError as error:
             raise CvFileOpenError(
                 "The CV could not be opened with the Windows default application."
