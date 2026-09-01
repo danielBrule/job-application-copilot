@@ -61,6 +61,7 @@ class DashboardWorkflowKpis:
     rejected_jobs: int
     unassessed_jobs: int
     selected_jobs_without_generated_cv: int
+    generated_cvs_without_application: int
 
 
 class DashboardKpiService:
@@ -134,6 +135,17 @@ class DashboardKpiService:
                             Cv.source != CvSource.GENERATED,
                             Cv.status.not_in((CvStatus.READY_FOR_REVIEW, CvStatus.APPROVED)),
                         ),
+                    )
+                )
+                or 0,
+                generated_cvs_without_application=session.scalar(
+                    select(func.count())
+                    .select_from(Cv)
+                    .join(Job, Job.id == Cv.job_id)
+                    .where(
+                        Cv.source == CvSource.GENERATED,
+                        Cv.status.in_((CvStatus.READY_FOR_REVIEW, CvStatus.APPROVED)),
+                        or_(Job.application_status.is_(None), Job.application_status == ""),
                     )
                 )
                 or 0,

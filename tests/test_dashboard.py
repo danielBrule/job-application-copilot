@@ -49,6 +49,7 @@ def test_dashboard_shows_usage_and_failed_task_kpis(
                 "Applied jobs",
                 "Unassessed jobs",
                 "Selected without generated CV",
+                "Generated CVs not applied",
             }
         )
         assert any(page_link.label == "Review failed tasks" for page_link in app.get("page_link"))

@@ -80,6 +80,18 @@ def test_review_queue_keeps_its_initial_snapshot_after_updates(
     assert _review_queue("assessment", 20, lambda: (30, 10)) == (30, 20, 10)
 
 
+def test_review_queue_keeps_saved_cv_navigation_after_query_parameters_change(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Streamlit:
+        session_state = {"cv_review_queue_job_ids": (30, 20, 10)}
+        query_params: dict[str, str] = {}
+
+    monkeypatch.setattr("job_application_copilot.ui.components.job_details.st", Streamlit())
+
+    assert _review_queue("cv", 20, lambda: ()) == (30, 20, 10)
+
+
 def test_circular_review_navigation_wraps_and_supports_one_job() -> None:
     assert _circular_review_navigation((30, 20, 10), 30) == (10, 20)
     assert _circular_review_navigation((30, 20, 10), 10) == (20, 30)

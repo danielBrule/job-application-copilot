@@ -16,7 +16,12 @@ def test_opens_existing_docx_with_windows_default_application(
     path = settings.cv_folder / "resume.docx"
     path.write_bytes(b"docx")
     opened: list[Path] = []
-    monkeypatch.setattr("os.startfile", lambda value: opened.append(Path(value)))
+
+    def startfile(value: str, operation: str) -> None:
+        assert operation == "open"
+        opened.append(Path(value))
+
+    monkeypatch.setattr("os.startfile", startfile)
 
     CvFileOpener(settings).open(path)
 

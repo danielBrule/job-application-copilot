@@ -82,11 +82,15 @@ def _render_workflow_kpis(kpis: DashboardWorkflowKpis) -> None:
     interviews.metric("Interviews ongoing", kpis.interviews_ongoing)
     rejected.metric("Rejected jobs", kpis.rejected_jobs)
     st.subheader("Current queues")
-    unassessed, cv_generation = st.columns(2)
+    unassessed, cv_generation, generated_without_application = st.columns(3)
     unassessed.metric("Unassessed jobs", kpis.unassessed_jobs)
     cv_generation.metric(
         "Selected without generated CV",
         kpis.selected_jobs_without_generated_cv,
+    )
+    generated_without_application.metric(
+        "Generated CVs not applied",
+        kpis.generated_cvs_without_application,
     )
 
 

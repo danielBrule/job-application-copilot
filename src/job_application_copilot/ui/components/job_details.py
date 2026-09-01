@@ -514,9 +514,6 @@ def _review_queue(
 ) -> tuple[int, ...]:
     """Return one tab's stable review snapshot, creating it at review entry."""
 
-    active_flow = st.query_params.get(REVIEW_FLOW_QUERY_PARAM)
-    if active_flow not in (None, flow):
-        return ()
     session_key = (
         ASSESSMENT_REVIEW_QUEUE_SESSION_KEY
         if flow == ASSESSMENT_REVIEW_FLOW
@@ -525,6 +522,9 @@ def _review_queue(
     queue = tuple(st.session_state.get(session_key, ()))
     if job_id in queue:
         return queue
+    active_flow = st.query_params.get(REVIEW_FLOW_QUERY_PARAM)
+    if active_flow not in (None, flow):
+        return ()
     queue = load_current_queue()
     if job_id not in queue:
         return ()

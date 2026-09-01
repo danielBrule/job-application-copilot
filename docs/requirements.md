@@ -242,6 +242,7 @@ Simple cards appear on the Dashboard page:
 - Applied jobs
 - Unassessed jobs
 - Selected for CV generation without a generated CV
+- Generated CVs with no application status
 - Total and average assessment tokens
 - Total and average CV-generation tokens
 - Total and average assessment processing time
