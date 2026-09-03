@@ -162,6 +162,10 @@ from job_application_copilot.services.french_adaptation_context import (
     FrenchAdaptationTextInput,
     FrenchAdaptationTraceability,
 )
+from job_application_copilot.services.french_cv_validation import (
+    FrenchCvValidationError,
+    FrenchCvValidationService,
+)
 from job_application_copilot.services.french_reference_indexing import (
     FrenchReferenceIndexingError,
     FrenchReferenceIndexingService,
@@ -315,6 +319,8 @@ __all__ = [
     "FrenchAdaptationTraceability",
     "FrenchAdaptationResult",
     "FrenchAdaptationService",
+    "FrenchCvValidationError",
+    "FrenchCvValidationService",
     "FrenchReviewContext",
     "FrenchReviewContextBuilder",
     "FrenchReviewContextError",
