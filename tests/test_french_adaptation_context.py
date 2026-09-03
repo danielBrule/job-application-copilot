@@ -9,6 +9,7 @@ import pytest
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import (
     BackgroundOperation,
+    BackgroundTaskStatus,
     CvExperienceBlock,
     CvSkillEntry,
     CvSkillsBlock,
@@ -22,17 +23,28 @@ from job_application_copilot.domain import (
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
 )
-from job_application_copilot.repositories import CvGenerationFinalRepository, create_database
+from job_application_copilot.llm import PromptStageOpenAIResponse, PromptStageRequest
+from job_application_copilot.repositories import (
+    BackgroundTaskRepository,
+    CvGenerationFinalRepository,
+    FrenchAdaptationDraftRepository,
+    LlmCallRepository,
+    create_database,
+)
 from job_application_copilot.repositories.models import BackgroundBatch, BackgroundTask, Job
 from job_application_copilot.repositories.reference_asset_repository import ReferenceAssetRepository
 from job_application_copilot.services import (
     CvTemplateManifestService,
     FrenchAdaptationContextBuilder,
     FrenchAdaptationContextError,
+    FrenchAdaptationService,
     PromptService,
     ReferenceAssetStorageService,
 )
 from job_application_copilot.services.database_bootstrap import initialize_database
+from job_application_copilot.services.french_reference_indexing import (
+    FrenchReferenceRetrievalService,
+)
 from tests.app_test_support import make_docx
 
 
@@ -180,7 +192,9 @@ def test_context_starts_with_complete_final_english_cv_and_preserves_evidence(
 
     assert [item.section for item in context.input] == [
         "final_english_cv",
+        "target_locale",
         "stage_instructions",
+        "approved_positioning",
         "evidence_preservation",
         "template_contract",
         "french_style_references",
@@ -189,10 +203,118 @@ def test_context_starts_with_complete_final_english_cv_and_preserves_evidence(
     assert "42%" in context.input[0].text
     assert "£2.5m" in context.input[0].text
     assert "shared ownership" in context.input[0].text
-    assert "style and terminology guidance only" in context.input[2].text
+    preservation = next(
+        item.text for item in context.input if item.section == "evidence_preservation"
+    )
+    assert "style and terminology guidance only" in preservation
     references = json.loads(context.input[-1].text)
     assert references[0]["style_reference_only"] is True
     assert context.traceability.french_reference_versions == ("french-example-direction:v1",)
+    assert context.traceability.target_locale == "fr-FR"
+
+
+def test_executes_and_persists_complete_french_adaptation(
+    context_setup,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database, settings, task_id = context_setup
+    reference = active_reference(database, settings)
+    monkeypatch.setattr(
+        FrenchReferenceRetrievalService,
+        "retrieve",
+        lambda self, request: (reference,),
+    )
+
+    french_payload = {
+        "opening_title_content": "Directeur des solutions IA",
+        "opening_profile_content": (
+            "Pilotage d'un programme démontré ayant amélioré la livraison de 42 %."
+        ),
+        "experience_blocks": [
+            {
+                "title": None,
+                "introduction": "Directeur chez Example Ltd.",
+                "bullets": [
+                    "Livraison de 2,5 M£ de résultats validés avec une responsabilité partagée."
+                ],
+            }
+        ],
+        "skill_entries": [{"name": "Architecture", "content": "Delivery fondée sur les preuves"}],
+    }
+
+    class Client:
+        def __init__(self) -> None:
+            self.requests: list[PromptStageRequest] = []
+
+        def run_prompt_stage(self, request: PromptStageRequest) -> PromptStageOpenAIResponse:
+            self.requests.append(request)
+            return PromptStageOpenAIResponse(
+                response_id="resp_fr_1",
+                request_id="req_fr_1",
+                model="gpt-test",
+                output_text=json.dumps(french_payload, ensure_ascii=False),
+                incomplete_reason=None,
+                service_tier="default",
+                input_tokens=100,
+                cached_input_tokens=0,
+                cache_write_tokens=0,
+                output_tokens=50,
+                reasoning_tokens=5,
+                total_tokens=150,
+                cache_mode=None,
+                cache_ttl=None,
+            )
+
+    with database.session() as session:
+        tasks = BackgroundTaskRepository(session)
+        task = tasks.transition(tasks.require(task_id), BackgroundTaskStatus.RUNNING)
+        attempt = tasks.get_running_attempt(task_id)
+        assert attempt is not None
+        attempt_id = attempt.id
+
+    client = Client()
+    result = FrenchAdaptationService(database, settings, client).run(
+        task, task_attempt_id=attempt_id
+    )
+
+    assert result.output.opening_title.content == "Directeur des solutions IA"
+    assert result.pipeline.resumed_from_position == 4
+    assert len(client.requests) == 1
+    request = client.requests[0]
+    assert request.model_identifier == settings.cv_generation_model
+    assert [item.section for item in request.input] == [
+        "final_english_cv",
+        "target_locale",
+        "stage_instructions",
+        "approved_positioning",
+        "evidence_preservation",
+        "template_contract",
+        "french_style_references",
+    ]
+    assert next(item.text for item in request.input if item.section == "target_locale") == "fr-FR"
+    with database.session() as session:
+        stored = FrenchAdaptationDraftRepository(session).require_for_task(task_id)
+        assert stored.target_locale == "fr-FR"
+        assert stored.french_prompt_version == 1
+        assert stored.french_reference_versions == ["french-example-direction:v1"]
+        assert FinalCvOutput.model_validate(stored.payload) == result.output
+        calls = LlmCallRepository(session).list(task_id=task_id)
+        assert len(calls) == 1
+        assert calls[0].pipeline_step == "CV_GENERATION_FRENCH_STAGE_1_ADAPTATION"
+        assert calls[0].total_tokens == 150
+
+
+def test_adaptation_rejects_a_draft_that_drops_source_bullets(context_setup) -> None:
+    database, settings, task_id = context_setup
+    english = final_english_cv()
+    french = final_english_cv().model_copy(
+        update={
+            "experience": (final_english_cv().experience[0].model_copy(update={"bullets": ()}),)
+        }
+    )
+
+    with pytest.raises(ValueError, match="number of experience bullets"):
+        FrenchAdaptationService._validate_matching_structure(english, french)
 
 
 def test_context_rejects_missing_final_english_output(context_setup) -> None:

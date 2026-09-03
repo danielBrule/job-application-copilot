@@ -1,4 +1,4 @@
-"""Install packaged English CV-generation prompts as private version 1 once."""
+"""Install packaged CV-generation prompts as private version 1 once."""
 
 from importlib import resources
 from pathlib import Path
@@ -11,9 +11,11 @@ from job_application_copilot.services.prompt_service import PromptService
 CV_STAGE_ONE_PROMPT_ASSET_KEY = "cv-generation-en-stage-1"
 CV_STAGE_TWO_PROMPT_ASSET_KEY = "cv-generation-en-stage-2"
 CV_STAGE_THREE_PROMPT_ASSET_KEY = "cv-generation-en-stage-3"
+FRENCH_ADAPTATION_PROMPT_ASSET_KEY = "cv-generation-fr-extension-1"
 DEFAULT_CV_STAGE_ONE_PROMPT_FILENAME = "cv-generation-en-stage-1-v1.txt"
 DEFAULT_CV_STAGE_TWO_PROMPT_FILENAME = "cv-generation-en-stage-2-v1.txt"
 DEFAULT_CV_STAGE_THREE_PROMPT_FILENAME = "cv-generation-en-stage-3-v1.txt"
+DEFAULT_FRENCH_ADAPTATION_PROMPT_FILENAME = "cv-generation-fr-extension-1-v1.txt"
 
 
 class DefaultCvGenerationPromptError(ApplicationOperationError):
@@ -21,7 +23,7 @@ class DefaultCvGenerationPromptError(ApplicationOperationError):
 
 
 class DefaultCvGenerationPromptService:
-    """Seed English generation prompts without replacing user versions."""
+    """Seed generation prompts without replacing user versions."""
 
     def __init__(
         self, database: Database, settings: AppSettings, *, template_path: Path | None = None
@@ -39,7 +41,18 @@ class DefaultCvGenerationPromptService:
         created_stage_three = self._ensure_prompt(
             CV_STAGE_THREE_PROMPT_ASSET_KEY, DEFAULT_CV_STAGE_THREE_PROMPT_FILENAME
         )
-        return created_stage_one or created_stage_two or created_stage_three
+        created_french_adaptation = self._ensure_prompt(
+            FRENCH_ADAPTATION_PROMPT_ASSET_KEY,
+            DEFAULT_FRENCH_ADAPTATION_PROMPT_FILENAME,
+        )
+        return any(
+            (
+                created_stage_one,
+                created_stage_two,
+                created_stage_three,
+                created_french_adaptation,
+            )
+        )
 
     def _ensure_prompt(self, asset_key: str, filename: str) -> bool:
         if self.prompt_service.list_versions(asset_key):

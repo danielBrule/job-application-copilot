@@ -1,4 +1,4 @@
-"""Tests for one-time installation of default English generation prompts."""
+"""Tests for one-time installation of default generation prompts."""
 
 from pathlib import Path
 
@@ -41,3 +41,29 @@ def test_installs_private_version_one_without_overwriting_user_versions(
     assert stage_two.version == 1
     assert stage_two.file_path is None
     assert stage_three.file_path is None
+    french = PromptService(database).get_active_version("cv-generation-fr-extension-1")
+    assert french is not None
+    assert french.version == 1
+    assert french.file_path is None
+    french_text = PromptService(database).get_active_text("cv-generation-fr-extension-1")
+    assert french_text is not None
+    assert "sole factual source" in french_text
+    assert "fr-FR" in french_text
+    assert "style and terminology references only" in french_text
+
+
+def test_does_not_replace_an_existing_french_prompt(
+    setup: tuple[Database, AppSettings],
+) -> None:
+    database, settings = setup
+    prompts = PromptService(database)
+    prompts.save_text("cv-generation-fr-extension-1", "User-maintained French prompt")
+
+    DefaultCvGenerationPromptService(database, settings).ensure()
+
+    active = prompts.get_active_version("cv-generation-fr-extension-1")
+    assert active is not None
+    assert active.version == 1
+    assert prompts.get_active_text("cv-generation-fr-extension-1") == (
+        "User-maintained French prompt"
+    )

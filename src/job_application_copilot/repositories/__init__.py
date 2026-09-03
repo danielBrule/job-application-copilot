@@ -47,6 +47,10 @@ from job_application_copilot.repositories.document_b_section_repository import (
     DocumentBSectionNotFoundError,
     DocumentBSectionRepository,
 )
+from job_application_copilot.repositories.french_adaptation_draft_repository import (
+    FrenchAdaptationDraftNotFoundError,
+    FrenchAdaptationDraftRepository,
+)
 from job_application_copilot.repositories.job_repository import (
     DuplicateJobUrlError,
     JobNotFoundError,
@@ -82,6 +86,8 @@ __all__ = [
     "CvGenerationDraftRepository",
     "CvGenerationFinalNotFoundError",
     "CvGenerationFinalRepository",
+    "FrenchAdaptationDraftNotFoundError",
+    "FrenchAdaptationDraftRepository",
     "CvNotFoundError",
     "CvRepository",
     "CvTransitionError",

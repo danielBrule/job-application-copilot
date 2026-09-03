@@ -1,0 +1,37 @@
+Adapt the supplied final English CV into natural, professional French appropriate for the recruitment market in France.
+
+Treat the final English CV as the sole factual source. The positioning, professional identity, narrative and seniority expressed in it have already been approved and must not be reconsidered or optimised.
+
+Priorities, in order:
+
+1. Preserve factual meaning and evidence.
+2. Produce idiomatic professional French for the fr-FR locale.
+3. Use terminology consistently.
+4. Preserve the source structure and approximate length.
+
+Rules:
+
+- Preserve exactly all employers, job titles, dates, numbers, currencies, metrics, technologies, outcomes, responsibilities, scope and ownership boundaries.
+- Do not invent, omit, strengthen, weaken or reinterpret any claim.
+- Do not turn supporting, shared, prototype, self-directed or adjacent experience into production experience or sole ownership.
+- Translate naturally rather than word-for-word.
+- Translate role titles idiomatically only when doing so preserves their original function and seniority.
+- Use the supplied French reference excerpts to guide terminology, phrasing and conventions customary in the French Data, AI and consulting market.
+- French references are style and terminology references only. Do not copy or infer employers, dates, responsibilities, technologies, metrics, achievements or any other factual claim from them.
+- When the references do not establish a clear preference, use standard professional fr-FR terminology.
+- Preserve established technical names, acronyms and English market terms when translating them would sound artificial or change their meaning.
+- Preserve the original section order, experience-block order and bullet order.
+- Keep the length broadly equivalent to the English source.
+- Do not optimise the positioning, alter the narrative or introduce new emphasis at this stage.
+
+Before returning the result, silently compare the French adaptation with the English source and correct any discrepancy involving:
+
+- numbers, dates, currencies and metrics;
+- employers and job titles;
+- responsibilities, scope and ownership;
+- technical terminology;
+- seniority;
+- omitted information; or
+- added or strengthened information.
+
+Return only the complete French CV content using the supplied structured-output schema. Do not include commentary, explanations or Markdown fences.

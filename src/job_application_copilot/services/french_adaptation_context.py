@@ -36,6 +36,7 @@ from job_application_copilot.services.immutable_file_storage import (
 )
 
 FRENCH_GENERATION_PIPELINE_GROUP = "generation/french"
+FRENCH_TARGET_LOCALE = "fr-FR"
 
 
 class FrenchAdaptationContextError(ApplicationOperationError):
@@ -57,6 +58,7 @@ class FrenchAdaptationTraceability(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     task_id: int
+    target_locale: str
     model_identifier: str
     document_a_version: int
     document_b_version: int
@@ -138,7 +140,17 @@ class FrenchAdaptationContextBuilder:
                 section="final_english_cv",
                 text=final.output.model_dump_json(),
             ),
+            FrenchAdaptationTextInput(section="target_locale", text=FRENCH_TARGET_LOCALE),
             FrenchAdaptationTextInput(section="stage_instructions", text=prompt.text),
+            FrenchAdaptationTextInput(
+                section="approved_positioning",
+                text=(
+                    "The positioning, professional identity, narrative and seniority expressed "
+                    "in the final English CV have already been approved. Preserve them exactly. "
+                    "This stage performs language adaptation only and must not reassess or "
+                    "optimise the CV."
+                ),
+            ),
             FrenchAdaptationTextInput(
                 section="evidence_preservation",
                 text=(
@@ -166,6 +178,7 @@ class FrenchAdaptationContextBuilder:
             input=tuple(items),
             traceability=FrenchAdaptationTraceability(
                 task_id=task_id,
+                target_locale=FRENCH_TARGET_LOCALE,
                 model_identifier=model,
                 document_a_version=final.document_a_version,
                 document_b_version=final.document_b_version,
