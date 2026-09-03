@@ -151,6 +151,10 @@ from job_application_copilot.services.document_b_vector_store import (
     DocumentBVectorStoreNotAllowedError,
     DocumentBVectorStoreService,
 )
+from job_application_copilot.services.french_adaptation import (
+    FrenchAdaptationResult,
+    FrenchAdaptationService,
+)
 from job_application_copilot.services.french_adaptation_context import (
     FrenchAdaptationContext,
     FrenchAdaptationContextBuilder,
@@ -298,6 +302,8 @@ __all__ = [
     "FrenchAdaptationContextError",
     "FrenchAdaptationTextInput",
     "FrenchAdaptationTraceability",
+    "FrenchAdaptationResult",
+    "FrenchAdaptationService",
     "DocumentBRoutingError",
     "DocumentBRoutingConfigurationError",
     "DocumentBRoutingConfigurationService",

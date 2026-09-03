@@ -36,6 +36,7 @@ from job_application_copilot.services.cv_generation_brief import CvGenerationBri
 from job_application_copilot.services.cv_generation_draft import CvGenerationDraftService
 from job_application_copilot.services.cv_generation_final import CvGenerationFinalService
 from job_application_copilot.services.cv_service import CvService
+from job_application_copilot.services.french_adaptation import FrenchAdaptationService
 
 CV_RENDER_PIPELINE_STEP = "CV_GENERATION_RENDER_DOCX"
 ASSESSMENT_CONTRACT_REFRESH_PIPELINE_STEP = "ASSESSMENT_CONTRACT_REFRESH"
@@ -58,7 +59,7 @@ class CvGenerationMetadata:
 
 
 class CvGenerationWorkerHandler:
-    """Run one claimed English CV-generation task through rendering and review readiness."""
+    """Run one claimed CV-generation task through its implemented language stages."""
 
     def __init__(
         self,
@@ -74,7 +75,7 @@ class CvGenerationWorkerHandler:
         self.assessment_persistence = AssessmentPersistenceService(database)
 
     def __call__(self, task: BackgroundTask) -> None:
-        """Execute every English stage, render its DOCX, and make it ready for review."""
+        """Execute English generation, then route to the configured language path."""
 
         if task.operation is not BackgroundOperation.CV_GENERATION:
             raise ValueError("CV-generation handler received a non-CV-generation task.")
@@ -93,6 +94,11 @@ class CvGenerationWorkerHandler:
             final = CvGenerationFinalService(self.database, self.settings, client).run(
                 task, task_attempt_id=task_attempt_id
             )
+            if self._language(task.id) is Language.FR:
+                FrenchAdaptationService(self.database, self.settings, client).run(
+                    task, task_attempt_id=task_attempt_id
+                )
+                return
             self._set_pipeline_step(task.id, CV_RENDER_PIPELINE_STEP)
             metadata = self._metadata(task.id)
             file_path = CvDocumentRendererService(self.database, self.settings).render(
@@ -113,6 +119,11 @@ class CvGenerationWorkerHandler:
         finally:
             if client is not None:
                 client.close()
+
+    def _language(self, task_id: int) -> Language:
+        with self.database.session() as session:
+            task = BackgroundTaskRepository(session).require(task_id)
+            return JobRepository(session).require(task.job_id).language
 
     def _refresh_assessment_if_contract_stale(
         self,

@@ -79,6 +79,14 @@ erDiagram
         integer task_id FK
         json payload
     }
+    FRENCH_ADAPTATION_DRAFT {
+        integer id PK
+        integer task_id FK
+        string target_locale
+        integer french_prompt_version
+        json french_reference_versions
+        json payload
+    }
 
     REFERENCE_ASSET {
         integer id PK
@@ -148,6 +156,7 @@ erDiagram
     BACKGROUND_TASK ||--o| CV_GENERATION_BRIEF : "has"
     BACKGROUND_TASK ||--o| CV_GENERATION_DRAFT : "has"
     BACKGROUND_TASK ||--o| CV_GENERATION_FINAL : "has"
+    BACKGROUND_TASK ||--o| FRENCH_ADAPTATION_DRAFT : "has"
 
     REFERENCE_ASSET ||--o| CV_TEMPLATE_MANIFEST : "maps"
     REFERENCE_ASSET ||--o| PROMPT_CONTENT : "stores"
@@ -320,6 +329,14 @@ The final CV is structured generated content for a user-managed DOCX template. S
 semantic text in the manifest-defined experience-target order; the local template contract assigns
 the bracketed DOCX placeholders deterministically before persistence and rendering. Template-owned
 contact details, education, languages, static employer headings and static roles remain outside model output.
+
+## French adaptation draft
+
+One structured French prompt-one draft is retained for each French CV-generation task. It starts
+from the complete final English CV, uses `fr-FR` and verified style-only French reference passages,
+and retains the Document A, Document B, English-final prompt, French prompt, English template,
+French template and reference-example versions that produced it. Later French review consumes this
+draft; prompt one does not render a DOCX or create the active CV record.
 
 ## Contact (planned, not yet persisted)
 

@@ -90,6 +90,14 @@ class StageFakes:
                 calls.append(f"final:{task.id}")
                 return SimpleNamespace(output=object())
 
+        class FrenchAdaptation:
+            def __init__(self, *args: object) -> None:
+                del args
+
+            def run(self, task: BackgroundTask, *, task_attempt_id: int) -> None:
+                del task_attempt_id
+                calls.append(f"french-adaptation:{task.id}")
+
         class Renderer:
             def __init__(self, *args: object) -> None:
                 del args
@@ -104,6 +112,7 @@ class StageFakes:
         monkeypatch.setattr(handler_module, "CvGenerationBriefService", Brief)
         monkeypatch.setattr(handler_module, "CvGenerationDraftService", Draft)
         monkeypatch.setattr(handler_module, "CvGenerationFinalService", Final)
+        monkeypatch.setattr(handler_module, "FrenchAdaptationService", FrenchAdaptation)
         monkeypatch.setattr(handler_module, "CvDocumentRendererService", Renderer)
         if self.bypass_contract_refresh:
             monkeypatch.setattr(
@@ -301,7 +310,7 @@ def test_failed_task_does_not_stop_a_sibling_cv_task(
     assert second_client.close_count == 1
 
 
-def test_french_job_currently_runs_the_english_generation_pipeline(
+def test_french_job_runs_adaptation_after_english_pipeline_without_rendering(
     database: Database,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -329,14 +338,12 @@ def test_french_job_currently_runs_the_english_generation_pipeline(
             BackgroundTaskRepository(session).require(task.id).status
             is BackgroundTaskStatus.COMPLETED
         )
-        cv = CvRepository(session).require_for_job(task.job_id)
-        assert cv.language is Language.EN
-        assert cv.status is CvStatus.READY_FOR_REVIEW
+        assert CvRepository(session).get_for_job(task.job_id) is None
     assert calls == [
         f"brief:{task.id}",
         f"draft:{task.id}",
         f"final:{task.id}",
-        "render:French job",
+        f"french-adaptation:{task.id}",
     ]
 
 
