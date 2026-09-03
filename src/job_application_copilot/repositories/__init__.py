@@ -51,6 +51,10 @@ from job_application_copilot.repositories.french_adaptation_draft_repository imp
     FrenchAdaptationDraftNotFoundError,
     FrenchAdaptationDraftRepository,
 )
+from job_application_copilot.repositories.french_adaptation_final_repository import (
+    FrenchAdaptationFinalNotFoundError,
+    FrenchAdaptationFinalRepository,
+)
 from job_application_copilot.repositories.job_repository import (
     DuplicateJobUrlError,
     JobNotFoundError,
@@ -88,6 +92,8 @@ __all__ = [
     "CvGenerationFinalRepository",
     "FrenchAdaptationDraftNotFoundError",
     "FrenchAdaptationDraftRepository",
+    "FrenchAdaptationFinalNotFoundError",
+    "FrenchAdaptationFinalRepository",
     "CvNotFoundError",
     "CvRepository",
     "CvTransitionError",

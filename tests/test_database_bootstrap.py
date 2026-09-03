@@ -81,6 +81,7 @@ def test_migrations_create_current_domain_tables(
             "document_b_sections",
             "document_b_vector_records",
             "french_adaptation_drafts",
+            "french_adaptation_finals",
             "french_reference_vector_sources",
             "french_reference_vector_stores",
             "jobs",

@@ -27,7 +27,9 @@ from job_application_copilot.llm import PromptStageOpenAIResponse, PromptStageRe
 from job_application_copilot.repositories import (
     BackgroundTaskRepository,
     CvGenerationFinalRepository,
+    Database,
     FrenchAdaptationDraftRepository,
+    FrenchAdaptationFinalRepository,
     LlmCallRepository,
     create_database,
 )
@@ -38,6 +40,9 @@ from job_application_copilot.services import (
     FrenchAdaptationContextBuilder,
     FrenchAdaptationContextError,
     FrenchAdaptationService,
+    FrenchReviewContextBuilder,
+    FrenchReviewContextError,
+    FrenchReviewService,
     PromptService,
     ReferenceAssetStorageService,
 )
@@ -175,6 +180,47 @@ def active_reference(database, settings: AppSettings) -> FrenchReferencePassage:
         name=stored.name,
         source_metadata={"style_reference_only": "true"},
     )
+
+
+def french_draft_cv() -> FinalCvOutput:
+    return FinalCvOutput(
+        opening_title=CvTemplateText(
+            placeholder="[OPENING_TITLE]", content="Directeur des solutions IA"
+        ),
+        opening_profile=CvTemplateText(
+            placeholder="[OPENING_PROFILE]",
+            content="Pilotage d'un programme ayant améliore la livraison de 42 %.",
+        ),
+        experience=(
+            CvExperienceBlock(
+                placeholder="[EXPERIENCE_CURRENT]",
+                introduction="Directeur chez Example Ltd.",
+                bullets=(
+                    "Livraison de 2,5 M£ de résultats validés avec une responsabilité partagée.",
+                ),
+            ),
+        ),
+        skills=CvSkillsBlock(
+            placeholder="[SKILLS]",
+            entries=(CvSkillEntry(name="Architecture", content="Delivery fondée sur les preuves"),),
+        ),
+    )
+
+
+def store_french_draft(database: Database, task_id: int, *, document_a_version: int = 7) -> None:
+    with database.session() as session:
+        FrenchAdaptationDraftRepository(session).store(
+            task_id=task_id,
+            output=french_draft_cv(),
+            target_locale="fr-FR",
+            document_a_version=document_a_version,
+            document_b_version=4,
+            english_final_prompt_version=3,
+            french_prompt_version=2,
+            english_template_version=1,
+            french_template_version=1,
+            french_reference_versions=("french-example-direction:v1",),
+        )
 
 
 def test_context_starts_with_complete_final_english_cv_and_preserves_evidence(
@@ -376,5 +422,137 @@ def test_context_defensively_rejects_an_active_french_template_with_different_pl
         FrenchAdaptationContextBuilder(database, settings).build(
             task_id,
             model_identifier="gpt-test",
+            response_schema={"type": "object"},
+        )
+
+
+def test_french_review_context_contains_english_authority_and_retained_draft(
+    context_setup,
+) -> None:
+    database, _, task_id = context_setup
+    store_french_draft(database, task_id)
+    PromptService(database).save_text(
+        "cv-generation-fr-extension-2", "Relisez et réécrivez le CV français."
+    )
+
+    context = FrenchReviewContextBuilder(database).build(
+        task_id,
+        model_identifier="gpt-review",
+        response_schema={"type": "object"},
+    )
+
+    assert [item.section for item in context.input] == [
+        "final_english_cv",
+        "french_adaptation_draft",
+        "target_locale",
+        "stage_instructions",
+        "evidence_authority",
+        "template_contract",
+    ]
+    assert FinalCvOutput.model_validate_json(context.input[0].text) == final_english_cv()
+    assert FinalCvOutput.model_validate_json(context.input[1].text) == french_draft_cv()
+    assert "sole factual authority" in context.input[4].text
+    assert context.traceability.french_adaptation_prompt_version == 2
+    assert context.traceability.french_review_prompt_version == 1
+    assert context.traceability.french_reference_versions == ("french-example-direction:v1",)
+
+
+def test_executes_and_persists_reviewed_french_output(
+    context_setup,
+) -> None:
+    database, settings, task_id = context_setup
+    store_french_draft(database, task_id)
+    PromptService(database).save_text(
+        "cv-generation-fr-extension-2", "Relisez et réécrivez le CV français."
+    )
+    reviewed_payload = {
+        "opening_title_content": "Directeur des solutions IA",
+        "opening_profile_content": (
+            "Direction d'un programme démontré ayant amélioré la livraison de 42 %."
+        ),
+        "experience_blocks": [
+            {
+                "title": None,
+                "introduction": "Directeur chez Example Ltd.",
+                "bullets": [
+                    "Production de 2,5 M£ de résultats validés sous responsabilité partagée."
+                ],
+            }
+        ],
+        "skill_entries": [{"name": "Architecture", "content": "Pilotage fondé sur les preuves"}],
+    }
+
+    class Client:
+        def __init__(self) -> None:
+            self.requests: list[PromptStageRequest] = []
+
+        def run_prompt_stage(self, request: PromptStageRequest) -> PromptStageOpenAIResponse:
+            self.requests.append(request)
+            return PromptStageOpenAIResponse(
+                response_id="resp_fr_2",
+                request_id="req_fr_2",
+                model="gpt-review",
+                output_text=json.dumps(reviewed_payload, ensure_ascii=False),
+                incomplete_reason=None,
+                service_tier="default",
+                input_tokens=120,
+                cached_input_tokens=0,
+                cache_write_tokens=0,
+                output_tokens=55,
+                reasoning_tokens=6,
+                total_tokens=175,
+                cache_mode=None,
+                cache_ttl=None,
+            )
+
+    with database.session() as session:
+        tasks = BackgroundTaskRepository(session)
+        task = tasks.transition(tasks.require(task_id), BackgroundTaskStatus.RUNNING)
+        attempt = tasks.get_running_attempt(task_id)
+        assert attempt is not None
+
+    client = Client()
+    result = FrenchReviewService(database, settings, client).run(task, task_attempt_id=attempt.id)
+
+    assert result.output.opening_profile.content.startswith("Direction d'un programme")
+    assert result.pipeline.resumed_from_position == 5
+    assert len(client.requests) == 1
+    assert client.requests[0].model_identifier == settings.cv_generation_final_model
+    with database.session() as session:
+        stored = FrenchAdaptationFinalRepository(session).require_for_task(task_id)
+        assert stored.target_locale == "fr-FR"
+        assert stored.french_adaptation_prompt_version == 2
+        assert stored.french_review_prompt_version == 1
+        assert stored.french_reference_versions == ["french-example-direction:v1"]
+        assert FinalCvOutput.model_validate(stored.payload) == result.output
+        calls = LlmCallRepository(session).list(task_id=task_id)
+        assert len(calls) == 1
+        assert calls[0].pipeline_step == "CV_GENERATION_FRENCH_STAGE_2_REVIEW"
+        assert calls[0].total_tokens == 175
+
+
+def test_french_review_requires_active_ready_prompt_two(context_setup) -> None:
+    database, _, task_id = context_setup
+    store_french_draft(database, task_id)
+
+    with pytest.raises(FrenchReviewContextError, match="not READY"):
+        FrenchReviewContextBuilder(database).build(
+            task_id,
+            model_identifier="gpt-review",
+            response_schema={"type": "object"},
+        )
+
+
+def test_french_review_rejects_draft_from_different_english_evidence(context_setup) -> None:
+    database, _, task_id = context_setup
+    store_french_draft(database, task_id, document_a_version=8)
+    PromptService(database).save_text(
+        "cv-generation-fr-extension-2", "Relisez et réécrivez le CV français."
+    )
+
+    with pytest.raises(FrenchReviewContextError, match="does not match"):
+        FrenchReviewContextBuilder(database).build(
+            task_id,
+            model_identifier="gpt-review",
             response_schema={"type": "object"},
         )

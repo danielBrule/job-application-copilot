@@ -169,6 +169,17 @@ from job_application_copilot.services.french_reference_indexing import (
     FrenchReferenceRetrievalError,
     FrenchReferenceRetrievalService,
 )
+from job_application_copilot.services.french_review import (
+    FrenchReviewResult,
+    FrenchReviewService,
+)
+from job_application_copilot.services.french_review_context import (
+    FrenchReviewContext,
+    FrenchReviewContextBuilder,
+    FrenchReviewContextError,
+    FrenchReviewTextInput,
+    FrenchReviewTraceability,
+)
 from job_application_copilot.services.job_service import (
     AssessmentReviewNavigation,
     AssessmentReviewNotEligibleError,
@@ -304,6 +315,13 @@ __all__ = [
     "FrenchAdaptationTraceability",
     "FrenchAdaptationResult",
     "FrenchAdaptationService",
+    "FrenchReviewContext",
+    "FrenchReviewContextBuilder",
+    "FrenchReviewContextError",
+    "FrenchReviewTextInput",
+    "FrenchReviewTraceability",
+    "FrenchReviewResult",
+    "FrenchReviewService",
     "DocumentBRoutingError",
     "DocumentBRoutingConfigurationError",
     "DocumentBRoutingConfigurationService",

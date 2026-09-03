@@ -37,6 +37,7 @@ from job_application_copilot.services.cv_generation_draft import CvGenerationDra
 from job_application_copilot.services.cv_generation_final import CvGenerationFinalService
 from job_application_copilot.services.cv_service import CvService
 from job_application_copilot.services.french_adaptation import FrenchAdaptationService
+from job_application_copilot.services.french_review import FrenchReviewService
 
 CV_RENDER_PIPELINE_STEP = "CV_GENERATION_RENDER_DOCX"
 ASSESSMENT_CONTRACT_REFRESH_PIPELINE_STEP = "ASSESSMENT_CONTRACT_REFRESH"
@@ -96,6 +97,9 @@ class CvGenerationWorkerHandler:
             )
             if self._language(task.id) is Language.FR:
                 FrenchAdaptationService(self.database, self.settings, client).run(
+                    task, task_attempt_id=task_attempt_id
+                )
+                FrenchReviewService(self.database, self.settings, client).run(
                     task, task_attempt_id=task_attempt_id
                 )
                 return
