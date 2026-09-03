@@ -11,6 +11,7 @@ from job_application_copilot.domain import (
 from job_application_copilot.errors import ApplicationStorageError, ApplicationValidationError
 from job_application_copilot.observability import get_logger
 from job_application_copilot.services import (
+    FrenchReferenceProcessingService,
     ReferenceAssetStorageService,
     ReferenceExampleNotFoundError,
 )
@@ -53,6 +54,7 @@ def render_local_reference_asset_form(
 
 def render_french_example_form(
     service: ReferenceAssetStorageService,
+    processing_service: FrenchReferenceProcessingService,
     french_examples: FrenchReferenceExamplesOverview | None,
 ) -> None:
     """Render versioned French-example creation, removal, and restoration controls."""
@@ -73,7 +75,7 @@ def render_french_example_form(
             submitted = st.form_submit_button("Validate and store")
 
         if submitted:
-            _replace_french_example(service, upload=upload, name=name)
+            _replace_french_example(processing_service, upload=upload, name=name)
 
         if french_examples is None:
             return
@@ -119,7 +121,7 @@ def _render_removed_french_examples(
 
 
 def _replace_french_example(
-    service: ReferenceAssetStorageService,
+    service: FrenchReferenceProcessingService,
     *,
     upload: UploadedDocx | None,
     name: str,
@@ -129,7 +131,7 @@ def _replace_french_example(
         return
 
     try:
-        asset = service.replace_french_example(
+        asset = service.replace_and_process(
             filename=upload.name,
             content=upload.getvalue(),
             name=name,

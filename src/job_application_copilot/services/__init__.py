@@ -151,6 +151,13 @@ from job_application_copilot.services.document_b_vector_store import (
     DocumentBVectorStoreNotAllowedError,
     DocumentBVectorStoreService,
 )
+from job_application_copilot.services.french_reference_indexing import (
+    FrenchReferenceIndexingError,
+    FrenchReferenceIndexingService,
+    FrenchReferenceProcessingService,
+    FrenchReferenceRetrievalError,
+    FrenchReferenceRetrievalService,
+)
 from job_application_copilot.services.job_service import (
     AssessmentReviewNavigation,
     AssessmentReviewNotEligibleError,
@@ -274,6 +281,11 @@ __all__ = [
     "DocumentBRetrievalError",
     "DocumentBRetrievalPacket",
     "DocumentBRetrievalService",
+    "FrenchReferenceIndexingError",
+    "FrenchReferenceIndexingService",
+    "FrenchReferenceProcessingService",
+    "FrenchReferenceRetrievalError",
+    "FrenchReferenceRetrievalService",
     "DocumentBRoutingError",
     "DocumentBRoutingConfigurationError",
     "DocumentBRoutingConfigurationService",

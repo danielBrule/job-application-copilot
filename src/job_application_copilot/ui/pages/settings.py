@@ -28,6 +28,7 @@ from job_application_copilot.ui.dependencies import (
     get_document_a_processing_service,
     get_document_b_processing_service,
     get_document_b_routing_configuration_service,
+    get_french_reference_processing_service,
     get_prompt_service,
     get_reference_asset_overview_service,
     get_reference_asset_remote_cleanup_service,
@@ -56,6 +57,7 @@ document_b_overview = (
 document_b_processing_service = get_document_b_processing_service(settings)
 render_reference_asset_replacements(
     get_reference_asset_storage_service(settings),
+    get_french_reference_processing_service(settings),
     overview.french_examples if overview is not None else None,
     get_document_a_processing_service(settings),
     document_b_processing_service,

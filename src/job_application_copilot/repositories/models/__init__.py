@@ -25,6 +25,10 @@ from job_application_copilot.repositories.models.document_b_routing import (
 from job_application_copilot.repositories.models.document_b_section import (
     DocumentBSection,
 )
+from job_application_copilot.repositories.models.french_reference_retrieval import (
+    FrenchReferenceVectorSource,
+    FrenchReferenceVectorStore,
+)
 from job_application_copilot.repositories.models.job import Job
 from job_application_copilot.repositories.models.llm_call import LlmCall
 from job_application_copilot.repositories.models.prompt_content import PromptContent
@@ -48,6 +52,8 @@ __all__ = [
     "DocumentBRetrievalTrace",
     "DocumentBRetrievalTraceResult",
     "DocumentBVectorRecord",
+    "FrenchReferenceVectorSource",
+    "FrenchReferenceVectorStore",
     "Job",
     "LlmCall",
     "PromptDefinition",

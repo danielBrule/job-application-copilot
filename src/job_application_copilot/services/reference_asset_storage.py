@@ -135,11 +135,7 @@ class ReferenceAssetStorageService:
             asset_type=asset_type,
             name=name,
             language_code=language_code,
-            activate_after_validation=asset_type
-            in {
-                ReferenceAssetType.TEMPLATE,
-                ReferenceAssetType.REFERENCE_EXAMPLE,
-            },
+            activate_after_validation=asset_type is ReferenceAssetType.TEMPLATE,
         )
 
     def store_template_candidate(
@@ -197,13 +193,14 @@ class ReferenceAssetStorageService:
                     f"French example name '{normalized_name}' conflicts with an "
                     "existing internal identity. Choose a more specific name."
                 )
-        return self.replace(
+        return self._store_version(
             filename=filename,
             content=content,
             asset_key=asset_key,
             asset_type=ReferenceAssetType.REFERENCE_EXAMPLE,
             name=normalized_name,
             language_code="fr",
+            activate_after_validation=False,
         )
 
     def remove_french_example(self, asset_key: str) -> ReferenceAsset:

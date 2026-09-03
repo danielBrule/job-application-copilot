@@ -162,6 +162,9 @@ a whole-document search cannot prove that a returned chunk belongs to an authori
 ### French references
 
 Previous French CVs are style references only. They cannot establish factual evidence.
+They are extracted locally and indexed in one shared, metadata-filtered vector store. Each indexed
+source records its exact asset key, version, OpenAI file ID and `style_reference_only` marker
+locally; retrieval discards results that cannot be verified against an active `READY` source.
 
 ### Templates
 
@@ -175,8 +178,8 @@ The old local DOCX and metadata remain inactive. Old remote stores are retained 
 
 Local replacement is one logical operation across immutable file creation and database metadata.
 If metadata storage or activation fails, the new file is removed and the database transaction
-restores the previous active version. Templates and French reference examples require only local
-DOCX validation, so they become `READY` and active immediately. Documents A and B require OpenAI
+restores the previous active version. Templates require only local DOCX validation, so they become
+`READY` and active immediately. Documents A and B, and French reference examples, require OpenAI
 processing: local storage first creates an inactive `PENDING` candidate, and the combined Settings
 workflow activates it only after its remote processing succeeds. The candidate never displaces the
 current active document on failure.
