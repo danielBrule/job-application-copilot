@@ -19,7 +19,9 @@ from job_application_copilot.domain import (
     CvTemplateSlotKind,
     CvTemplateSlotMapping,
     FinalCvOutput,
+    Language,
 )
+from job_application_copilot.errors import ApplicationIntegrityError
 from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.services import CvDocumentRendererService, CvTemplateManifestService
 from job_application_copilot.services.cv_document_renderer import _safe_company_name
@@ -83,9 +85,14 @@ def manifest() -> CvTemplateManifest:
     )
 
 
-def template_bytes(*, inline_title: bool = False, merged_skills_cell: bool = False) -> bytes:
+def template_bytes(
+    *,
+    inline_title: bool = False,
+    merged_skills_cell: bool = False,
+    fixed_text: str = "Daniel Brule | London",
+) -> bytes:
     document = Document()
-    static = document.add_paragraph("Daniel Brule | London")
+    static = document.add_paragraph(fixed_text)
     static.runs[0].bold = True
     title = document.add_paragraph("Role: [OPENING_TITLE]" if inline_title else "[OPENING_TITLE]")
     title.runs[0].italic = True
@@ -187,6 +194,42 @@ def test_saves_non_overwriting_local_docx(
     assert second.name == "resume - Daniel Brule - 2026-08-06 - A-CME (2).docx"
     validate_docx(first.name, first.read_bytes())
     validate_docx(second.name, second.read_bytes())
+
+
+def test_renders_with_french_template_and_preserves_its_fixed_text(
+    renderer_service: tuple[CvDocumentRendererService, CvTemplateManifestService],
+) -> None:
+    service, manifest_service = renderer_service
+    candidate = manifest_service.upload(filename="english.docx", content=template_bytes())
+    manifest_service.confirm(template_asset_id=candidate.template_asset_id, slots=manifest().slots)
+    manifest_service.replace_french(
+        filename="french.docx",
+        content=template_bytes(fixed_text="Coordonnees francaises | Londres"),
+    )
+
+    path = service.render(
+        final_output(),
+        company="Exemple SA",
+        language=Language.FR,
+        generation_date=date(2026, 9, 3),
+    )
+
+    document = Document(BytesIO(path.read_bytes()))
+    text = "\n".join(paragraph.text for paragraph in document.paragraphs)
+    assert "Coordonnees francaises | Londres" in text
+    assert "Daniel Brule | London" not in text
+    assert "[OPENING_TITLE]" not in text
+
+
+def test_rejects_french_rendering_without_an_active_french_template(
+    renderer_service: tuple[CvDocumentRendererService, CvTemplateManifestService],
+) -> None:
+    service, manifest_service = renderer_service
+    candidate = manifest_service.upload(filename="english.docx", content=template_bytes())
+    manifest_service.confirm(template_asset_id=candidate.template_asset_id, slots=manifest().slots)
+
+    with pytest.raises(ApplicationIntegrityError, match="active French CV template"):
+        service.render(final_output(), company="Exemple SA", language=Language.FR)
 
 
 @pytest.mark.parametrize(

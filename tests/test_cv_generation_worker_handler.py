@@ -102,17 +102,20 @@ class StageFakes:
             def __init__(self, *args: object) -> None:
                 del args
 
-            def run(self, task: BackgroundTask, *, task_attempt_id: int) -> None:
+            def run(self, task: BackgroundTask, *, task_attempt_id: int) -> SimpleNamespace:
                 del task_attempt_id
                 calls.append(f"french-review:{task.id}")
+                return SimpleNamespace(output=object())
 
         class Renderer:
             def __init__(self, *args: object) -> None:
                 del args
 
-            def render(self, output: object, *, company: str) -> Path:
+            def render(
+                self, output: object, *, company: str, language: Language = Language.EN
+            ) -> Path:
                 del output
-                calls.append(f"render:{company}")
+                calls.append(f"render:{language.value}:{company}")
                 rendered_path.parent.mkdir(parents=True, exist_ok=True)
                 rendered_path.write_bytes(b"rendered DOCX")
                 return rendered_path
@@ -175,7 +178,9 @@ def add_tasks(
         return tasks
 
 
-def metadata(company: str) -> CvGenerationMetadata:
+def metadata(
+    company: str, *, french_prompt_versions: dict[str, int] | None = None
+) -> CvGenerationMetadata:
     return CvGenerationMetadata(
         company=company,
         selected_cv_lane="ARCHITECTURE",
@@ -183,6 +188,7 @@ def metadata(company: str) -> CvGenerationMetadata:
         document_b_version=3,
         template_version=4,
         generation_prompt_versions={"stage_1": 5, "stage_2": 6, "stage_3": 7},
+        french_prompt_versions=french_prompt_versions,
     )
 
 
@@ -259,7 +265,7 @@ def test_english_task_runs_three_stages_renders_and_becomes_ready_for_review(
         f"brief:{task.id}",
         f"draft:{task.id}",
         f"final:{task.id}",
-        "render:Example Ltd",
+        "render:EN:Example Ltd",
     ]
     assert client.close_count == 1
 
@@ -319,7 +325,7 @@ def test_failed_task_does_not_stop_a_sibling_cv_task(
     assert second_client.close_count == 1
 
 
-def test_french_job_runs_adaptation_and_review_after_english_pipeline_without_rendering(
+def test_french_job_runs_adaptation_review_renders_and_becomes_ready_for_review(
     database: Database,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -330,7 +336,9 @@ def test_french_job_runs_adaptation_and_review_after_english_pipeline_without_re
     monkeypatch.setattr(
         CvGenerationWorkerHandler,
         "_metadata",
-        lambda self, task_id: metadata("French job"),
+        lambda self, task_id: metadata(
+            "French job", french_prompt_versions={"adaptation": 8, "review": 9}
+        ),
     )
     handler = CvGenerationWorkerHandler(
         database,
@@ -343,17 +351,23 @@ def test_french_job_runs_adaptation_and_review_after_english_pipeline_without_re
     ).process_next_task()
 
     with database.session() as session:
-        assert (
-            BackgroundTaskRepository(session).require(task.id).status
-            is BackgroundTaskStatus.COMPLETED
-        )
-        assert CvRepository(session).get_for_job(task.job_id) is None
+        stored_task = BackgroundTaskRepository(session).require(task.id)
+        cv = CvRepository(session).require_for_job(task.job_id)
+        assert stored_task.status is BackgroundTaskStatus.COMPLETED
+        assert stored_task.pipeline_step == "CV_GENERATION_RENDER_DOCX"
+        assert cv.status is CvStatus.READY_FOR_REVIEW
+        assert cv.source is CvSource.GENERATED
+        assert cv.language is Language.FR
+        assert cv.template_version == 4
+        assert cv.generation_prompt_versions == {"stage_1": 5, "stage_2": 6, "stage_3": 7}
+        assert cv.french_prompt_versions == {"adaptation": 8, "review": 9}
     assert calls == [
         f"brief:{task.id}",
         f"draft:{task.id}",
         f"final:{task.id}",
         f"french-adaptation:{task.id}",
         f"french-review:{task.id}",
+        "render:FR:French job",
     ]
 
 

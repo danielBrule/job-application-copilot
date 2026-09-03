@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from job_application_copilot.config import AppSettings
 from job_application_copilot.domain import (
     ENGLISH_CV_TEMPLATE_KEY,
+    FRENCH_CV_TEMPLATE_KEY,
     BackgroundOperation,
     CvSource,
     Language,
@@ -19,6 +20,7 @@ from job_application_copilot.repositories import (
     CvGenerationDraftRepository,
     CvGenerationFinalRepository,
     Database,
+    FrenchAdaptationFinalRepository,
     JobRepository,
 )
 from job_application_copilot.repositories.background_task_repository import (
@@ -57,6 +59,7 @@ class CvGenerationMetadata:
     document_b_version: int
     template_version: int
     generation_prompt_versions: dict[str, int]
+    french_prompt_versions: dict[str, int] | None = None
 
 
 class CvGenerationWorkerHandler:
@@ -95,30 +98,34 @@ class CvGenerationWorkerHandler:
             final = CvGenerationFinalService(self.database, self.settings, client).run(
                 task, task_attempt_id=task_attempt_id
             )
-            if self._language(task.id) is Language.FR:
+            language = self._language(task.id)
+            output = final.output
+            if language is Language.FR:
                 FrenchAdaptationService(self.database, self.settings, client).run(
                     task, task_attempt_id=task_attempt_id
                 )
-                FrenchReviewService(self.database, self.settings, client).run(
+                french_final = FrenchReviewService(self.database, self.settings, client).run(
                     task, task_attempt_id=task_attempt_id
                 )
-                return
+                output = french_final.output
             self._set_pipeline_step(task.id, CV_RENDER_PIPELINE_STEP)
             metadata = self._metadata(task.id)
             file_path = CvDocumentRendererService(self.database, self.settings).render(
-                final.output,
+                output,
                 company=metadata.company,
+                language=language,
             )
             self.cv_service.record_ready(
                 job_id=task.job_id,
                 source=CvSource.GENERATED,
-                language=Language.EN,
+                language=language,
                 file_path=file_path,
                 selected_cv_lane=metadata.selected_cv_lane,
                 document_a_version=metadata.document_a_version,
                 document_b_version=metadata.document_b_version,
                 template_version=metadata.template_version,
                 generation_prompt_versions=metadata.generation_prompt_versions,
+                french_prompt_versions=metadata.french_prompt_versions,
             )
         finally:
             if client is not None:
@@ -189,9 +196,35 @@ class CvGenerationWorkerHandler:
                 brief.routing_set_id,
             ):
                 raise ValueError("CV-generation stages do not share the same retained inputs.")
-            template = ReferenceAssetRepository(session).get_active(ENGLISH_CV_TEMPLATE_KEY)
+            french_final = (
+                FrenchAdaptationFinalRepository(session).require_for_task(task_id)
+                if job.language is Language.FR
+                else None
+            )
+            template_key = (
+                FRENCH_CV_TEMPLATE_KEY if job.language is Language.FR else ENGLISH_CV_TEMPLATE_KEY
+            )
+            template = ReferenceAssetRepository(session).get_active(template_key)
             if template is None:
-                raise RuntimeError("The rendered CV has no active English template metadata.")
+                raise RuntimeError("The rendered CV has no active template metadata.")
+            if french_final is not None:
+                if (
+                    french_final.document_a_version,
+                    french_final.document_b_version,
+                    french_final.english_final_prompt_version,
+                ) != (
+                    brief.document_a_version,
+                    brief.document_b_version,
+                    final.prompt_version,
+                ):
+                    raise ValueError(
+                        "French and English CV-generation stages do not share the same retained "
+                        "inputs."
+                    )
+                if french_final.french_template_version != template.version:
+                    raise ValueError(
+                        "The reviewed French CV does not match the active French template."
+                    )
             return CvGenerationMetadata(
                 company=job.company,
                 selected_cv_lane=brief.target_cv_lane,
@@ -203,4 +236,12 @@ class CvGenerationWorkerHandler:
                     "stage_2": draft.prompt_version,
                     "stage_3": final.prompt_version,
                 },
+                french_prompt_versions=(
+                    None
+                    if french_final is None
+                    else {
+                        "adaptation": french_final.french_adaptation_prompt_version,
+                        "review": french_final.french_review_prompt_version,
+                    }
+                ),
             )

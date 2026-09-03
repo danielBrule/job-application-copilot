@@ -1,4 +1,4 @@
-"""Load an active English template and save a populated local CV DOCX."""
+"""Load the active language template and save a populated local CV DOCX."""
 
 from __future__ import annotations
 
@@ -8,7 +8,13 @@ from pathlib import Path
 
 from job_application_copilot.config import AppSettings
 from job_application_copilot.documents.cv_renderer import render_cv_template
-from job_application_copilot.domain import ENGLISH_CV_TEMPLATE_KEY, FinalCvOutput
+from job_application_copilot.documents.template_placeholders import extract_template_placeholders
+from job_application_copilot.domain import (
+    ENGLISH_CV_TEMPLATE_KEY,
+    FRENCH_CV_TEMPLATE_KEY,
+    FinalCvOutput,
+    Language,
+)
 from job_application_copilot.errors import ApplicationIntegrityError, ApplicationStorageError
 from job_application_copilot.repositories import Database
 from job_application_copilot.repositories.reference_asset_repository import ReferenceAssetRepository
@@ -37,7 +43,7 @@ class CvDocumentStorageError(ApplicationStorageError):
 
 
 class CvDocumentRendererService:
-    """Render one final English CV to the configured local CV folder."""
+    """Render one final CV to the configured local CV folder."""
 
     def __init__(self, database: Database, settings: AppSettings) -> None:
         self.database = database
@@ -49,13 +55,26 @@ class CvDocumentRendererService:
         output: FinalCvOutput,
         *,
         company: str,
+        language: Language = Language.EN,
         generation_date: date | None = None,
     ) -> Path:
         """Populate the confirmed active template and create a non-overwriting DOCX output."""
 
         contract = self.template_contracts.active()
         contract.validate(output)
-        template_content = self._active_template_content(contract.manifest.template_asset_id)
+        template_content = self._active_template_content(
+            language=language,
+            manifest_template_asset_id=contract.manifest.template_asset_id,
+        )
+        if language is Language.FR:
+            placeholders = extract_template_placeholders(template_content)
+            if len(placeholders) != len(contract.manifest.placeholders) or set(placeholders) != set(
+                contract.manifest.placeholders
+            ):
+                raise ApplicationIntegrityError(
+                    "The active French CV template no longer matches the confirmed template "
+                    "mapping."
+                )
         rendered = render_cv_template(template_content, manifest=contract.manifest, output=output)
         return self._save_output(rendered, company, generation_date or date.today())
 
@@ -78,16 +97,22 @@ class CvDocumentRendererService:
                 ) from error
             return destination
 
-    def _active_template_content(self, template_asset_id: int) -> bytes:
+    def _active_template_content(
+        self, *, language: Language, manifest_template_asset_id: int
+    ) -> bytes:
+        asset_key = FRENCH_CV_TEMPLATE_KEY if language is Language.FR else ENGLISH_CV_TEMPLATE_KEY
+        label = "French" if language is Language.FR else "English"
         with self.database.session() as session:
-            asset = ReferenceAssetRepository(session).get_active(ENGLISH_CV_TEMPLATE_KEY)
-            if asset is None or asset.id != template_asset_id:
+            asset = ReferenceAssetRepository(session).get_active(asset_key)
+            if asset is None or (
+                language is Language.EN and asset.id != manifest_template_asset_id
+            ):
                 raise ApplicationIntegrityError(
-                    "The active English CV template no longer matches its manifest."
+                    f"The active {label} CV template no longer matches its manifest."
                 )
             if asset.file_path is None:
                 raise ApplicationIntegrityError(
-                    "The active English CV template has no retained local file path."
+                    f"The active {label} CV template has no retained local file path."
                 )
             relative_path = asset.file_path
             file_hash = asset.file_hash
@@ -98,11 +123,11 @@ class CvDocumentRendererService:
             content = path.read_bytes()
         except (ImmutableFilePathError, OSError) as error:
             raise CvDocumentStorageError(
-                "The active English CV template cannot be read safely."
+                f"The active {label} CV template cannot be read safely."
             ) from error
         if sha256_file_hash(content) != file_hash:
             raise ApplicationIntegrityError(
-                "The active English CV template failed integrity validation."
+                f"The active {label} CV template failed integrity validation."
             )
         return content
 
