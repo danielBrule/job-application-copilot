@@ -19,6 +19,7 @@ from job_application_copilot.domain import (
     FinalCvOutput,
     FrenchReferencePassage,
     Language,
+    LlmFailureCategory,
     Location,
     ReferenceAssetProcessingStatus,
     ReferenceAssetType,
@@ -43,6 +44,7 @@ from job_application_copilot.services import (
     FrenchReviewContextBuilder,
     FrenchReviewContextError,
     FrenchReviewService,
+    OrderedPromptStageFailedError,
     PromptService,
     ReferenceAssetStorageService,
 )
@@ -529,6 +531,66 @@ def test_executes_and_persists_reviewed_french_output(
         assert len(calls) == 1
         assert calls[0].pipeline_step == "CV_GENERATION_FRENCH_STAGE_2_REVIEW"
         assert calls[0].total_tokens == 175
+
+
+def test_french_review_rejects_changed_metric_before_persistence(
+    context_setup,
+) -> None:
+    database, settings, task_id = context_setup
+    settings.cv_generation_max_retries = 0
+    store_french_draft(database, task_id)
+    PromptService(database).save_text(
+        "cv-generation-fr-extension-2", "Relisez et réécrivez le CV français."
+    )
+    changed_payload = {
+        "opening_title_content": "Directeur des solutions IA",
+        "opening_profile_content": "Pilotage ayant amélioré la livraison de 47 %.",
+        "experience_blocks": [
+            {
+                "title": None,
+                "introduction": "Directeur chez Example Ltd.",
+                "bullets": [
+                    "Livraison de 2,5 M£ de résultats validés sous responsabilité partagée."
+                ],
+            }
+        ],
+        "skill_entries": [{"name": "Architecture", "content": "Pilotage fondé sur les preuves"}],
+    }
+
+    class Client:
+        def run_prompt_stage(self, request: PromptStageRequest) -> PromptStageOpenAIResponse:
+            del request
+            return PromptStageOpenAIResponse(
+                response_id="resp_fr_changed",
+                request_id="req_fr_changed",
+                model="gpt-review",
+                output_text=json.dumps(changed_payload, ensure_ascii=False),
+                incomplete_reason=None,
+                service_tier="default",
+                input_tokens=120,
+                cached_input_tokens=0,
+                cache_write_tokens=0,
+                output_tokens=55,
+                reasoning_tokens=6,
+                total_tokens=175,
+                cache_mode=None,
+                cache_ttl=None,
+            )
+
+    with database.session() as session:
+        tasks = BackgroundTaskRepository(session)
+        task = tasks.transition(tasks.require(task_id), BackgroundTaskStatus.RUNNING)
+        attempt = tasks.get_running_attempt(task_id)
+        assert attempt is not None
+
+    with pytest.raises(OrderedPromptStageFailedError):
+        FrenchReviewService(database, settings, Client()).run(task, task_attempt_id=attempt.id)
+
+    with database.session() as session:
+        assert FrenchAdaptationFinalRepository(session).get_for_task(task_id) is None
+        calls = LlmCallRepository(session).list(task_id=task_id)
+        assert len(calls) == 1
+        assert calls[0].failure_category is LlmFailureCategory.SCHEMA_VALIDATION
 
 
 def test_french_review_requires_active_ready_prompt_two(context_setup) -> None:

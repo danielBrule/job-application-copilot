@@ -17,13 +17,18 @@ from job_application_copilot.llm import (
     PromptStageInput,
     PromptStageRequest,
 )
-from job_application_copilot.repositories import Database, FrenchAdaptationFinalRepository
+from job_application_copilot.repositories import (
+    Database,
+    FrenchAdaptationFinalRepository,
+    JobRepository,
+)
 from job_application_copilot.repositories.models import BackgroundTask
 from job_application_copilot.services.cv_template_contract import (
     CvTemplateContract,
     CvTemplateContractService,
 )
 from job_application_copilot.services.french_adaptation import FrenchAdaptationService
+from job_application_copilot.services.french_cv_validation import FrenchCvValidationService
 from job_application_copilot.services.french_review_context import (
     FrenchReviewContext,
     FrenchReviewContextBuilder,
@@ -70,12 +75,13 @@ class FrenchReviewService:
             response_schema=response_schema,
         )
         english_output = FinalCvOutput.model_validate_json(context.input[0].text)
+        protected_names = self._protected_names(task.job_id)
         stage = OrderedPromptStage(
             position=FRENCH_REVIEW_PIPELINE_POSITION,
             pipeline_step=FRENCH_REVIEW_PIPELINE_STEP,
             request_factory=lambda prior: self._request(context, prior, response_schema),
             output_validator=lambda text: self._validated_contract_output(
-                text, contract, english_output
+                text, contract, english_output, protected_names=protected_names
             ).model_dump_json(),
         )
         pipeline = OrderedPromptPipelineService(
@@ -100,6 +106,10 @@ class FrenchReviewService:
                 french_reference_versions=trace.french_reference_versions,
             )
         return FrenchReviewResult(output=output, pipeline=pipeline)
+
+    def _protected_names(self, job_id: int) -> tuple[str, ...]:
+        with self.database.session() as session:
+            return (JobRepository(session).require(job_id).company,)
 
     def _request(
         self,
@@ -151,11 +161,16 @@ class FrenchReviewService:
         text: str,
         contract: CvTemplateContract,
         english_output: FinalCvOutput,
+        *,
+        protected_names: tuple[str, ...] = (),
     ) -> FinalCvOutput:
         semantic = SemanticFinalCvOutput.model_validate_json(text)
         output = contract.bind_semantic_output(semantic)
         contract.validate(output)
         FrenchAdaptationService._validate_matching_structure(english_output, output)
+        FrenchCvValidationService().validate(
+            english_output, output, protected_names=protected_names
+        )
         return output
 
     @staticmethod
