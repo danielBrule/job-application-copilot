@@ -1,10 +1,15 @@
-"""Minimal Settings workflow for English template upload and placeholder mapping."""
+"""Settings workflows for English and French CV templates."""
 
 import streamlit as st
 
+from job_application_copilot.documents.docx_validation import MAX_DOCX_UPLOAD_SIZE_MB
 from job_application_copilot.domain import CvTemplateSlotKind, CvTemplateSlotMapping
-from job_application_copilot.errors import ApplicationValidationError
+from job_application_copilot.errors import ApplicationStorageError, ApplicationValidationError
 from job_application_copilot.services import CvTemplateManifestService
+from job_application_copilot.ui.components.reference_asset_replacement_state import (
+    REPLACEMENT_SUCCESS_KEY,
+    replacement_success_message,
+)
 
 
 def _suggest_mapping(placeholder: str) -> tuple[CvTemplateSlotKind, str]:
@@ -93,3 +98,32 @@ def render_english_template_manifest(service: CvTemplateManifestService) -> None
             else:
                 st.success("English template mapping confirmed and activated.")
                 st.rerun()
+
+
+def render_french_template_upload(service: CvTemplateManifestService) -> None:
+    """Upload French layout only when it matches the confirmed English slots."""
+
+    with st.expander("Upload or replace French CV template"):
+        st.caption(
+            "The French template must use exactly the same placeholder names as the active "
+            "confirmed English template. Its fixed labels and layout may be French."
+        )
+        with st.form("upload_french_template", clear_on_submit=True):
+            upload = st.file_uploader(
+                "French CV template DOCX",
+                type=["docx"],
+                max_upload_size=MAX_DOCX_UPLOAD_SIZE_MB,
+            )
+            submitted = st.form_submit_button("Validate and store")
+        if not submitted:
+            return
+        if upload is None:
+            st.error("Choose a DOCX file.")
+            return
+        try:
+            asset = service.replace_french(filename=upload.name, content=upload.getvalue())
+        except (ApplicationStorageError, ApplicationValidationError) as error:
+            st.error(str(error))
+        else:
+            st.session_state[REPLACEMENT_SUCCESS_KEY] = replacement_success_message(asset)
+            st.rerun()
