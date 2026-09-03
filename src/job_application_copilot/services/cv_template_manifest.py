@@ -1,4 +1,4 @@
-"""Create and confirm private placeholder manifests for English CV templates."""
+"""Create and validate private English and French CV templates."""
 
 from datetime import UTC, datetime
 
@@ -6,9 +6,11 @@ from job_application_copilot.config import AppSettings
 from job_application_copilot.documents.template_placeholders import extract_template_placeholders
 from job_application_copilot.domain import (
     ENGLISH_CV_TEMPLATE_KEY,
+    FRENCH_CV_TEMPLATE_KEY,
     CvTemplateManifest,
     CvTemplateManifestStatus,
     CvTemplateSlotMapping,
+    ReferenceAssetType,
 )
 from job_application_copilot.errors import ApplicationNotFoundError, ApplicationValidationError
 from job_application_copilot.repositories import Database
@@ -21,7 +23,7 @@ from job_application_copilot.services.reference_asset_storage import ReferenceAs
 
 
 class CvTemplateManifestError(ApplicationValidationError):
-    """Raised when an English template manifest is unsafe or incomplete."""
+    """Raised when a template manifest is unsafe or incomplete."""
 
 
 class CvTemplateManifestNotFoundError(ApplicationNotFoundError):
@@ -52,6 +54,53 @@ class CvTemplateManifestService:
                 template_asset_id=asset.id, placeholders=placeholders
             )
             return self._model(record)
+
+    def replace_french(
+        self,
+        *,
+        filename: str,
+        content: bytes,
+        name: str = "French CV template",
+    ) -> ReferenceAsset:
+        """Validate a French template against English slots, then activate it."""
+
+        self.validate_french_template(content)
+        return self.storage.replace(
+            filename=filename,
+            content=content,
+            asset_key=FRENCH_CV_TEMPLATE_KEY,
+            asset_type=ReferenceAssetType.TEMPLATE,
+            name=name,
+            language_code="fr",
+        )
+
+    def validate_french_template(self, content: bytes) -> CvTemplateManifest:
+        """Return the authoritative English manifest when placeholders match exactly."""
+
+        placeholders = extract_template_placeholders(content)
+        with self.database.session() as session:
+            asset = ReferenceAssetRepository(session).get_active(ENGLISH_CV_TEMPLATE_KEY)
+            if asset is None:
+                raise CvTemplateManifestError(
+                    "A confirmed active English CV template is required before adding a French "
+                    "CV template."
+                )
+            record = CvTemplateManifestRepository(session).get_for_template_asset(asset.id)
+            if record is None or record.status is not CvTemplateManifestStatus.CONFIRMED:
+                raise CvTemplateManifestError(
+                    "The active English CV template mapping must be confirmed before adding a "
+                    "French CV template."
+                )
+            manifest = self._model(record)
+
+        if len(placeholders) != len(manifest.placeholders) or set(placeholders) != set(
+            manifest.placeholders
+        ):
+            raise CvTemplateManifestError(
+                "The French CV template must contain exactly the same placeholder names as the "
+                "active English CV template."
+            )
+        return manifest
 
     def get(self, template_asset_id: int) -> CvTemplateManifest:
         with self.database.session() as session:

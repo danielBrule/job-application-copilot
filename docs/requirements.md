@@ -11,7 +11,7 @@ The Settings screen manages:
 - Document A — Career Strategy, Evidence & Job Assessment Guide
 - Document B — CV Generation & Positioning Guide
 - Assessment prompt
-- Four ordered English CV-generation prompts
+- Three ordered English CV-generation prompts
 - Two additional French prompts
 - English CV template
 - French CV template

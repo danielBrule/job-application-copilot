@@ -217,6 +217,46 @@ def test_settings_page_confirms_valid_english_template_mapping(
         reset_logging()
 
 
+def test_settings_page_accepts_french_template_only_after_matching_english_template(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
+    monkeypatch.chdir(tmp_path)
+    app = AppTest.from_file(str(APP_PATH), default_timeout=SETTINGS_APP_TIMEOUT).run()
+
+    try:
+        app.switch_page("pages/settings.py").run()
+        app.file_uploader[2].upload("french-template.docx", make_docx("[OPENING_TITLE]"))
+        app.button(key="FormSubmitter:upload_french_template-Validate and store").click().run()
+        assert app.error[0].value.startswith("A confirmed active English CV template is required")
+
+        app.file_uploader[4].upload("english-template.docx", make_docx("[OPENING_TITLE]"))
+        app.button(
+            key="FormSubmitter:upload_english_template-Upload and scan placeholders"
+        ).click().run()
+        next(
+            button
+            for button in app.button
+            if button.label == "Confirm template mapping and activate"
+        ).click().run()
+
+        app = AppTest.from_file(str(APP_PATH), default_timeout=SETTINGS_APP_TIMEOUT).run()
+        app.switch_page("pages/settings.py").run()
+        app.file_uploader[2].upload("french-template.docx", make_docx("[OPENING_TITLE]"))
+        app.button(key="FormSubmitter:upload_french_template-Validate and store").click().run()
+
+        assert not app.exception
+        overview_table = app.dataframe[0].value
+        template = overview_table.loc[overview_table["Asset key"] == "cv-template-fr"].iloc[0]
+        assert template["Version / count"] == "v1"
+        assert template["Status"] == "READY"
+        assert template["Active"] == "Yes"
+    finally:
+        reset_logging()
+
+
 def test_settings_page_requires_a_docx_before_replacement(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

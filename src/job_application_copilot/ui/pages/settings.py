@@ -55,8 +55,10 @@ document_b_overview = (
     else None
 )
 document_b_processing_service = get_document_b_processing_service(settings)
+template_manifest_service = get_cv_template_manifest_service(settings)
 render_reference_asset_replacements(
     get_reference_asset_storage_service(settings),
+    template_manifest_service,
     get_french_reference_processing_service(settings),
     overview.french_examples if overview is not None else None,
     get_document_a_processing_service(settings),
@@ -68,7 +70,7 @@ render_reference_asset_replacements(
         document_b_overview is not None and document_b_overview.latest_version is not None
     ),
 )
-render_english_template_manifest(get_cv_template_manifest_service(settings))
+render_english_template_manifest(template_manifest_service)
 render_document_b_processing(
     document_b_processing_service,
     document_b_overview,

@@ -11,6 +11,7 @@ from job_application_copilot.config import AppSettings
 from job_application_copilot.documents.template_placeholders import extract_template_placeholders
 from job_application_copilot.domain import (
     ENGLISH_CV_TEMPLATE_KEY,
+    FRENCH_CV_TEMPLATE_KEY,
     CvTemplateManifest,
     CvTemplateManifestStatus,
     CvTemplateSlotKind,
@@ -21,7 +22,11 @@ from job_application_copilot.repositories import Database, create_database
 from job_application_copilot.repositories.reference_asset_repository import (
     ReferenceAssetRepository,
 )
-from job_application_copilot.services import CvTemplateManifestService, ReferenceAssetStorageService
+from job_application_copilot.services import (
+    CvTemplateManifestError,
+    CvTemplateManifestService,
+    ReferenceAssetStorageService,
+)
 from job_application_copilot.services.database_bootstrap import initialize_database
 from job_application_copilot.ui.components.template_manifest_settings import (
     _experience_target,
@@ -37,6 +42,15 @@ def template_bytes(suffix: str = "") -> bytes:
     table = document.add_table(rows=1, cols=2)
     table.cell(0, 0).text = "[EXPERIENCE_CURRENT]"
     table.cell(0, 1).text = "[EXPERIENCE_CURRENT] [SKILLS]"
+    buffer = BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+def template_with_placeholders(*placeholders: str) -> bytes:
+    document = Document()
+    for placeholder in placeholders:
+        document.add_paragraph(placeholder)
     buffer = BytesIO()
     document.save(buffer)
     return buffer.getvalue()
@@ -147,3 +161,77 @@ def test_candidate_template_remains_inactive_until_valid_mapping_is_confirmed(
             (candidate.template_asset_id, True),
             (existing.id, False),
         ]
+
+
+def confirmed_english_template(service: CvTemplateManifestService) -> None:
+    candidate = service.upload(filename="english.docx", content=template_bytes())
+    service.confirm(
+        template_asset_id=candidate.template_asset_id,
+        slots=(
+            CvTemplateSlotMapping(
+                placeholder="[OPENING_TITLE]", kind=CvTemplateSlotKind.OPENING_TITLE
+            ),
+            CvTemplateSlotMapping(
+                placeholder="[EXPERIENCE_CURRENT]",
+                kind=CvTemplateSlotKind.EXPERIENCE,
+                experience_target="Current employer",
+            ),
+            CvTemplateSlotMapping(placeholder="[SKILLS]", kind=CvTemplateSlotKind.SKILLS),
+        ),
+    )
+
+
+def test_rejects_french_template_without_confirmed_english_template(
+    manifest_service: tuple[CvTemplateManifestService, Database],
+) -> None:
+    service, database = manifest_service
+
+    with pytest.raises(CvTemplateManifestError, match="English CV template is required"):
+        service.replace_french(filename="french.docx", content=template_bytes())
+
+    with database.session() as session:
+        assert ReferenceAssetRepository(session).list_versions(FRENCH_CV_TEMPLATE_KEY) == []
+
+
+def test_accepts_french_template_with_same_placeholder_names_in_different_order(
+    manifest_service: tuple[CvTemplateManifestService, Database],
+) -> None:
+    service, database = manifest_service
+    confirmed_english_template(service)
+
+    french = service.replace_french(
+        filename="french.docx",
+        content=template_with_placeholders("[SKILLS]", "[OPENING_TITLE]", "[EXPERIENCE_CURRENT]"),
+    )
+
+    assert french.asset_key == FRENCH_CV_TEMPLATE_KEY
+    assert french.language_code == "fr"
+    assert french.is_active
+    with database.session() as session:
+        assert ReferenceAssetRepository(session).get_active(FRENCH_CV_TEMPLATE_KEY).id == french.id
+
+
+@pytest.mark.parametrize(
+    "placeholders",
+    [
+        ("[OPENING_TITLE]", "[SKILLS]"),
+        ("[OPENING_TITLE]", "[EXPERIENCE_CURRENT]", "[SKILLS]", "[EXTRA]"),
+        ("[OPENING_TITLE]", "[EXPERIENCE_PREVIOUS]", "[SKILLS]"),
+    ],
+)
+def test_rejects_french_template_with_different_placeholder_names_or_count(
+    manifest_service: tuple[CvTemplateManifestService, Database],
+    placeholders: tuple[str, ...],
+) -> None:
+    service, database = manifest_service
+    confirmed_english_template(service)
+    existing = service.replace_french(filename="existing-fr.docx", content=template_bytes())
+
+    with pytest.raises(CvTemplateManifestError, match="exactly the same placeholder names"):
+        service.replace_french(
+            filename="invalid-fr.docx", content=template_with_placeholders(*placeholders)
+        )
+
+    with database.session() as session:
+        versions = ReferenceAssetRepository(session).list_versions(FRENCH_CV_TEMPLATE_KEY)
+        assert [(version.id, version.is_active) for version in versions] == [(existing.id, True)]
