@@ -1,4 +1,4 @@
-"""Queue eligible English CV-generation work as durable background batches."""
+"""Queue eligible language-specific CV-generation work as durable background batches."""
 
 from __future__ import annotations
 

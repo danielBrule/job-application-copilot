@@ -1,4 +1,4 @@
-"""Bridge claimed CV-generation tasks to the English generation workflow."""
+"""Bridge claimed CV-generation tasks to the language-specific generation workflow."""
 
 from __future__ import annotations
 
@@ -79,7 +79,7 @@ class CvGenerationWorkerHandler:
         self.assessment_persistence = AssessmentPersistenceService(database)
 
     def __call__(self, task: BackgroundTask) -> None:
-        """Execute English generation, then route to the configured language path."""
+        """Run the English stages, then extend FR-language CVs with French stages."""
 
         if task.operation is not BackgroundOperation.CV_GENERATION:
             raise ValueError("CV-generation handler received a non-CV-generation task.")

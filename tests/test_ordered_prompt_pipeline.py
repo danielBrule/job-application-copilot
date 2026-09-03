@@ -17,7 +17,7 @@ from job_application_copilot.llm import (
     PromptStageOpenAIResponse,
     PromptStageRequest,
 )
-from job_application_copilot.repositories import Database, create_database
+from job_application_copilot.repositories import Database, LlmCallRepository, create_database
 from job_application_copilot.repositories.background_task_repository import (
     BackgroundBatchRepository,
     BackgroundTaskRepository,
@@ -83,13 +83,15 @@ def response(text: str) -> PromptStageOpenAIResponse:
     )
 
 
-def claimed_task(database: Database) -> tuple[BackgroundTask, int]:
+def claimed_task(
+    database: Database, *, language: Language = Language.EN
+) -> tuple[BackgroundTask, int]:
     with database.session() as session:
         job = Job(
             company="Example",
             job_title="Lead",
             location=Location.UK,
-            language=Language.EN,
+            language=language,
             source="LinkedIn",
             job_description="Description",
             date_added=date(2026, 8, 6),
@@ -110,7 +112,13 @@ def claimed_task(database: Database) -> tuple[BackgroundTask, int]:
         return task, attempt.id
 
 
-def stages() -> tuple[OrderedPromptStage, ...]:
+def stages(
+    pipeline_steps: tuple[str, ...] = (
+        "CV_GENERATION_STAGE_1",
+        "CV_GENERATION_STAGE_2",
+        "CV_GENERATION_STAGE_3",
+    ),
+) -> tuple[OrderedPromptStage, ...]:
     def build(position: int):
         def factory(prior: str | None) -> PromptStageRequest:
             items = [PromptStageInput(section="instruction", text=f"stage {position}")]
@@ -129,10 +137,10 @@ def stages() -> tuple[OrderedPromptStage, ...]:
     return tuple(
         OrderedPromptStage(
             position=index,
-            pipeline_step=f"CV_GENERATION_STAGE_{index}",
+            pipeline_step=pipeline_step,
             request_factory=build(index),
         )
-        for index in range(1, 4)
+        for index, pipeline_step in enumerate(pipeline_steps, start=1)
     )
 
 
@@ -149,6 +157,40 @@ def test_runs_three_stages_in_order_and_persists_outputs(database: Database) -> 
     with database.session() as session:
         stored = PromptPipelineStageRepository(session).list_for_task(task.id)
     assert [item.output_text for item in stored] == ["brief", "draft", "final"]
+
+
+def test_french_language_task_records_all_five_prompt_stages_and_usage(
+    database: Database,
+) -> None:
+    task, attempt_id = claimed_task(database, language=Language.FR)
+    pipeline_steps = (
+        "CV_GENERATION_STAGE_1_BRIEF",
+        "CV_GENERATION_STAGE_2_DRAFT",
+        "CV_GENERATION_STAGE_3_FINAL",
+        "CV_GENERATION_FRENCH_STAGE_1_ADAPTATION",
+        "CV_GENERATION_FRENCH_STAGE_2_REVIEW",
+    )
+    client = FakeClient([response(f"stage-{position}") for position in range(1, 6)])
+
+    result = OrderedPromptPipelineService(database, client, max_retries=0).run(
+        task,
+        task_attempt_id=attempt_id,
+        stages=stages(pipeline_steps),
+    )
+
+    assert result.outputs == tuple(f"stage-{position}" for position in range(1, 6))
+    assert client.prior_outputs == [None, "stage-1", "stage-2", "stage-3", "stage-4"]
+    with database.session() as session:
+        persisted_stages = PromptPipelineStageRepository(session).list_for_task(task.id)
+        usage = LlmCallRepository(session).aggregate(
+            job_id=task.job_id,
+            operation=BackgroundOperation.CV_GENERATION,
+        )
+    assert [stage.stage_position for stage in persisted_stages] == [1, 2, 3, 4, 5]
+    assert [stage.pipeline_step for stage in persisted_stages] == list(pipeline_steps)
+    assert usage.call_count == 5
+    assert usage.succeeded_count == 5
+    assert usage.total_tokens == 125
 
 
 def test_allows_a_single_later_stage_to_keep_its_configured_position(database: Database) -> None:
