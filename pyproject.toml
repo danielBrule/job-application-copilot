@@ -25,6 +25,7 @@ include = [
     { path = "src/job_application_copilot/assets/assessment-prompt-v1.txt", format = ["sdist", "wheel"] },
     { path = "src/job_application_copilot/assets/cv-generation-en-stage-1-v1.txt", format = ["sdist", "wheel"] },
     { path = "src/job_application_copilot/assets/cv-generation-fr-extension-1-v1.txt", format = ["sdist", "wheel"] },
+    { path = "src/job_application_copilot/assets/cv-generation-fr-extension-2-v1.txt", format = ["sdist", "wheel"] },
 ]
 
 [tool.pytest.ini_options]

@@ -12,10 +12,12 @@ CV_STAGE_ONE_PROMPT_ASSET_KEY = "cv-generation-en-stage-1"
 CV_STAGE_TWO_PROMPT_ASSET_KEY = "cv-generation-en-stage-2"
 CV_STAGE_THREE_PROMPT_ASSET_KEY = "cv-generation-en-stage-3"
 FRENCH_ADAPTATION_PROMPT_ASSET_KEY = "cv-generation-fr-extension-1"
+FRENCH_REVIEW_PROMPT_ASSET_KEY = "cv-generation-fr-extension-2"
 DEFAULT_CV_STAGE_ONE_PROMPT_FILENAME = "cv-generation-en-stage-1-v1.txt"
 DEFAULT_CV_STAGE_TWO_PROMPT_FILENAME = "cv-generation-en-stage-2-v1.txt"
 DEFAULT_CV_STAGE_THREE_PROMPT_FILENAME = "cv-generation-en-stage-3-v1.txt"
 DEFAULT_FRENCH_ADAPTATION_PROMPT_FILENAME = "cv-generation-fr-extension-1-v1.txt"
+DEFAULT_FRENCH_REVIEW_PROMPT_FILENAME = "cv-generation-fr-extension-2-v1.txt"
 
 
 class DefaultCvGenerationPromptError(ApplicationOperationError):
@@ -45,12 +47,17 @@ class DefaultCvGenerationPromptService:
             FRENCH_ADAPTATION_PROMPT_ASSET_KEY,
             DEFAULT_FRENCH_ADAPTATION_PROMPT_FILENAME,
         )
+        created_french_review = self._ensure_prompt(
+            FRENCH_REVIEW_PROMPT_ASSET_KEY,
+            DEFAULT_FRENCH_REVIEW_PROMPT_FILENAME,
+        )
         return any(
             (
                 created_stage_one,
                 created_stage_two,
                 created_stage_three,
                 created_french_adaptation,
+                created_french_review,
             )
         )
 

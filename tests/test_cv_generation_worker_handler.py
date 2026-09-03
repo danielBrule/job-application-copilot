@@ -98,6 +98,14 @@ class StageFakes:
                 del task_attempt_id
                 calls.append(f"french-adaptation:{task.id}")
 
+        class FrenchReview:
+            def __init__(self, *args: object) -> None:
+                del args
+
+            def run(self, task: BackgroundTask, *, task_attempt_id: int) -> None:
+                del task_attempt_id
+                calls.append(f"french-review:{task.id}")
+
         class Renderer:
             def __init__(self, *args: object) -> None:
                 del args
@@ -113,6 +121,7 @@ class StageFakes:
         monkeypatch.setattr(handler_module, "CvGenerationDraftService", Draft)
         monkeypatch.setattr(handler_module, "CvGenerationFinalService", Final)
         monkeypatch.setattr(handler_module, "FrenchAdaptationService", FrenchAdaptation)
+        monkeypatch.setattr(handler_module, "FrenchReviewService", FrenchReview)
         monkeypatch.setattr(handler_module, "CvDocumentRendererService", Renderer)
         if self.bypass_contract_refresh:
             monkeypatch.setattr(
@@ -310,7 +319,7 @@ def test_failed_task_does_not_stop_a_sibling_cv_task(
     assert second_client.close_count == 1
 
 
-def test_french_job_runs_adaptation_after_english_pipeline_without_rendering(
+def test_french_job_runs_adaptation_and_review_after_english_pipeline_without_rendering(
     database: Database,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -344,6 +353,7 @@ def test_french_job_runs_adaptation_after_english_pipeline_without_rendering(
         f"draft:{task.id}",
         f"final:{task.id}",
         f"french-adaptation:{task.id}",
+        f"french-review:{task.id}",
     ]
 
 

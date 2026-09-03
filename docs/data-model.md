@@ -87,6 +87,15 @@ erDiagram
         json french_reference_versions
         json payload
     }
+    FRENCH_ADAPTATION_FINAL {
+        integer id PK
+        integer task_id FK
+        string target_locale
+        integer french_adaptation_prompt_version
+        integer french_review_prompt_version
+        json french_reference_versions
+        json payload
+    }
 
     REFERENCE_ASSET {
         integer id PK
@@ -157,6 +166,7 @@ erDiagram
     BACKGROUND_TASK ||--o| CV_GENERATION_DRAFT : "has"
     BACKGROUND_TASK ||--o| CV_GENERATION_FINAL : "has"
     BACKGROUND_TASK ||--o| FRENCH_ADAPTATION_DRAFT : "has"
+    BACKGROUND_TASK ||--o| FRENCH_ADAPTATION_FINAL : "has"
 
     REFERENCE_ASSET ||--o| CV_TEMPLATE_MANIFEST : "maps"
     REFERENCE_ASSET ||--o| PROMPT_CONTENT : "stores"
@@ -337,6 +347,14 @@ from the complete final English CV, uses `fr-FR` and verified style-only French 
 and retains the Document A, Document B, English-final prompt, French prompt, English template,
 French template and reference-example versions that produced it. Later French review consumes this
 draft; prompt one does not render a DOCX or create the active CV record.
+
+## Final French adaptation
+
+One structured French prompt-two output is retained for each French CV-generation task. The review
+uses the complete final English CV as its sole factual authority and the retained French adaptation
+as text to improve. It retains the versions of both French prompts, the English final prompt,
+Documents A and B, both templates and the French reference examples inherited from adaptation.
+Rendering and deterministic cross-language factual-anchor validation remain later pipeline stages.
 
 ## Contact (planned, not yet persisted)
 

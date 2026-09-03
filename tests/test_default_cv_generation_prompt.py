@@ -50,6 +50,15 @@ def test_installs_private_version_one_without_overwriting_user_versions(
     assert "sole factual source" in french_text
     assert "fr-FR" in french_text
     assert "style and terminology references only" in french_text
+    french_review = PromptService(database).get_active_version("cv-generation-fr-extension-2")
+    assert french_review is not None
+    assert french_review.version == 1
+    assert french_review.file_path is None
+    french_review_text = PromptService(database).get_active_text("cv-generation-fr-extension-2")
+    assert french_review_text is not None
+    assert "two silent review passes" in french_review_text
+    assert "sole factual authority" in french_review_text
+    assert "Do not return a change log" in french_review_text
 
 
 def test_does_not_replace_an_existing_french_prompt(
@@ -66,4 +75,21 @@ def test_does_not_replace_an_existing_french_prompt(
     assert active.version == 1
     assert prompts.get_active_text("cv-generation-fr-extension-1") == (
         "User-maintained French prompt"
+    )
+
+
+def test_does_not_replace_an_existing_french_review_prompt(
+    setup: tuple[Database, AppSettings],
+) -> None:
+    database, settings = setup
+    prompts = PromptService(database)
+    prompts.save_text("cv-generation-fr-extension-2", "User-maintained French review prompt")
+
+    DefaultCvGenerationPromptService(database, settings).ensure()
+
+    active = prompts.get_active_version("cv-generation-fr-extension-2")
+    assert active is not None
+    assert active.version == 1
+    assert prompts.get_active_text("cv-generation-fr-extension-2") == (
+        "User-maintained French review prompt"
     )

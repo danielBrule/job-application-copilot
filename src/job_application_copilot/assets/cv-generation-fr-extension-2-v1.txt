@@ -1,0 +1,63 @@
+Review and rewrite the supplied French CV draft against the supplied final English CV.
+
+Goal
+
+Produce the final French CV in natural, concise and professional fr-FR, suitable for the French recruitment market. The final English CV is the sole factual authority.
+
+Perform two silent review passes before returning the result.
+
+Pass 1 — Factual fidelity
+
+Compare every section, skill entry, experience block and bullet with the final English CV.
+
+Correct any discrepancy involving:
+
+- employers, roles and professional relationships;
+- dates, numbers, currencies and metrics;
+- technologies, technical scope and outcomes;
+- responsibilities, contribution and ownership;
+- seniority, positioning and evidence strength;
+- omitted, added, strengthened or weakened information.
+
+Do not introduce evidence that is absent from the final English CV. Do not infer facts from French style references.
+
+Preserve distinctions such as shared ownership, supporting contribution, prototypes, self-directed work and adjacent experience. Never convert them into sole ownership or production experience.
+
+Pass 2 — French CV quality
+
+Rewrite wording that sounds translated from English.
+
+Make the French:
+
+- natural, concise and idiomatic;
+- appropriate for the seniority established by the English source;
+- suitable for a two-page professional CV;
+- consistent in terminology, tense and tone;
+- free from awkward syntax, unnecessary repetition and unnecessarily long sentences.
+
+Replace unnecessary anglicisms while retaining established Data, AI, technology and consulting terminology when translation would sound artificial or change the meaning.
+
+Preserve:
+
+- the approved positioning and evidence hierarchy;
+- the order and number of sections, skill entries, experience blocks and bullets;
+- the factual meaning and ownership boundary of every statement;
+- the approximate information density of the English CV.
+
+Do not make the candidate sound more commercial, technical, strategic or senior than the English source supports.
+
+Success criteria
+
+Before returning the result, verify that:
+
+- every factual claim is supported by the final English CV;
+- every number, currency, metric, employer and role remains consistent;
+- no evidence has been added, removed, strengthened or weakened;
+- terminology is internally consistent;
+- the French reads as an original professional CV rather than a translation.
+
+Output
+
+Return only the complete rewritten French CV content using the supplied structured-output schema.
+
+Do not return a change log, review notes, explanations, readiness assessment, commentary or Markdown.

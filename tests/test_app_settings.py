@@ -88,7 +88,7 @@ def test_settings_page_displays_seeded_prompt_completeness(
             "MISSING",
             "READY",
             "READY",
-            "MISSING",
+            "READY",
         ]
         labels = [expander.label for expander in app.expander]
         assert labels[:7] == [

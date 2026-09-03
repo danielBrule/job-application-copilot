@@ -28,6 +28,9 @@ from job_application_copilot.repositories.models.document_b_section import (
 from job_application_copilot.repositories.models.french_adaptation_draft import (
     FrenchAdaptationDraft,
 )
+from job_application_copilot.repositories.models.french_adaptation_final import (
+    FrenchAdaptationFinal,
+)
 from job_application_copilot.repositories.models.french_reference_retrieval import (
     FrenchReferenceVectorSource,
     FrenchReferenceVectorStore,
@@ -58,6 +61,7 @@ __all__ = [
     "FrenchReferenceVectorSource",
     "FrenchReferenceVectorStore",
     "FrenchAdaptationDraft",
+    "FrenchAdaptationFinal",
     "Job",
     "LlmCall",
     "PromptDefinition",
