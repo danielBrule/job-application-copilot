@@ -58,6 +58,8 @@ def test_streamlit_app_starts_and_creates_private_directories(
                 "document_b_routing_sets",
                 "document_b_sections",
                 "document_b_vector_records",
+                "french_reference_vector_sources",
+                "french_reference_vector_stores",
                 "jobs",
                 "llm_calls",
                 "prompt_contents",

@@ -19,6 +19,7 @@ from job_application_copilot.services import (
     DocumentAProcessingService,
     DocumentBProcessingService,
     DocumentBRoutingConfigurationService,
+    FrenchReferenceProcessingService,
     JobService,
     PromptService,
     ReferenceAssetOverviewService,
@@ -158,6 +159,14 @@ def get_reference_asset_storage_service(
         get_database(settings.database_path),
         settings,
     )
+
+
+def get_french_reference_processing_service(
+    settings: AppSettings,
+) -> FrenchReferenceProcessingService:
+    """Build the explicit Settings workflow that indexes French examples."""
+
+    return FrenchReferenceProcessingService(get_database(settings.database_path), settings)
 
 
 def get_cv_template_manifest_service(settings: AppSettings) -> CvTemplateManifestService:

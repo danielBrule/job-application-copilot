@@ -9,7 +9,10 @@ from job_application_copilot.domain import (
     REQUIRED_REFERENCE_ASSETS,
     FrenchReferenceExamplesOverview,
 )
-from job_application_copilot.services import ReferenceAssetStorageService
+from job_application_copilot.services import (
+    FrenchReferenceProcessingService,
+    ReferenceAssetStorageService,
+)
 from job_application_copilot.ui.components.local_reference_asset_replacement import (
     render_french_example_form,
     render_local_reference_asset_form,
@@ -27,6 +30,7 @@ from job_application_copilot.ui.components.reference_document_replacement import
 
 def render_reference_asset_replacements(
     service: ReferenceAssetStorageService,
+    french_reference_processor: FrenchReferenceProcessingService,
     french_examples: FrenchReferenceExamplesOverview | None,
     document_a_processor: DocumentAReplacementProcessor,
     document_b_processor: DocumentBReplacementProcessor,
@@ -66,4 +70,4 @@ def render_reference_asset_replacements(
         else:
             render_local_reference_asset_form(service, requirement)
 
-    render_french_example_form(service, french_examples)
+    render_french_example_form(service, french_reference_processor, french_examples)

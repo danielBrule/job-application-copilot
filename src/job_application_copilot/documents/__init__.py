@@ -12,6 +12,10 @@ from job_application_copilot.documents.docx_validation import (
     DocxValidationError,
     validate_docx,
 )
+from job_application_copilot.documents.french_reference_extraction import (
+    FrenchReferenceExtractionError,
+    extract_french_reference_text,
+)
 
 __all__ = [
     "DocumentBExtractionError",
@@ -21,6 +25,8 @@ __all__ = [
     "DocxValidationError",
     "CvDocumentRenderError",
     "extract_document_b_sections",
+    "FrenchReferenceExtractionError",
+    "extract_french_reference_text",
     "render_cv_template",
     "validate_docx",
 ]

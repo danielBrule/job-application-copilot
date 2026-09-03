@@ -20,6 +20,7 @@ from job_application_copilot.services import (
     DocumentAProcessingService,
     DocumentBProcessingError,
     DocumentBProcessingService,
+    FrenchReferenceProcessingService,
     PromptService,
     ReferenceAssetRemoteCleanupResult,
     ReferenceAssetRemoteCleanupService,
@@ -766,6 +767,24 @@ def test_settings_page_adds_dynamic_french_reference_example(
     data_dir = tmp_path / "data"
     monkeypatch.setenv("JAC_DATA_DIR", str(data_dir))
     monkeypatch.chdir(tmp_path)
+
+    def replace_and_process(
+        service: FrenchReferenceProcessingService, *, filename: str, content: bytes, name: str
+    ) -> ReferenceAsset:
+        asset = ReferenceAssetStorageService(
+            service.database, service.settings
+        ).replace_french_example(filename=filename, content=content, name=name)
+        with service.database.session() as session:
+            stored = ReferenceAssetRepository(session).require_version(
+                asset.asset_key, asset.version
+            )
+            stored.processing_status = ReferenceAssetProcessingStatus.READY
+            stored.is_active = True
+            return stored
+
+    monkeypatch.setattr(
+        FrenchReferenceProcessingService, "replace_and_process", replace_and_process
+    )
 
     app = AppTest.from_file(
         str(APP_PATH),

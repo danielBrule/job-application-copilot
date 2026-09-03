@@ -56,6 +56,10 @@ from job_application_copilot.domain.final_cv import (
     SemanticCvExperienceBlock,
     SemanticFinalCvOutput,
 )
+from job_application_copilot.domain.french_reference_retrieval import (
+    FrenchReferencePassage,
+    FrenchReferenceRetrievalRequest,
+)
 from job_application_copilot.domain.job import (
     CreateJob,
     CvSelectionStatus,
@@ -134,6 +138,8 @@ __all__ = [
     "DocumentBRetrievedPassage",
     "ENGLISH_CV_TEMPLATE_KEY",
     "FRENCH_CV_TEMPLATE_KEY",
+    "FrenchReferencePassage",
+    "FrenchReferenceRetrievalRequest",
     "FrenchReferenceExamplesOverview",
     "FinalCvOutput",
     "SemanticCvExperienceBlock",

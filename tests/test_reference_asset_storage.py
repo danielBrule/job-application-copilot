@@ -127,11 +127,6 @@ def test_assigns_next_version_without_overwriting_previous_file(
     ("asset_key", "asset_type", "language_code"),
     [
         ("cv-template-en", ReferenceAssetType.TEMPLATE, "en"),
-        (
-            "french-example-platform",
-            ReferenceAssetType.REFERENCE_EXAMPLE,
-            "fr",
-        ),
     ],
 )
 def test_replace_activates_locally_complete_version_and_retains_prior(
@@ -201,9 +196,11 @@ def test_french_example_name_derives_identity_and_same_name_creates_version(
     assert second.name == "Platform Leadership CV"
     with database.session() as session:
         versions = ReferenceAssetRepository(session).list_versions(first.asset_key)
-        assert [(version.version, version.is_active) for version in versions] == [
-            (2, True),
-            (1, False),
+        assert [
+            (version.version, version.is_active, version.processing_status) for version in versions
+        ] == [
+            (2, False, ReferenceAssetProcessingStatus.PENDING),
+            (1, False, ReferenceAssetProcessingStatus.PENDING),
         ]
 
 
@@ -268,6 +265,12 @@ def test_removes_and_restores_french_example_without_deleting_history(
         name="Platform CV",
     )
     stored_path = settings.reference_folder / active.file_path
+    with database.session() as session:
+        candidate = ReferenceAssetRepository(session).require_version(
+            active.asset_key, active.version
+        )
+        candidate.processing_status = ReferenceAssetProcessingStatus.READY
+        candidate.is_active = True
 
     removed = service.remove_french_example(active.asset_key)
 

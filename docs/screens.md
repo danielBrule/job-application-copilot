@@ -243,8 +243,8 @@ appears in exactly one table row. Removing an example excludes it from readiness
 from the active table without deleting its retained versions or files. Removed examples remain
 available through a Restore action.
 
-After local validation, templates and French examples become active and `READY`. Documents A
-and B remain inactive until their OpenAI processing succeeds. The prior active document remains
+After local validation, templates become active and `READY`. Documents A, Document B, and French
+examples remain inactive until their OpenAI processing succeeds. The prior active version remains
 visible and usable. Invalid or duplicate uploads do not alter the active version.
 
 The Document A and Document B forms use **Upload and activate with OpenAI** for their first
